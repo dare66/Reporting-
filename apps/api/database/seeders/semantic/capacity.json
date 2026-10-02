@@ -1,0 +1,58 @@
+{
+  "key": "capacity",
+  "name": "Processing Capacity",
+  "domain": "operations",
+  "description": "Daily processing officers and theoretical decision capacity.",
+  "base": "processing_capacity",
+  "time_dimension": "capacity_date",
+  "dimensions": [
+    {
+      "key": "capacity_date",
+      "label": "Date",
+      "field": "capacity_date",
+      "type": "time",
+      "root_cause": false
+    }
+  ],
+  "measures": [
+    {
+      "key": "capacity_sum",
+      "label": "Capacity",
+      "aggregation": "sum",
+      "field": "daily_capacity"
+    },
+    {
+      "key": "officers_avg",
+      "label": "Officers",
+      "aggregation": "avg",
+      "field": "officers"
+    }
+  ],
+  "metrics": [
+    {
+      "key": "processing_capacity",
+      "label": "Processing Capacity",
+      "expression": "capacity_sum",
+      "format": "number",
+      "synonyms": [
+        "capacity",
+        "throughput capacity",
+        "processing capacity"
+      ],
+      "description": "Decisions the team can process in the period.",
+      "owner": "Operations"
+    },
+    {
+      "key": "officers",
+      "label": "Processing Officers",
+      "expression": "officers_avg",
+      "format": "number",
+      "synonyms": [
+        "staff",
+        "headcount",
+        "officers",
+        "workforce"
+      ]
+    }
+  ]
+}

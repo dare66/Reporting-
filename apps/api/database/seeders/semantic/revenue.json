@@ -1,0 +1,220 @@
+{
+  "key": "revenue",
+  "name": "Revenue",
+  "domain": "finance",
+  "description": "Fee revenue collected, by payment date.",
+  "base": "payments",
+  "time_dimension": "paid_on",
+  "relationships": [
+    {
+      "from": "payments.country_id",
+      "to": "countries.id"
+    },
+    {
+      "from": "payments.institution_id",
+      "to": "institutions.id"
+    }
+  ],
+  "dimensions": [
+    {
+      "key": "paid_on",
+      "label": "Payment Date",
+      "field": "paid_on",
+      "type": "time",
+      "root_cause": false,
+      "synonyms": [
+        "date"
+      ]
+    },
+    {
+      "key": "payment_type",
+      "label": "Payment Type",
+      "field": "payment_type",
+      "synonyms": [
+        "fee type",
+        "revenue stream"
+      ]
+    },
+    {
+      "key": "method",
+      "label": "Payment Method",
+      "field": "method",
+      "synonyms": [
+        "payment channel"
+      ]
+    },
+    {
+      "key": "country",
+      "label": "Country",
+      "dataset": "countries",
+      "field": "name",
+      "synonyms": [
+        "nation",
+        "market"
+      ]
+    },
+    {
+      "key": "country_code",
+      "label": "Country Code",
+      "dataset": "countries",
+      "field": "code",
+      "root_cause": false
+    },
+    {
+      "key": "region",
+      "label": "Region",
+      "dataset": "countries",
+      "field": "region",
+      "synonyms": [
+        "geography"
+      ]
+    },
+    {
+      "key": "institution",
+      "label": "Institution",
+      "dataset": "institutions",
+      "field": "name",
+      "synonyms": [
+        "ihe",
+        "university",
+        "college"
+      ]
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "dataset": "institutions",
+      "field": "state"
+    }
+  ],
+  "measures": [
+    {
+      "key": "amount_sum",
+      "label": "Revenue",
+      "aggregation": "sum",
+      "field": "amount"
+    },
+    {
+      "key": "payment_count",
+      "label": "Payments",
+      "aggregation": "count"
+    },
+    {
+      "key": "application_fee_sum",
+      "label": "Application fee revenue",
+      "aggregation": "sum",
+      "field": "amount",
+      "filters": [
+        {
+          "field": "payment_type",
+          "op": "eq",
+          "value": "application_fee"
+        }
+      ]
+    },
+    {
+      "key": "visa_fee_sum",
+      "label": "Visa fee revenue",
+      "aggregation": "sum",
+      "field": "amount",
+      "filters": [
+        {
+          "field": "payment_type",
+          "op": "eq",
+          "value": "visa_fee"
+        }
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "key": "revenue",
+      "label": "Revenue",
+      "expression": "amount_sum",
+      "format": "currency",
+      "is_kpi": true,
+      "synonyms": [
+        "revenue",
+        "income",
+        "fees",
+        "collections",
+        "sales",
+        "money",
+        "takings"
+      ],
+      "description": "Sum of all fees collected.",
+      "owner": "Finance"
+    },
+    {
+      "key": "application_fee_revenue",
+      "label": "Application Fee Revenue",
+      "expression": "application_fee_sum",
+      "format": "currency",
+      "synonyms": [
+        "application fees"
+      ]
+    },
+    {
+      "key": "visa_fee_revenue",
+      "label": "Visa Fee Revenue",
+      "expression": "visa_fee_sum",
+      "format": "currency",
+      "synonyms": [
+        "visa fees"
+      ]
+    },
+    {
+      "key": "payments",
+      "label": "Payments",
+      "expression": "payment_count",
+      "format": "number",
+      "synonyms": [
+        "transactions",
+        "payment count"
+      ]
+    },
+    {
+      "key": "avg_payment",
+      "label": "Average Payment",
+      "expression": "amount_sum / payment_count",
+      "format": "currency",
+      "synonyms": [
+        "average fee",
+        "ticket size"
+      ]
+    }
+  ],
+  "hierarchies": [
+    {
+      "key": "geography",
+      "label": "Geography",
+      "levels": [
+        "region",
+        "country"
+      ]
+    },
+    {
+      "key": "provider",
+      "label": "Provider",
+      "levels": [
+        "state",
+        "institution"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "dimension": "country_code",
+      "attribute": "country_codes",
+      "exempt_roles": [
+        "super_admin",
+        "tenant_admin",
+        "ceo",
+        "executive",
+        "analyst",
+        "data_engineer",
+        "report_designer"
+      ]
+    }
+  ]
+}

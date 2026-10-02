@@ -1,0 +1,448 @@
+{
+  "key": "decisions",
+  "name": "Application Decisions",
+  "domain": "operations",
+  "description": "Decided applications by decision date: outcomes, processing time and SLA.",
+  "base": "applications",
+  "time_dimension": "decided_on",
+  "relationships": [
+    {
+      "from": "applications.country_id",
+      "to": "countries.id"
+    },
+    {
+      "from": "applications.institution_id",
+      "to": "institutions.id"
+    },
+    {
+      "from": "applications.course_id",
+      "to": "courses.id"
+    }
+  ],
+  "dimensions": [
+    {
+      "key": "decided_on",
+      "label": "Decision Date",
+      "field": "decided_on",
+      "type": "time",
+      "root_cause": false,
+      "synonyms": [
+        "date",
+        "decided"
+      ]
+    },
+    {
+      "key": "status",
+      "label": "Outcome",
+      "field": "status",
+      "root_cause": false,
+      "synonyms": [
+        "decision"
+      ]
+    },
+    {
+      "key": "visa_status",
+      "label": "Visa Status",
+      "field": "visa_status",
+      "synonyms": [
+        "visa"
+      ]
+    },
+    {
+      "key": "medical_status",
+      "label": "Medical Status",
+      "field": "medical_status",
+      "synonyms": [
+        "medical",
+        "health screening"
+      ]
+    },
+    {
+      "key": "country",
+      "label": "Country",
+      "dataset": "countries",
+      "field": "name",
+      "synonyms": [
+        "nation",
+        "source country",
+        "origin",
+        "market"
+      ]
+    },
+    {
+      "key": "country_code",
+      "label": "Country Code",
+      "dataset": "countries",
+      "field": "code",
+      "root_cause": false,
+      "synonyms": [
+        "iso"
+      ]
+    },
+    {
+      "key": "region",
+      "label": "Region",
+      "dataset": "countries",
+      "field": "region",
+      "synonyms": [
+        "geography",
+        "continent"
+      ]
+    },
+    {
+      "key": "institution",
+      "label": "Institution",
+      "dataset": "institutions",
+      "field": "name",
+      "synonyms": [
+        "ihe",
+        "university",
+        "college",
+        "school",
+        "provider"
+      ]
+    },
+    {
+      "key": "institution_type",
+      "label": "Institution Type",
+      "dataset": "institutions",
+      "field": "type",
+      "synonyms": []
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "dataset": "institutions",
+      "field": "state",
+      "synonyms": [
+        "location",
+        "malaysian state"
+      ]
+    },
+    {
+      "key": "course",
+      "label": "Course",
+      "dataset": "courses",
+      "field": "name",
+      "synonyms": [
+        "programme",
+        "program",
+        "major",
+        "subject"
+      ]
+    },
+    {
+      "key": "field_of_study",
+      "label": "Field of Study",
+      "dataset": "courses",
+      "field": "field",
+      "synonyms": [
+        "discipline",
+        "faculty"
+      ]
+    },
+    {
+      "key": "level",
+      "label": "Study Level",
+      "dataset": "courses",
+      "field": "level",
+      "synonyms": [
+        "degree",
+        "qualification"
+      ]
+    },
+    {
+      "key": "channel",
+      "label": "Channel",
+      "field": "channel",
+      "synonyms": [
+        "source",
+        "agent",
+        "submission channel"
+      ]
+    },
+    {
+      "key": "document_issue",
+      "label": "Document Issue",
+      "field": "document_issue",
+      "synonyms": [
+        "document type",
+        "document problem",
+        "documents"
+      ]
+    },
+    {
+      "key": "risk_level",
+      "label": "Risk Level",
+      "field": "risk_level",
+      "synonyms": [
+        "risk band",
+        "risk category"
+      ]
+    },
+    {
+      "key": "age_band",
+      "label": "Age Band",
+      "field": "age_band",
+      "synonyms": [
+        "age"
+      ]
+    },
+    {
+      "key": "applicant_ref",
+      "label": "Applicant Reference",
+      "field": "applicant_ref",
+      "sensitive": true,
+      "root_cause": false,
+      "synonyms": [
+        "applicant id"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "key": "decided_count",
+      "label": "Decisions",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "status",
+          "op": "in",
+          "value": [
+            "approved",
+            "rejected"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "approved_count",
+      "label": "Approved",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "status",
+          "op": "eq",
+          "value": "approved"
+        }
+      ]
+    },
+    {
+      "key": "rejected_count",
+      "label": "Rejected",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "status",
+          "op": "eq",
+          "value": "rejected"
+        }
+      ]
+    },
+    {
+      "key": "sla_met_count",
+      "label": "Within SLA",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "sla_met",
+          "op": "eq",
+          "value": true
+        }
+      ]
+    },
+    {
+      "key": "sla_measured_count",
+      "label": "SLA-measured decisions",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "sla_met",
+          "op": "not_null"
+        }
+      ]
+    },
+    {
+      "key": "processing_days_avg",
+      "label": "Average processing days",
+      "aggregation": "avg",
+      "field": "processing_days"
+    },
+    {
+      "key": "visa_issued_count",
+      "label": "Visas issued",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "visa_status",
+          "op": "eq",
+          "value": "issued"
+        }
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "key": "decided_applications",
+      "label": "Decisions",
+      "expression": "decided_count",
+      "format": "number",
+      "synonyms": [
+        "decisions",
+        "processed",
+        "completed applications",
+        "throughput"
+      ],
+      "description": "Applications approved or rejected in the period.",
+      "owner": "Operations"
+    },
+    {
+      "key": "approved_applications",
+      "label": "Approved Applications",
+      "expression": "approved_count",
+      "format": "number",
+      "synonyms": [
+        "approvals",
+        "approved"
+      ]
+    },
+    {
+      "key": "rejected_applications",
+      "label": "Rejected Applications",
+      "expression": "rejected_count",
+      "format": "number",
+      "higher_is_better": false,
+      "synonyms": [
+        "rejections",
+        "rejected",
+        "refusals"
+      ]
+    },
+    {
+      "key": "approval_rate",
+      "label": "Approval Rate",
+      "expression": "approved_count / decided_count",
+      "format": "percent",
+      "is_kpi": true,
+      "synonyms": [
+        "approval",
+        "acceptance rate",
+        "success rate"
+      ],
+      "description": "Approved \u00f7 (approved + rejected).",
+      "owner": "Operations"
+    },
+    {
+      "key": "rejection_rate",
+      "label": "Rejection Rate",
+      "expression": "rejected_count / decided_count",
+      "format": "percent",
+      "higher_is_better": false,
+      "is_kpi": true,
+      "synonyms": [
+        "rejection",
+        "refusal rate",
+        "reject rate"
+      ],
+      "description": "Rejected \u00f7 (approved + rejected).",
+      "owner": "Operations"
+    },
+    {
+      "key": "avg_processing_days",
+      "label": "Avg Processing Time",
+      "expression": "processing_days_avg",
+      "format": "duration_days",
+      "higher_is_better": false,
+      "is_kpi": true,
+      "synonyms": [
+        "processing time",
+        "turnaround",
+        "cycle time",
+        "lead time",
+        "processing days"
+      ],
+      "description": "Mean days from submission to decision.",
+      "owner": "Operations"
+    },
+    {
+      "key": "sla_compliance",
+      "label": "Processing SLA",
+      "expression": "sla_met_count / sla_measured_count",
+      "format": "percent",
+      "target": 0.9,
+      "is_kpi": true,
+      "synonyms": [
+        "sla",
+        "service level",
+        "on-time rate",
+        "sla compliance",
+        "processing sla"
+      ],
+      "description": "Share of decisions made within the 14-day SLA.",
+      "owner": "Operations"
+    },
+    {
+      "key": "sla_breaches",
+      "label": "SLA Breaches",
+      "expression": "sla_measured_count - sla_met_count",
+      "format": "number",
+      "higher_is_better": false,
+      "synonyms": [
+        "late decisions",
+        "breaches",
+        "overdue"
+      ]
+    },
+    {
+      "key": "visa_issue_rate",
+      "label": "Visa Issue Rate",
+      "expression": "visa_issued_count / approved_count",
+      "format": "percent",
+      "synonyms": [
+        "visa success",
+        "visa rate"
+      ]
+    }
+  ],
+  "hierarchies": [
+    {
+      "key": "geography",
+      "label": "Geography",
+      "levels": [
+        "region",
+        "country"
+      ]
+    },
+    {
+      "key": "academic",
+      "label": "Academic",
+      "levels": [
+        "field_of_study",
+        "course"
+      ]
+    },
+    {
+      "key": "provider",
+      "label": "Provider",
+      "levels": [
+        "state",
+        "institution"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "dimension": "country_code",
+      "attribute": "country_codes",
+      "exempt_roles": [
+        "super_admin",
+        "tenant_admin",
+        "ceo",
+        "executive",
+        "analyst",
+        "data_engineer",
+        "report_designer"
+      ]
+    }
+  ]
+}

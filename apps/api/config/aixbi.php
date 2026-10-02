@@ -1,0 +1,24 @@
+<?php
+
+return [
+    'jwt' => [
+        'secret' => env('JWT_SECRET'),
+        'issuer' => env('JWT_ISSUER', 'aixbi'),
+        'access_ttl' => (int) env('JWT_ACCESS_TTL', 900),
+        'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 2592000),
+    ],
+
+    'query' => [
+        'connection' => env('ANALYTICS_CONNECTION', 'analytics'),
+        'dialect' => env('ANALYTICS_DIALECT', 'postgres'),
+        'timeout_ms' => (int) env('QUERY_TIMEOUT_MS', 15000),
+        'max_rows' => (int) env('QUERY_MAX_ROWS', 5000),
+        'cache_ttl' => (int) env('QUERY_CACHE_TTL', 300),
+    ],
+
+    'ai' => [
+        'url' => env('AI_SERVICE_URL', 'http://127.0.0.1:8100'),
+        'token' => env('AI_SERVICE_TOKEN'),
+        'timeout' => (int) env('AI_SERVICE_TIMEOUT', 120),
+    ],
+];

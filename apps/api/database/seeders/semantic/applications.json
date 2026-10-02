@@ -1,0 +1,387 @@
+{
+  "key": "applications",
+  "name": "Application Intake",
+  "domain": "operations",
+  "description": "Student applications by submission date: demand, mix and risk.",
+  "base": "applications",
+  "time_dimension": "submitted_on",
+  "relationships": [
+    {
+      "from": "applications.country_id",
+      "to": "countries.id"
+    },
+    {
+      "from": "applications.institution_id",
+      "to": "institutions.id"
+    },
+    {
+      "from": "applications.course_id",
+      "to": "courses.id"
+    }
+  ],
+  "dimensions": [
+    {
+      "key": "submitted_on",
+      "label": "Submission Date",
+      "field": "submitted_on",
+      "type": "time",
+      "root_cause": false,
+      "synonyms": [
+        "date",
+        "submitted",
+        "received"
+      ]
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "field": "status",
+      "synonyms": [
+        "outcome",
+        "decision"
+      ]
+    },
+    {
+      "key": "stage",
+      "label": "Processing Stage",
+      "field": "stage",
+      "synonyms": [
+        "pipeline stage",
+        "step"
+      ]
+    },
+    {
+      "key": "country",
+      "label": "Country",
+      "dataset": "countries",
+      "field": "name",
+      "synonyms": [
+        "nation",
+        "source country",
+        "origin",
+        "market"
+      ]
+    },
+    {
+      "key": "country_code",
+      "label": "Country Code",
+      "dataset": "countries",
+      "field": "code",
+      "root_cause": false,
+      "synonyms": [
+        "iso"
+      ]
+    },
+    {
+      "key": "region",
+      "label": "Region",
+      "dataset": "countries",
+      "field": "region",
+      "synonyms": [
+        "geography",
+        "continent"
+      ]
+    },
+    {
+      "key": "institution",
+      "label": "Institution",
+      "dataset": "institutions",
+      "field": "name",
+      "synonyms": [
+        "ihe",
+        "university",
+        "college",
+        "school",
+        "provider"
+      ]
+    },
+    {
+      "key": "institution_type",
+      "label": "Institution Type",
+      "dataset": "institutions",
+      "field": "type",
+      "synonyms": []
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "dataset": "institutions",
+      "field": "state",
+      "synonyms": [
+        "location",
+        "malaysian state"
+      ]
+    },
+    {
+      "key": "course",
+      "label": "Course",
+      "dataset": "courses",
+      "field": "name",
+      "synonyms": [
+        "programme",
+        "program",
+        "major",
+        "subject"
+      ]
+    },
+    {
+      "key": "field_of_study",
+      "label": "Field of Study",
+      "dataset": "courses",
+      "field": "field",
+      "synonyms": [
+        "discipline",
+        "faculty"
+      ]
+    },
+    {
+      "key": "level",
+      "label": "Study Level",
+      "dataset": "courses",
+      "field": "level",
+      "synonyms": [
+        "degree",
+        "qualification"
+      ]
+    },
+    {
+      "key": "channel",
+      "label": "Channel",
+      "field": "channel",
+      "synonyms": [
+        "source",
+        "agent",
+        "submission channel"
+      ]
+    },
+    {
+      "key": "document_issue",
+      "label": "Document Issue",
+      "field": "document_issue",
+      "synonyms": [
+        "document type",
+        "document problem",
+        "documents"
+      ]
+    },
+    {
+      "key": "risk_level",
+      "label": "Risk Level",
+      "field": "risk_level",
+      "synonyms": [
+        "risk band",
+        "risk category"
+      ]
+    },
+    {
+      "key": "age_band",
+      "label": "Age Band",
+      "field": "age_band",
+      "synonyms": [
+        "age"
+      ]
+    },
+    {
+      "key": "applicant_ref",
+      "label": "Applicant Reference",
+      "field": "applicant_ref",
+      "sensitive": true,
+      "root_cause": false,
+      "synonyms": [
+        "applicant id"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "key": "application_count",
+      "label": "Applications",
+      "aggregation": "count"
+    },
+    {
+      "key": "high_risk_count",
+      "label": "High-risk applications",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "risk_level",
+          "op": "eq",
+          "value": "high"
+        }
+      ]
+    },
+    {
+      "key": "pending_count",
+      "label": "Pending applications",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "status",
+          "op": "eq",
+          "value": "pending"
+        }
+      ]
+    },
+    {
+      "key": "withdrawn_count",
+      "label": "Withdrawn applications",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "status",
+          "op": "eq",
+          "value": "withdrawn"
+        }
+      ]
+    },
+    {
+      "key": "document_issue_count",
+      "label": "Applications with document issues",
+      "aggregation": "count",
+      "filters": [
+        {
+          "field": "document_issue",
+          "op": "neq",
+          "value": "none"
+        }
+      ]
+    },
+    {
+      "key": "risk_score_avg",
+      "label": "Average risk score",
+      "aggregation": "avg",
+      "field": "risk_score"
+    }
+  ],
+  "metrics": [
+    {
+      "key": "total_applications",
+      "label": "Applications",
+      "expression": "application_count",
+      "format": "number",
+      "is_kpi": true,
+      "synonyms": [
+        "applications",
+        "volume",
+        "submissions",
+        "intake",
+        "demand",
+        "number of applications"
+      ],
+      "description": "Count of applications submitted in the period.",
+      "owner": "Operations"
+    },
+    {
+      "key": "high_risk_applications",
+      "label": "High-risk Applications",
+      "expression": "high_risk_count",
+      "format": "number",
+      "higher_is_better": false,
+      "is_kpi": true,
+      "synonyms": [
+        "high risk",
+        "risk cases",
+        "risky applications"
+      ],
+      "description": "Applications with a risk score above 0.62.",
+      "owner": "Risk"
+    },
+    {
+      "key": "high_risk_share",
+      "label": "High-risk Share",
+      "expression": "high_risk_count / application_count",
+      "format": "percent",
+      "higher_is_better": false,
+      "synonyms": [
+        "risk share",
+        "risk ratio"
+      ]
+    },
+    {
+      "key": "pending_applications",
+      "label": "Pending Applications",
+      "expression": "pending_count",
+      "format": "number",
+      "higher_is_better": false,
+      "synonyms": [
+        "backlog",
+        "open applications",
+        "in progress",
+        "queue"
+      ]
+    },
+    {
+      "key": "document_issue_rate",
+      "label": "Document Issue Rate",
+      "expression": "document_issue_count / application_count",
+      "format": "percent",
+      "higher_is_better": false,
+      "synonyms": [
+        "document problems",
+        "documentation issues"
+      ]
+    },
+    {
+      "key": "withdrawal_rate",
+      "label": "Withdrawal Rate",
+      "expression": "withdrawn_count / application_count",
+      "format": "percent",
+      "higher_is_better": false,
+      "synonyms": [
+        "withdrawals",
+        "drop out"
+      ]
+    },
+    {
+      "key": "avg_risk_score",
+      "label": "Average Risk Score",
+      "expression": "risk_score_avg",
+      "format": "number",
+      "higher_is_better": false,
+      "synonyms": [
+        "risk score"
+      ]
+    }
+  ],
+  "hierarchies": [
+    {
+      "key": "geography",
+      "label": "Geography",
+      "levels": [
+        "region",
+        "country"
+      ]
+    },
+    {
+      "key": "academic",
+      "label": "Academic",
+      "levels": [
+        "field_of_study",
+        "course"
+      ]
+    },
+    {
+      "key": "provider",
+      "label": "Provider",
+      "levels": [
+        "state",
+        "institution"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "dimension": "country_code",
+      "attribute": "country_codes",
+      "exempt_roles": [
+        "super_admin",
+        "tenant_admin",
+        "ceo",
+        "executive",
+        "analyst",
+        "data_engineer",
+        "report_designer"
+      ]
+    }
+  ]
+}
