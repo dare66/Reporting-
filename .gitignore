@@ -9,3 +9,4 @@ dist/
 .angular/
 coverage/
 .DS_Store
+services/ai/.venv/

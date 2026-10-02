@@ -143,10 +143,10 @@ class PlatformSeeder extends Seeder
         }
 
         foreach ([
-            ['anthropic', 'claude-sonnet-5-5', 'planner', 3, 15, true],
-            ['anthropic', 'claude-sonnet-5-5', 'narrative', 3, 15, true],
-            ['anthropic', 'claude-opus-5-5', 'narrative', 15, 75, false],
-            ['anthropic', 'claude-haiku-4-5-20251001', 'planner', 1, 5, false],
+            ['anthropic', 'claude-opus-5-5', 'planner', 4, 20, true],
+            ['anthropic', 'claude-opus-5-5', 'narrative', 4, 20, true],
+            ['anthropic', 'claude-sonnet-5-5', 'planner', 2, 10, false],
+            ['anthropic', 'claude-haiku-4-5', 'planner', 1, 5, false],
             ['aixbi', 'deterministic-semantic-planner', 'planner', 0, 0, false],
         ] as [$provider, $model, $purpose, $in, $out, $default]) {
             AiModel::updateOrCreate(['provider' => $provider, 'model' => $model, 'purpose' => $purpose], [
