@@ -82,7 +82,7 @@ import { ErrorState, Working } from '../../shared/states';
     }
   </div>
   @if (evidence()) { <app-evidence [title]="(rc()?.label ?? '') + ' decomposition'" calculation="impact(m) = V(current) − V(current with m reverted to the prior period)" [items]="rc()!.evidence" (close)="evidence.set(false)"/> }`,
-  styles: [`.back{font-size:12.5px;display:inline-block;margin-bottom:10px}.neg{color:var(--neg)}.pos{color:var(--pos)}
+  styles: [`.back{font-size:12.5px;display:block;width:max-content;margin-bottom:10px}.neg{color:var(--neg)}.pos{color:var(--pos)}
     .tree{margin-bottom:20px}.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-bottom:20px}
     .dims{display:grid;padding:10px 12px 14px}.dim{display:grid;grid-template-columns:140px 1fr 44px;gap:12px;align-items:center;padding:10px;border:0;background:none;border-radius:var(--r-md);cursor:pointer;color:inherit;text-align:left}
     .dim:hover,.dim.on{background:var(--bg-3)}.bar{height:6px;border-radius:3px;background:var(--bg-3);overflow:hidden}.dim.on .bar{background:var(--bg-1)}.bar i{display:block;height:100%;background:var(--accent);border-radius:3px}

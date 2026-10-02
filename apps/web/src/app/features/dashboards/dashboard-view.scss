@@ -1,4 +1,4 @@
-.back { font-size: 12.5px; display: inline-block; margin-bottom: 10px; }
+.back { font-size: 12.5px; display: block; width: max-content; margin-bottom: 10px; }
 .title-input { font-size: 26px; font-weight: 600; height: 48px; max-width: 520px; }
 .filter { width: auto; min-width: 170px; }
 .grid { display: grid; gap: 16px; grid-auto-rows: 64px; grid-auto-flow: dense; }

@@ -1,0 +1,171 @@
+# Production baseline for Kubernetes. Images are built from infra/docker/*.Dockerfile.
+# Secrets come from an external secret store; values here are placeholders only.
+apiVersion: v1
+kind: Namespace
+metadata: { name: aixbi }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: aixbi-config, namespace: aixbi }
+data:
+  APP_ENV: production
+  APP_DEBUG: "false"
+  DB_CONNECTION: pgsql
+  DB_HOST: aixbi-postgres          # managed PostgreSQL (primary + read replica for analytics)
+  ANALYTICS_DB_HOST: aixbi-postgres-replica
+  REDIS_HOST: aixbi-redis
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  AI_SERVICE_URL: http://aixbi-ai:8100
+  AIXBI_API_URL: http://aixbi-web:8080/api/v1
+  LOG_CHANNEL: stderr
+---
+apiVersion: v1
+kind: Secret
+metadata: { name: aixbi-secrets, namespace: aixbi }
+type: Opaque
+stringData:   # replace via ExternalSecrets / sealed-secrets
+  APP_KEY: "base64:REPLACE"
+  JWT_SECRET: "REPLACE-WITH-64-RANDOM-CHARS"
+  DB_PASSWORD: "REPLACE"
+  ANALYTICS_DB_PASSWORD: "REPLACE"
+  AI_SERVICE_TOKEN: "REPLACE"
+  ANTHROPIC_API_KEY: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aixbi-api, namespace: aixbi }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: aixbi-api } }
+  template:
+    metadata: { labels: { app: aixbi-api } }
+    spec:
+      securityContext: { runAsNonRoot: true }
+      containers:
+        - name: api
+          image: ghcr.io/aixbi/api:latest
+          ports: [{ containerPort: 9000 }]
+          envFrom: [{ configMapRef: { name: aixbi-config } }, { secretRef: { name: aixbi-secrets } }]
+          resources: { requests: { cpu: 250m, memory: 256Mi }, limits: { cpu: "1", memory: 768Mi } }
+          readinessProbe: { tcpSocket: { port: 9000 }, periodSeconds: 10 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aixbi-worker, namespace: aixbi }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: aixbi-worker } }
+  template:
+    metadata: { labels: { app: aixbi-worker } }
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/aixbi/api:latest
+          command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=300"]
+          envFrom: [{ configMapRef: { name: aixbi-config } }, { secretRef: { name: aixbi-secrets } }]
+          resources: { requests: { cpu: 250m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: aixbi-scheduler, namespace: aixbi }
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: schedule
+              image: ghcr.io/aixbi/api:latest
+              command: ["php", "artisan", "schedule:run"]
+              envFrom: [{ configMapRef: { name: aixbi-config } }, { secretRef: { name: aixbi-secrets } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aixbi-ai, namespace: aixbi }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: aixbi-ai } }
+  template:
+    metadata: { labels: { app: aixbi-ai } }
+    spec:
+      containers:
+        - name: ai
+          image: ghcr.io/aixbi/ai:latest
+          ports: [{ containerPort: 8100 }]
+          envFrom: [{ configMapRef: { name: aixbi-config } }, { secretRef: { name: aixbi-secrets } }]
+          readinessProbe: { httpGet: { path: /health, port: 8100 }, periodSeconds: 10 }
+          resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aixbi-web, namespace: aixbi }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: aixbi-web } }
+  template:
+    metadata: { labels: { app: aixbi-web } }
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/aixbi/web:latest
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /, port: 8080 }, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: api, namespace: aixbi }   # nginx gateway resolves "api:9000"
+spec: { selector: { app: aixbi-api }, ports: [{ port: 9000 }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: ai, namespace: aixbi }
+spec: { selector: { app: aixbi-ai }, ports: [{ port: 8100 }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aixbi-ai, namespace: aixbi }
+spec: { selector: { app: aixbi-ai }, ports: [{ port: 8100 }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aixbi-web, namespace: aixbi }
+spec: { selector: { app: aixbi-web }, ports: [{ port: 8080 }] }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: aixbi-api, namespace: aixbi }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: aixbi-api }
+  minReplicas: 3
+  maxReplicas: 20
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 65 } } }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aixbi
+  namespace: aixbi
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  tls: [{ hosts: [aixbi.example.com], secretName: aixbi-tls }]
+  rules:
+    - host: aixbi.example.com
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: aixbi-web, port: { number: 8080 } } } }] }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: ai-egress-api-only, namespace: aixbi }
+spec:
+  podSelector: { matchLabels: { app: aixbi-ai } }
+  policyTypes: [Egress]
+  egress:   # the AI service may reach the gateway (API) and the LLM provider — never the databases
+    - to: [{ podSelector: { matchLabels: { app: aixbi-web } } }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8] } }]
+      ports: [{ port: 443, protocol: TCP }]
+    - ports: [{ port: 53, protocol: UDP }]

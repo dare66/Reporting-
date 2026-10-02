@@ -1,0 +1,75 @@
+# Full local stack: docker compose up --build   →   http://localhost:8080
+# First run seeds the demo tenant (≈1 min): docker compose run --rm api php artisan migrate --seed --force
+x-api-env: &api-env
+  APP_ENV: production
+  APP_KEY: ${APP_KEY:-base64:YmUhd7oFd1aIWbkuDx+MkWMe0oY4FGI7cWW2RZcsiC4=}
+  APP_DEBUG: "false"
+  APP_URL: http://localhost:8080
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_DATABASE: aixbi
+  DB_USERNAME: aixbi
+  DB_PASSWORD: ${DB_PASSWORD:-aixbi}
+  ANALYTICS_DB_HOST: postgres
+  ANALYTICS_DB_DATABASE: aixbi
+  ANALYTICS_DB_USERNAME: aixbi_reader
+  ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:-aixbi_reader}
+  REDIS_HOST: redis
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  SESSION_DRIVER: array
+  JWT_SECRET: ${JWT_SECRET:-change-me-in-production-0123456789abcdef0123}
+  AI_SERVICE_URL: http://ai:8100
+  AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-change-me-internal-token}
+  SEED_DEMO: "true"
+  LOG_CHANNEL: stderr
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: aixbi, POSTGRES_USER: aixbi, POSTGRES_PASSWORD: "${DB_PASSWORD:-aixbi}" }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U aixbi"], interval: 5s, retries: 20 }
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+
+  api:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    environment: *api-env
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started } }
+    volumes: [exports:/var/www/storage/app]
+
+  worker:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    environment: *api-env
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=300"]
+    depends_on: [api]
+    volumes: [exports:/var/www/storage/app]
+
+  scheduler:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    environment: *api-env
+    command: ["php", "artisan", "schedule:work"]
+    depends_on: [api]
+    volumes: [exports:/var/www/storage/app]
+
+  ai:
+    build: { context: ., dockerfile: infra/docker/ai.Dockerfile }
+    environment:
+      AIXBI_API_URL: http://web:8080/api/v1
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-0123456789abcdef0123}
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-change-me-internal-token}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+
+  web:
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    ports: ["8080:8080"]
+    depends_on: [api, ai]
+
+volumes: { pgdata: {}, redisdata: {}, exports: {} }

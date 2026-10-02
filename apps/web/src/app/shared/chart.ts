@@ -48,8 +48,9 @@ export function ensureWorldMap(): Promise<void> {
         <app-icon [name]="showTable() ? 'chart' : 'table'" [size]="14"/>{{ showTable() ? 'Chart' : 'Table' }}
       </button>
     }`,
-  styles: [`:host{display:block;position:relative}.host{width:100%}.host.hidden{display:none}
-    .toggle{position:absolute;top:-38px;right:0;opacity:.7}.toggle:hover{opacity:1}
+  host: { '[class.has-toggle]': 'tableToggle()' },
+  styles: [`:host{display:block;position:relative}:host(.has-toggle){padding-top:30px}.host{width:100%}.host.hidden{display:none}
+    .toggle{position:absolute;top:0;right:0;opacity:.7}.toggle:hover{opacity:1}
     .table-wrap{max-height:var(--h,320px);overflow:auto}`],
 })
 export class Chart implements OnDestroy {

@@ -56,7 +56,7 @@ import { ErrorState, Working } from '../../shared/states';
       } @else { <app-working title="Sampling rows" [steps]="['Applying column security', 'Reading 50 rows']"/> }
     }
   </div>`,
-  styles: [`.back{font-size:12.5px;display:inline-block;margin-bottom:10px}.stats{display:grid;grid-template-columns:repeat(5,1fr);padding:18px;margin-bottom:20px}
+  styles: [`.back{font-size:12.5px;display:block;width:max-content;margin-bottom:10px}.stats{display:grid;grid-template-columns:repeat(5,1fr);padding:18px;margin-bottom:20px}
     .stats span{display:grid;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}.stats b{font-size:24px;color:var(--ink-1);letter-spacing:-.02em;text-transform:none}.neg{color:var(--neg)!important}
     .proposal{margin-bottom:20px;border-color:color-mix(in srgb,var(--ai) 35%,transparent)}.cols{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:24px;padding:16px 22px 22px}.cols ul{margin:8px 0;padding-left:18px;display:grid;gap:4px}
     .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips .chip{cursor:default}.small{font-size:12px}.ok{display:flex;gap:8px;align-items:center;padding:14px 18px;margin-bottom:20px;color:var(--pos)}.link{color:var(--ai)}
