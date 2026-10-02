@@ -28,7 +28,23 @@ final class QueryService
         $security = SecurityContext::forUser($user, $catalog);
         $compiled = $this->compiler()->compile($query, $catalog, $security);
 
-        return $this->executor->execute($compiled, $security, ['model' => $catalog->key] + $query->toArray(), $useCache);
+        $result = $this->executor->execute($compiled, $security, ['model' => $catalog->key] + $query->toArray(), $useCache);
+
+        return $query->grain === null ? $result : $result->withPartialFrom(self::currentBucketStart($query->grain));
+    }
+
+    /** Start of the time bucket that contains today — that bucket is incomplete. */
+    public static function currentBucketStart(string $grain): string
+    {
+        $now = \Carbon\CarbonImmutable::now();
+
+        return match ($grain) {
+            'day' => $now->toDateString(),
+            'week' => $now->startOfWeek()->toDateString(),
+            'month' => $now->startOfMonth()->toDateString(),
+            'quarter' => $now->startOfQuarter()->toDateString(),
+            'year' => $now->startOfYear()->toDateString(),
+        };
     }
 
     public function explain(Catalog $catalog, SemanticQuery $query, User $user): CompiledQuery

@@ -1,0 +1,176 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Domain\Analytics\KpiService;
+use App\Domain\Audit\AuditLogger;
+use App\Domain\Dashboards\LayoutReflow;
+use App\Domain\Query\QueryService;
+use App\Domain\Query\SemanticQuery;
+use App\Http\Controllers\Controller;
+use App\Models\Bookmark;
+use App\Models\Dashboard;
+use App\Models\DashboardWidget;
+use App\Models\Insight;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class DashboardController extends Controller
+{
+    private const WIDGET_TYPES = 'kpi,chart,table,insight,text,globe,forecast,anomalies,image,map';
+
+    public function __construct(private readonly AuditLogger $audit) {}
+
+    public function index(Request $request): JsonResponse
+    {
+        $favourites = Bookmark::where('user_id', $request->user()->id)->where('resource_type', 'dashboard')->pluck('resource_id')->all();
+        $dashboards = $this->visible($request)->withCount('widgets')->with('owner:id,name')->orderByDesc('is_home')->orderBy('title')->get();
+
+        return response()->json(['data' => $dashboards->map(fn ($d) => $d->only(['id', 'title', 'description', 'theme', 'is_home', 'visibility', 'updated_at', 'widgets_count'])
+            + ['owner' => $d->owner?->name, 'is_favourite' => in_array($d->id, $favourites, true), 'can_edit' => $this->canEdit($request, $d)])]);
+    }
+
+    public function show(Request $request, string $id, LayoutReflow $reflow): JsonResponse
+    {
+        $dashboard = $this->visible($request)->with('widgets')->findOrFail($id);
+
+        return response()->json(['data' => $dashboard->toArray() + [
+            'layouts' => $reflow->layouts($dashboard->widgets->map(fn ($w) => $w->only(['id', 'type', 'section', 'priority', 'position']))->all()),
+            'can_edit' => $this->canEdit($request, $dashboard),
+        ]]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'title' => 'required|string|max:160', 'description' => 'nullable|string|max:1000', 'theme' => 'nullable|string|max:40',
+            'visibility' => 'in:private,organisation', 'sections' => 'array', 'filters' => 'array',
+            'widgets' => 'array', 'widgets.*.type' => 'required|in:'.self::WIDGET_TYPES,
+        ]);
+        $dashboard = DB::transaction(function () use ($data, $request) {
+            $d = Dashboard::create([
+                'owner_id' => $request->user()->id, 'title' => $data['title'], 'description' => $data['description'] ?? null,
+                'theme' => $data['theme'] ?? 'dark-intelligence', 'visibility' => $data['visibility'] ?? 'private',
+                'sections' => $data['sections'] ?? [], 'filters' => $data['filters'] ?? [],
+            ]);
+            foreach ($data['widgets'] ?? [] as $i => $w) {
+                $d->widgets()->create($this->widgetAttributes($w, $i));
+            }
+
+            return $d;
+        });
+        $this->audit->record('dashboard.created', ['resource_type' => 'dashboard', 'resource_id' => $dashboard->id]);
+
+        return response()->json(['data' => $dashboard->load('widgets')], 201);
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $dashboard = $this->editable($request, $id);
+        $dashboard->update($request->validate([
+            'title' => 'sometimes|string|max:160', 'description' => 'sometimes|nullable|string|max:1000', 'theme' => 'sometimes|string|max:40',
+            'visibility' => 'sometimes|in:private,organisation', 'sections' => 'sometimes|array', 'filters' => 'sometimes|array',
+        ]));
+
+        return response()->json(['data' => $dashboard->load('widgets')]);
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $this->editable($request, $id)->delete();
+        $this->audit->record('dashboard.deleted', ['resource_type' => 'dashboard', 'resource_id' => $id]);
+
+        return response()->json(null, 204);
+    }
+
+    /** Bulk position update from the canvas (drag/resize). */
+    public function saveLayout(Request $request, string $id): JsonResponse
+    {
+        $dashboard = $this->editable($request, $id);
+        $data = $request->validate(['widgets' => 'required|array', 'widgets.*.id' => 'required|uuid', 'widgets.*.x' => 'required|integer|min:0|max:11',
+            'widgets.*.y' => 'required|integer|min:0', 'widgets.*.w' => 'required|integer|min:1|max:12', 'widgets.*.h' => 'required|integer|min:1|max:20']);
+        DB::transaction(function () use ($dashboard, $data) {
+            foreach ($data['widgets'] as $w) {
+                $dashboard->widgets()->where('id', $w['id'])->update(['position' => json_encode(['x' => $w['x'], 'y' => $w['y'], 'w' => min($w['w'], 12 - $w['x']), 'h' => $w['h']])]);
+            }
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function addWidget(Request $request, string $id): JsonResponse
+    {
+        $dashboard = $this->editable($request, $id);
+        $data = $request->validate(['type' => 'required|in:'.self::WIDGET_TYPES, 'title' => 'nullable|string|max:160', 'section' => 'nullable|string',
+            'query' => 'array', 'viz' => 'array', 'position' => 'array', 'priority' => 'integer']);
+        $widget = $dashboard->widgets()->create($this->widgetAttributes($data, $dashboard->widgets()->count()));
+
+        return response()->json(['data' => $widget], 201);
+    }
+
+    public function updateWidget(Request $request, string $id, string $widgetId): JsonResponse
+    {
+        $widget = $this->editable($request, $id)->widgets()->findOrFail($widgetId);
+        $widget->update($request->validate(['title' => 'sometimes|nullable|string|max:160', 'section' => 'sometimes|nullable|string',
+            'query' => 'sometimes|array', 'viz' => 'sometimes|array', 'position' => 'sometimes|array', 'priority' => 'sometimes|integer', 'type' => 'sometimes|in:'.self::WIDGET_TYPES]));
+
+        return response()->json(['data' => $widget]);
+    }
+
+    public function deleteWidget(Request $request, string $id, string $widgetId): JsonResponse
+    {
+        $this->editable($request, $id)->widgets()->where('id', $widgetId)->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /** Executes a widget's query with dashboard-level filters merged in. */
+    public function widgetData(Request $request, string $id, string $widgetId, QueryService $queries, KpiService $kpis): JsonResponse
+    {
+        $dashboard = $this->visible($request)->findOrFail($id);
+        /** @var DashboardWidget $widget */
+        $widget = $dashboard->widgets()->findOrFail($widgetId);
+        $q = $widget->query;
+        $filters = [...($q['filters'] ?? []), ...($dashboard->filters ?? []), ...((array) $request->input('filters', []))];
+        $range = $request->input('range') ?? ($q['time']['range'] ?? null);
+
+        return response()->json(match ($widget->type) {
+            'kpi' => ['kind' => 'kpi', 'data' => $kpis->cards(array_map(fn ($m) => $q['model'].'.'.$m, $q['metrics']), $range ?? 'last_30_days', $request->user(), $filters, $widget->viz['compare'] ?? 'previous_period')],
+            'insight' => ['kind' => 'insights', 'data' => Insight::orderByDesc('created_at')->limit(6)->get()],
+            'text', 'image' => ['kind' => 'static', 'data' => $widget->viz],
+            default => ['kind' => 'query', 'data' => $queries->run($q['model'], SemanticQuery::fromArray(array_merge($q, ['filters' => $filters, 'time' => array_filter(['grain' => $q['time']['grain'] ?? null, 'range' => $range])])), $request->user())->toArray()],
+        });
+    }
+
+    private function widgetAttributes(array $w, int $index): array
+    {
+        return [
+            'type' => $w['type'], 'title' => $w['title'] ?? null, 'section' => $w['section'] ?? null,
+            'query' => $w['query'] ?? [], 'viz' => $w['viz'] ?? [],
+            'position' => $w['position'] ?? ['x' => ($index * 6) % 12, 'y' => intdiv($index, 2) * 4, 'w' => 6, 'h' => 4],
+            'priority' => $w['priority'] ?? ($index + 1) * 10,
+        ];
+    }
+
+    private function visible(Request $request): Builder
+    {
+        return Dashboard::query()->where(fn ($q) => $q->where('visibility', 'organisation')->orWhere('owner_id', $request->user()->id));
+    }
+
+    private function editable(Request $request, string $id): Dashboard
+    {
+        $dashboard = $this->visible($request)->findOrFail($id);
+        abort_unless($this->canEdit($request, $dashboard), 403, 'You can view this dashboard but not edit it.');
+
+        return $dashboard;
+    }
+
+    private function canEdit(Request $request, Dashboard $d): bool
+    {
+        $u = $request->user();
+
+        return $u->hasPermission('dashboards.manage') && ($d->owner_id === $u->id || $u->hasPermission('admin.org') || $d->visibility === 'organisation');
+    }
+}

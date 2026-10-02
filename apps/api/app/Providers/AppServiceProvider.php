@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(TenantContext::class);
         $this->app->scoped(\App\Domain\Semantic\CatalogRepository::class);
         $this->app->singleton(JwtService::class, fn () => JwtService::fromConfig());
+        $this->app->bind(\App\Domain\Notifications\PushGateway::class, \App\Domain\Notifications\LogPushGateway::class);
         $this->app->singleton(Dialect::class, fn () => match (config('aixbi.query.dialect')) {
             'clickhouse' => new ClickHouseDialect,
             default => new PostgresDialect,

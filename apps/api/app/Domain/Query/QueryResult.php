@@ -18,7 +18,19 @@ final class QueryResult
         public readonly bool $truncated,
         public readonly string $executedAt,
         public readonly array $query = [],
+        public readonly ?string $partialFrom = null,
     ) {}
+
+    /** Rows whose time bucket is still in progress (e.g. the current month). */
+    public function completeRows(): array
+    {
+        return $this->partialFrom === null ? $this->rows : array_values(array_filter($this->rows, fn ($r) => ($r['period'] ?? '') < $this->partialFrom));
+    }
+
+    public function withPartialFrom(?string $date): self
+    {
+        return new self($this->columns, $this->rows, $this->sql, $this->queryHash, $this->durationMs, $this->cached, $this->truncated, $this->executedAt, $this->query, $date);
+    }
 
     public function first(): array
     {
@@ -51,6 +63,7 @@ final class QueryResult
                 'row_count' => count($this->rows),
                 'executed_at' => $this->executedAt,
                 'query' => $this->query,
+                'partial_from' => $this->partialFrom,
             ],
         ];
     }
