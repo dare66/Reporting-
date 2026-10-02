@@ -2,8 +2,9 @@
 Run records are always persisted in the platform's own ai_runs table regardless."""
 
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
-from typing import Any, Iterator
+from typing import Any
 
 _client: Any = None
 

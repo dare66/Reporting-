@@ -3,16 +3,41 @@ dimensions and dimension members. Built from the API (permission-aware)."""
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..api_client import AixbiApi
+import httpx
+
+from ..api_client import AixbiApi, ApiError
+from ..types import JSON, JSONList
+
+log = logging.getLogger("aixbi.ai.catalog")
 
 # Members too generic to treat as filters when they appear in free text.
-AMBIGUOUS_MEMBERS = {"none", "high", "low", "medium", "online", "pending", "approved", "rejected", "completed", "submitted",
-                     "issued", "refused", "cleared", "referred", "card", "agent", "partner", "university", "college"}
+AMBIGUOUS_MEMBERS = {
+    "none",
+    "high",
+    "low",
+    "medium",
+    "online",
+    "pending",
+    "approved",
+    "rejected",
+    "completed",
+    "submitted",
+    "issued",
+    "refused",
+    "cleared",
+    "referred",
+    "card",
+    "agent",
+    "partner",
+    "university",
+    "college",
+}
 MEMBER_DIMENSIONS = ("country", "region", "institution", "course", "field_of_study", "level", "state", "payment_type")
 _member_cache: dict[tuple[str, str, str], tuple[float, list[str]]] = {}
 MEMBER_TTL = 600
@@ -43,24 +68,46 @@ class MetricInfo:
 
 @dataclass
 class CatalogIndex:
-    models: dict[str, dict]
+    models: dict[str, JSON]
     metrics: dict[str, MetricInfo]
-    dimensions: dict[str, dict[str, dict]]  # model -> key -> dim
+    dimensions: dict[str, dict[str, JSON]]  # model -> key -> dim
     members: dict[str, list[str]] = field(default_factory=dict)  # dim key -> members
 
     @classmethod
-    def from_catalog(cls, catalog: list[dict]) -> "CatalogIndex":
+    def from_catalog(cls, catalog: JSONList) -> CatalogIndex:
         models, metrics, dims = {}, {}, {}
         for m in catalog:
             models[m["key"]] = m
             dims[m["key"]] = {d["key"]: d for d in m["dimensions"] if d.get("accessible", True)}
             for x in m["metrics"]:
-                metrics[x["ref"]] = MetricInfo(x["ref"], m["key"], x["key"], x["label"], x["format"], x["higher_is_better"],
-                                               x.get("target"), x.get("synonyms") or [], x.get("description"), x.get("is_kpi", False))
+                metrics[x["ref"]] = MetricInfo(
+                    x["ref"],
+                    m["key"],
+                    x["key"],
+                    x["label"],
+                    x["format"],
+                    x["higher_is_better"],
+                    x.get("target"),
+                    x.get("synonyms") or [],
+                    x.get("description"),
+                    x.get("is_kpi", False),
+                )
         return cls(models, metrics, dims)
 
     def metric(self, ref: str) -> MetricInfo | None:
         return self.metrics.get(ref)
+
+    def metric_label(self, ref: str) -> str:
+        """The metric's business label, or the raw ref when it is not in the catalog."""
+        info = self.metrics.get(ref)
+        return info.label if info else ref
+
+    def require_metric(self, ref: str) -> MetricInfo:
+        """For refs already validated by the planner and governance node."""
+        info = self.metrics.get(ref)
+        if info is None:
+            raise KeyError(f"Metric {ref!r} is not in the governed catalog for this user.")
+        return info
 
     def models_with_dimension(self, dim: str) -> list[str]:
         return [m for m, d in self.dimensions.items() if dim in d]
@@ -68,7 +115,7 @@ class CatalogIndex:
     def dimension_label(self, dim: str) -> str:
         for d in self.dimensions.values():
             if dim in d:
-                return d[dim]["label"]
+                return str(d[dim]["label"])
         return dim.replace("_", " ").title()
 
     def find_metrics(self, text: str) -> list[str]:
@@ -78,8 +125,9 @@ class CatalogIndex:
         for ref, m in self.metrics.items():
             for phrase in [m.label, *m.synonyms]:
                 p = norm(phrase)
-                for match in re.finditer(rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])", t) if p else []:
-                    candidates.append((match.start(), match.end(), ref))
+                if p:
+                    pattern = rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])"
+                    candidates.extend((match.start(), match.end(), ref) for match in re.finditer(pattern, t))
         # Prefer longer spans; KPI metrics win ties (e.g. "applications").
         candidates.sort(key=lambda c: (-(c[1] - c[0]), not self.metrics[c[2]].is_kpi))
         taken: list[tuple[int, int]] = []
@@ -133,8 +181,18 @@ class CatalogIndex:
                     self.members[dim] = hit[1]
                     continue
                 try:
-                    res = await api.query({"model": model_key, "metrics": [metric], "dimensions": [dim], "time": {"range": "last_24_months"}, "limit": 300})
-                except Exception:  # noqa: BLE001 - members are an optimisation, never fatal
+                    res = await api.query(
+                        {
+                            "model": model_key,
+                            "metrics": [metric],
+                            "dimensions": [dim],
+                            "time": {"range": "last_24_months"},
+                            "limit": 300,
+                        }
+                    )
+                except (ApiError, httpx.HTTPError) as e:
+                    # Members only sharpen entity matching; planning still works without them.
+                    log.warning("member lookup failed for %s.%s: %s", model_key, dim, e)
                     continue
                 values = [str(r[dim]) for r in res["rows"] if r.get(dim) is not None]
                 _member_cache[key] = (time.time(), values)
@@ -143,8 +201,19 @@ class CatalogIndex:
     def describe_for_llm(self) -> dict[str, Any]:
         """Compact, deterministic catalog description (stable ordering keeps prompt caching effective)."""
         return {
-            "metrics": [{"ref": m.ref, "label": m.label, "format": m.format, "synonyms": m.synonyms[:6], "description": m.description}
-                        for m in sorted(self.metrics.values(), key=lambda x: x.ref)],
-            "dimensions": {model: sorted(k for k, d in dims.items() if d["type"] != "time") for model, dims in sorted(self.dimensions.items())},
+            "metrics": [
+                {
+                    "ref": m.ref,
+                    "label": m.label,
+                    "format": m.format,
+                    "synonyms": m.synonyms[:6],
+                    "description": m.description,
+                }
+                for m in sorted(self.metrics.values(), key=lambda x: x.ref)
+            ],
+            "dimensions": {
+                model: sorted(k for k, d in dims.items() if d["type"] != "time")
+                for model, dims in sorted(self.dimensions.items())
+            },
             "members": {k: v[:40] for k, v in sorted(self.members.items())},
         }

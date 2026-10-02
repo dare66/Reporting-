@@ -1,7 +1,7 @@
 from datetime import date
 
-from app.agents.deterministic import parse_range, plan
 from app.agents import viz
+from app.agents.deterministic import parse_range, plan
 
 
 def test_overview(index):
@@ -70,4 +70,6 @@ def test_visualization_rules():
     assert viz.choose("breakdown", has_time=False, dimension="country", members=20)["type"] == "map"
     assert viz.choose("breakdown", has_time=False, dimension="country", members=2, compare=True)["type"] == "bar"
     assert viz.choose("x", has_time=False, dimension=None, three_measures=True)["type"] == "scatter3d"
-    assert "pie" not in {viz.choose("breakdown", has_time=False, dimension="channel", members=n)["type"] for n in range(1, 8)}
+    assert "pie" not in {
+        viz.choose("breakdown", has_time=False, dimension="channel", members=n)["type"] for n in range(1, 8)
+    }

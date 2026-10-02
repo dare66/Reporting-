@@ -1,0 +1,57 @@
+[project]
+name = "aixbi-ai"
+version = "0.1.0"
+description = "AIXBI AI service: governed analyst agents, forecasting and anomaly detection"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # import order
+    "N",        # naming
+    "UP",       # modern syntax
+    "B",        # likely bugs
+    "C4",       # comprehensions
+    "SIM",      # simplifications
+    "RET",      # return hygiene
+    "PIE",
+    "PERF",
+    "RUF",
+    "ASYNC",
+    "S",        # security (bandit)
+]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # typographic characters in user-facing text are intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is how pytest works
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["app"]
+plugins = ["pydantic.mypy"]
+strict = true
+warn_unreachable = true
+pretty = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
+[[tool.mypy.overrides]]
+module = ["statsmodels.*", "langfuse.*", "langgraph.*", "sse_starlette.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

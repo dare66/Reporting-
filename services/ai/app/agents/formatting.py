@@ -1,5 +1,7 @@
 """Executive number formatting — mirrors the API's Format class so text and visuals agree."""
 
+from ..types import JSON
+
 
 def compact(v: float) -> str:
     a = abs(v)
@@ -39,3 +41,8 @@ def change(ch: float | None, pct: float | None, fmt: str) -> str:
 
 def period(label: str) -> str:
     return "the " + label[0].lower() + label[1:] if label.startswith(("Last ", "This ")) else label
+
+
+def change_of(result: JSON) -> str:
+    """Formats the change on any API result carrying change, change_pct and format (KPI cards, root cause)."""
+    return change(result["change"], result["change_pct"], result["format"])

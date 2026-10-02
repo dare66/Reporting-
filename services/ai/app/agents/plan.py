@@ -5,7 +5,24 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Intent = Literal["overview", "trend", "breakdown", "why", "forecast", "what_if", "report", "report_edit", "alert", "dashboard", "anomalies", "help"]
+from ..types import JSON
+
+Grain = Literal["day", "week", "month", "quarter", "year"]
+
+Intent = Literal[
+    "overview",
+    "trend",
+    "breakdown",
+    "why",
+    "forecast",
+    "what_if",
+    "report",
+    "report_edit",
+    "alert",
+    "dashboard",
+    "anomalies",
+    "help",
+]
 
 
 class Filter(BaseModel):
@@ -39,8 +56,8 @@ class Plan(BaseModel):
     metrics: list[str] = Field(default_factory=list, description="metric refs model.metric")
     dimension: str | None = None
     filters: list[Filter] = Field(default_factory=list)
-    range: str | dict = "last_30_days"
-    grain: Literal["day", "week", "month", "quarter", "year"] | None = None
+    range: str | JSON = "last_30_days"
+    grain: Grain | None = None
     sort: Literal["asc", "desc"] = "desc"
     limit: int = 10
     horizon: Literal["7d", "30d", "90d", "6m", "12m"] = "6m"

@@ -9,7 +9,13 @@ from app.analytics.forecast import forecast
 
 def monthly(n=24, noise=10.0, seed=1):
     random.seed(seed)
-    return [{"period": f"{2024 + i // 12}-{i % 12 + 1:02d}-01", "value": 1000 + 15 * i + 120 * math.sin(i / 12 * 2 * math.pi) + random.gauss(0, noise)} for i in range(n)]
+    return [
+        {
+            "period": f"{2024 + i // 12}-{i % 12 + 1:02d}-01",
+            "value": 1000 + 15 * i + 120 * math.sin(i / 12 * 2 * math.pi) + random.gauss(0, noise),
+        }
+        for i in range(n)
+    ]
 
 
 def test_forecast_is_deterministic_and_seasonal():
@@ -37,7 +43,9 @@ def test_forecast_rejects_tiny_series():
 
 def test_anomaly_detector_finds_level_shift_without_lookahead():
     random.seed(7)
-    series = [{"period": f"d{i:03d}", "value": 0.065 + random.gauss(0, 0.004) + (0.04 if i >= 80 else 0)} for i in range(100)]
+    series = [
+        {"period": f"d{i:03d}", "value": 0.065 + random.gauss(0, 0.004) + (0.04 if i >= 80 else 0)} for i in range(100)
+    ]
     found = detect(series)["anomalies"]
     assert found and found[0]["period"] == "d080"
     assert all(a["score"] > 0 for a in found)

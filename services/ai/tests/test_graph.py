@@ -22,28 +22,68 @@ def handler(request: httpx.Request) -> httpx.Response:
     CALLS.append((request.method, request.url.path))
     path = request.url.path.removeprefix("/api/v1")
     body = json.loads(request.content or b"{}")
-    meta = {"query_hash": "h-" + str(len(CALLS)), "sql": "SELECT …", "executed_at": "2026-10-02T00:00:00Z", "row_count": 3, "partial_from": None}
+    meta = {
+        "query_hash": "h-" + str(len(CALLS)),
+        "sql": "SELECT …",
+        "executed_at": "2026-10-02T00:00:00Z",
+        "row_count": 3,
+        "partial_from": None,
+    }
     if path == "/semantic-catalog":
         return httpx.Response(200, json={"data": CATALOG})
     if path == "/query":
         dims = body.get("dimensions", [])
         key = body["metrics"][0]
         if dims and dims[0] == "institution":
-            rows = [{"institution": "Meridian University", key: 0.717}, {"institution": "Klang Valley Institute", key: 0.778}]
+            rows = [
+                {"institution": "Meridian University", key: 0.717},
+                {"institution": "Klang Valley Institute", key: 0.778},
+            ]
         elif dims:
             rows = [{dims[0]: "China", key: 3447}, {dims[0]: "India", key: 2064}]
         else:
             rows = [{"period": f"2026-0{m}-01", key: 0.9 - m / 100} for m in range(1, 10)]
         return httpx.Response(200, json={"columns": [], "rows": rows, "meta": meta})
     if path == "/analysis/root-cause":
-        return httpx.Response(200, json={"data": {
-            "ref": body["metric"], "metric": "sla_compliance", "label": "Processing SLA", "format": "percent", "higher_is_better": True,
-            "current": {"value": 0.859, "period": {}}, "previous": {"value": 0.909, "period": {}}, "change": -0.05, "change_pct": -0.055,
-            "direction": "down", "sentiment": "negative", "method": "leave_one_out_counterfactual",
-            "drivers": [{"dimension": "institution", "dimension_label": "Institution", "member": "Meridian University", "current_value": 0.717,
-                         "previous_value": 0.93, "impact": -0.014, "impact_share": 0.28, "volume_share": 0.1, "excess_impact": -0.01}],
-            "dimensions": [], "onset": {"date": "2026-08-19", "significant": True, "series": [{"date": "2026-08-01", "value": 0.9}]},
-            "evidence": [meta]}})
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "ref": body["metric"],
+                    "metric": "sla_compliance",
+                    "label": "Processing SLA",
+                    "format": "percent",
+                    "higher_is_better": True,
+                    "current": {"value": 0.859, "period": {}},
+                    "previous": {"value": 0.909, "period": {}},
+                    "change": -0.05,
+                    "change_pct": -0.055,
+                    "direction": "down",
+                    "sentiment": "negative",
+                    "method": "leave_one_out_counterfactual",
+                    "drivers": [
+                        {
+                            "dimension": "institution",
+                            "dimension_label": "Institution",
+                            "member": "Meridian University",
+                            "current_value": 0.717,
+                            "previous_value": 0.93,
+                            "impact": -0.014,
+                            "impact_share": 0.28,
+                            "volume_share": 0.1,
+                            "excess_impact": -0.01,
+                        }
+                    ],
+                    "dimensions": [],
+                    "onset": {
+                        "date": "2026-08-19",
+                        "significant": True,
+                        "series": [{"date": "2026-08-01", "value": 0.9}],
+                    },
+                    "evidence": [meta],
+                }
+            },
+        )
     return httpx.Response(404, json={"error": {"message": "not mocked"}})
 
 
@@ -76,7 +116,11 @@ async def test_why_question_runs_every_agent_and_cites_evidence(api, monkeypatch
 @pytest.mark.asyncio
 async def test_follow_up_breakdown_uses_metric_keys(api, monkeypatch):
     monkeypatch.setattr(settings(), "anthropic_api_key", None)
-    result = await graph.run("Show me the affected institutions", graph.Deps(api=api, organisation_id="org"), {"metrics": ["decisions.sla_compliance"]})
+    result = await graph.run(
+        "Show me the affected institutions",
+        graph.Deps(api=api, organisation_id="org"),
+        {"metrics": ["decisions.sla_compliance"]},
+    )
     block = result["blocks"][0]
     assert block["type"] == "table" and block["rows"][0]["institution"] == "Meridian University"
     assert result["context"]["dimension"] == "institution"
@@ -92,14 +136,25 @@ async def test_unmatched_question_is_refused_not_guessed(api, monkeypatch):
 
 def token(**claims):
     s = settings()
-    return jwt.encode({"sub": "u", "org": "o", "typ": "access", "iss": s.jwt_issuer, "exp": 9999999999, **claims}, s.jwt_secret, algorithm="HS256")
+    return jwt.encode(
+        {"sub": "u", "org": "o", "typ": "access", "iss": s.jwt_issuer, "exp": 9999999999, **claims},
+        s.jwt_secret,
+        algorithm="HS256",
+    )
 
 
 def test_endpoints_require_authentication():
     c = TestClient(app)
     assert c.post("/v1/chat", json={"question": "hi"}).status_code == 401
-    assert c.post("/v1/chat", json={"question": "hi"}, headers={"Authorization": "Bearer " + token(typ="mfa")}).status_code == 401
+    assert (
+        c.post("/v1/chat", json={"question": "hi"}, headers={"Authorization": "Bearer " + token(typ="mfa")}).status_code
+        == 401
+    )
     assert c.post("/v1/analytics/forecast", json={"series": [], "horizon": 3}).status_code == 401
-    ok = c.post("/v1/analytics/anomalies", json={"series": [{"period": "2026-01-01", "value": 1}]}, headers={"Authorization": f"Bearer {settings().internal_token}"})
+    ok = c.post(
+        "/v1/analytics/anomalies",
+        json={"series": [{"period": "2026-01-01", "value": 1}]},
+        headers={"Authorization": f"Bearer {settings().internal_token}"},
+    )
     assert ok.status_code == 200
     assert c.get("/health").json()["status"] == "ok"

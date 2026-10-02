@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from .config import settings
+from .types import JSON, JSONList
 
 
 class ApiError(Exception):
@@ -39,54 +40,76 @@ class AixbiApi:
             raise ApiError(res.status_code, err.get("message") or f"API error {res.status_code}", err.get("code"))
         return res.json() if res.content else None
 
-    async def catalog(self) -> list[dict]:
-        return (await self._call("GET", "/semantic-catalog"))["data"]
+    async def _object(self, method: str, path: str, **kwargs: Any) -> JSON:
+        """Calls an endpoint whose `data` is a JSON object."""
+        data = (await self._call(method, path, **kwargs) or {}).get("data")
+        if not isinstance(data, dict):
+            raise ApiError(502, f"Unexpected response from {path}: expected an object.")
+        return data
 
-    async def query(self, payload: dict) -> dict:
-        return await self._call("POST", "/query", json=payload)
+    async def _list(self, method: str, path: str, **kwargs: Any) -> JSONList:
+        """Calls an endpoint whose `data` is a list of JSON objects."""
+        data = (await self._call(method, path, **kwargs) or {}).get("data")
+        if not isinstance(data, list):
+            raise ApiError(502, f"Unexpected response from {path}: expected a list.")
+        return data
 
-    async def kpis(self, metrics: list[str], range_: Any, filters: list | None = None, compare: str = "previous_period") -> list[dict]:
+    async def catalog(self) -> JSONList:
+        return await self._list("GET", "/semantic-catalog")
+
+    async def query(self, payload: JSON) -> JSON:
+        """Runs a semantic query; the response carries rows, columns and meta at the top level."""
+        result = await self._call("POST", "/query", json=payload)
+        if not isinstance(result, dict):
+            raise ApiError(502, "Unexpected response from /query.")
+        return result
+
+    async def kpis(
+        self, metrics: list[str], range_: Any, filters: list[Any] | None = None, compare: str = "previous_period"
+    ) -> JSONList:
         body = {"metrics": metrics, "range": range_, "filters": filters or [], "compare": compare}
-        return (await self._call("POST", "/kpis", json=body))["data"]
+        return await self._list("POST", "/kpis", json=body)
 
-    async def root_cause(self, metric: str, range_: Any, filters: list | None = None, dimensions: list | None = None) -> dict:
-        body: dict = {"metric": metric, "range": range_, "filters": filters or []}
+    async def root_cause(
+        self, metric: str, range_: Any, filters: list[Any] | None = None, dimensions: list[Any] | None = None
+    ) -> JSON:
+        body: JSON = {"metric": metric, "range": range_, "filters": filters or []}
         if dimensions:
             body["dimensions"] = dimensions
-        return (await self._call("POST", "/analysis/root-cause", json=body))["data"]
+        return await self._object("POST", "/analysis/root-cause", json=body)
 
-    async def forecast(self, metric: str, horizon: str) -> dict:
-        return (await self._call("POST", "/analysis/forecast", json={"metric": metric, "horizon": horizon}))["data"]
+    async def forecast(self, metric: str, horizon: str) -> JSON:
+        return await self._object("POST", "/analysis/forecast", json={"metric": metric, "horizon": horizon})
 
-    async def scenario(self, assumptions: dict) -> dict:
-        return (await self._call("POST", "/analysis/scenario", json=assumptions))["data"]
+    async def scenario(self, assumptions: JSON) -> JSON:
+        return await self._object("POST", "/analysis/scenario", json=assumptions)
 
-    async def anomalies(self) -> list[dict]:
-        return (await self._call("GET", "/anomalies", params={"status": "open"}))["data"]
+    async def anomalies(self) -> JSONList:
+        return await self._list("GET", "/anomalies", params={"status": "open"})
 
-    async def generate_report(self, body: dict) -> dict:
-        return (await self._call("POST", "/reports/generate", json=body))["data"]
+    async def generate_report(self, body: JSON) -> JSON:
+        return await self._object("POST", "/reports/generate", json=body)
 
-    async def add_report_section(self, report_id: str, body: dict) -> dict:
-        return (await self._call("POST", f"/reports/{report_id}/sections", json=body))["data"]
+    async def add_report_section(self, report_id: str, body: JSON) -> JSON:
+        return await self._object("POST", f"/reports/{report_id}/sections", json=body)
 
     async def delete_report_section(self, report_id: str, section_id: str) -> None:
         await self._call("DELETE", f"/reports/{report_id}/sections/{section_id}")
 
-    async def update_report(self, report_id: str, body: dict) -> dict:
-        return (await self._call("PATCH", f"/reports/{report_id}", json=body))["data"]
+    async def update_report(self, report_id: str, body: JSON) -> JSON:
+        return await self._object("PATCH", f"/reports/{report_id}", json=body)
 
-    async def report(self, report_id: str) -> dict:
-        return (await self._call("GET", f"/reports/{report_id}"))["data"]
+    async def report(self, report_id: str) -> JSON:
+        return await self._object("GET", f"/reports/{report_id}")
 
-    async def create_alert(self, body: dict) -> dict:
-        return (await self._call("POST", "/alert-rules", json=body))["data"]
+    async def create_alert(self, body: JSON) -> JSON:
+        return await self._object("POST", "/alert-rules", json=body)
 
-    async def create_dashboard(self, body: dict) -> dict:
-        return (await self._call("POST", "/dashboards", json=body))["data"]
+    async def create_dashboard(self, body: JSON) -> JSON:
+        return await self._object("POST", "/dashboards", json=body)
 
-    async def conversation(self, conversation_id: str) -> dict:
-        return (await self._call("GET", f"/ai/conversations/{conversation_id}"))["data"]
+    async def conversation(self, conversation_id: str) -> JSON:
+        return await self._object("GET", f"/ai/conversations/{conversation_id}")
 
-    async def record_run(self, body: dict) -> dict:
-        return (await self._call("POST", "/ai/runs", json=body))["data"]
+    async def record_run(self, body: JSON) -> JSON:
+        return await self._object("POST", "/ai/runs", json=body)

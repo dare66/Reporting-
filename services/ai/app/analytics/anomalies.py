@@ -10,11 +10,13 @@ from datetime import date
 
 import numpy as np
 
+from ..types import JSON, JSONList
+
 SEASON = {"day": 7, "week": 1, "month": 1}
 MIN_RESIDUALS = 21
 
 
-def detect(series: list[dict], grain: str = "day", threshold: float = 3.0, cycles: int = 8) -> dict:
+def detect(series: JSONList, grain: str = "day", threshold: float = 3.0, cycles: int = 8) -> JSON:
     s = SEASON.get(grain, 1)
     pts = [(str(p["period"])[:10], p["value"]) for p in series]
     values = np.array([np.nan if v is None else float(v) for _, v in pts])
@@ -40,17 +42,24 @@ def detect(series: list[dict], grain: str = "day", threshold: float = 3.0, cycle
             continue
         score = residual / scale
         if abs(score) >= threshold:
-            results.append({
-                "period": pts[i][0],
-                "actual": round(float(values[i]), 6),
-                "expected": round(expected, 6),
-                "lower": round(expected - threshold * scale, 6),
-                "upper": round(expected + threshold * scale, 6),
-                "score": round(score, 3),
-            })
+            results.append(
+                {
+                    "period": pts[i][0],
+                    "actual": round(float(values[i]), 6),
+                    "expected": round(expected, 6),
+                    "lower": round(expected - threshold * scale, 6),
+                    "upper": round(expected + threshold * scale, 6),
+                    "score": round(score, 3),
+                }
+            )
 
-    return {"method": f"seasonal_median_mad_s{s}_w{window}", "threshold": threshold, "anomalies": results, "evaluated": n}
+    return {
+        "method": f"seasonal_median_mad_s{s}_w{window}",
+        "threshold": threshold,
+        "anomalies": results,
+        "evaluated": n,
+    }
 
 
-def detect_dates(series: list[dict]) -> list[date]:
+def detect_dates(series: JSONList) -> list[date]:
     return [date.fromisoformat(a["period"]) for a in detect(series)["anomalies"]]

@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,10 +20,15 @@ from .analytics import forecast as forecast_engine
 from .api_client import AixbiApi, ApiError
 from .auth import Principal, current_user, internal_caller
 from .config import settings
+from .types import JSON
+
+CurrentUser = Annotated[Principal, Depends(current_user)]
 
 log = logging.getLogger("aixbi.ai")
 app = FastAPI(title="AIXBI AI Service", version="1.0.0", docs_url="/ai/docs", openapi_url="/ai/openapi.json")
-app.add_middleware(CORSMiddleware, allow_origins=settings().cors_origins.split(","), allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=settings().cors_origins.split(","), allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class SeriesPoint(BaseModel):
@@ -48,26 +54,31 @@ class ChatRequest(BaseModel):
 
 
 @app.get("/health")
-async def health() -> dict:
+async def health() -> JSON:
     s = settings()
-    return {"status": "ok", "planner": f"llm ({s.model}) with deterministic fallback" if s.llm_available else "deterministic semantic planner",
-            "langfuse": observability.enabled()}
+    return {
+        "status": "ok",
+        "planner": f"llm ({s.model}) with deterministic fallback"
+        if s.llm_available
+        else "deterministic semantic planner",
+        "langfuse": observability.enabled(),
+    }
 
 
 @app.post("/v1/analytics/forecast", dependencies=[Depends(internal_caller)])
-async def forecast(req: ForecastRequest) -> dict:
+async def forecast(req: ForecastRequest) -> JSON:
     try:
         return forecast_engine.forecast([p.model_dump() for p in req.series], req.grain, req.horizon)
     except ValueError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
 
 
 @app.post("/v1/analytics/anomalies", dependencies=[Depends(internal_caller)])
-async def anomalies(req: AnomalyRequest) -> dict:
+async def anomalies(req: AnomalyRequest) -> JSON:
     return anomaly_engine.detect([p.model_dump() for p in req.series], req.grain, req.threshold)
 
 
-async def _context(api: AixbiApi, conversation_id: str | None) -> dict:
+async def _context(api: AixbiApi, conversation_id: str | None) -> JSON:
     if not conversation_id:
         return {}
     try:
@@ -76,15 +87,33 @@ async def _context(api: AixbiApi, conversation_id: str | None) -> dict:
         return {}
 
 
-async def _persist(api: AixbiApi, req: ChatRequest, result: dict, error: str | None = None) -> dict:
+async def _persist(api: AixbiApi, req: ChatRequest, result: JSON, error: str | None = None) -> JSON:
     body = {
-        "conversation_id": req.conversation_id, "question": req.question, "answer": result.get("answer") or error or "",
-        "blocks": result.get("blocks", []) + [{"type": "meta", "suggestions": result.get("suggestions", []), "evidence": result.get("evidence", []),
-                                               "trace": result.get("trace", []), "planner": result.get("planner"), "narrator": result.get("narrator")}],
-        "intent": result.get("intent"), "status": "failed" if error else result.get("status", "succeeded"), "planner": result.get("planner"),
-        "model": result.get("model"), "trace": result.get("trace", []), "evidence": result.get("evidence", []),
-        "tokens_in": result.get("usage", {}).get("tokens_in", 0), "tokens_out": result.get("usage", {}).get("tokens_out", 0),
-        "cost_usd": result.get("usage", {}).get("cost_usd", 0), "latency_ms": result.get("latency_ms"), "error": error,
+        "conversation_id": req.conversation_id,
+        "question": req.question,
+        "answer": result.get("answer") or error or "",
+        "blocks": [
+            *result.get("blocks", []),
+            {
+                "type": "meta",
+                "suggestions": result.get("suggestions", []),
+                "evidence": result.get("evidence", []),
+                "trace": result.get("trace", []),
+                "planner": result.get("planner"),
+                "narrator": result.get("narrator"),
+            },
+        ],
+        "intent": result.get("intent"),
+        "status": "failed" if error else result.get("status", "succeeded"),
+        "planner": result.get("planner"),
+        "model": result.get("model"),
+        "trace": result.get("trace", []),
+        "evidence": result.get("evidence", []),
+        "tokens_in": result.get("usage", {}).get("tokens_in", 0),
+        "tokens_out": result.get("usage", {}).get("tokens_out", 0),
+        "cost_usd": result.get("usage", {}).get("cost_usd", 0),
+        "latency_ms": result.get("latency_ms"),
+        "error": error,
         "context": result.get("context", {}),
     }
     try:
@@ -95,7 +124,7 @@ async def _persist(api: AixbiApi, req: ChatRequest, result: dict, error: str | N
 
 
 @app.post("/v1/chat")
-async def chat(req: ChatRequest, user: Principal = Depends(current_user)) -> dict:
+async def chat(req: ChatRequest, user: CurrentUser) -> JSON:
     api = AixbiApi(user.token)
     try:
         context = await _context(api, req.conversation_id)
@@ -103,13 +132,13 @@ async def chat(req: ChatRequest, user: Principal = Depends(current_user)) -> dic
         saved = await _persist(api, req, result)
         return {**result, **saved}
     except ApiError as e:
-        raise HTTPException(e.status if e.status < 500 else 502, detail=e.message)
+        raise HTTPException(e.status if e.status < 500 else 502, detail=e.message) from e
     finally:
         await api.close()
 
 
 @app.post("/v1/chat/stream")
-async def chat_stream(req: ChatRequest, user: Principal = Depends(current_user)) -> StreamingResponse:
+async def chat_stream(req: ChatRequest, user: CurrentUser) -> StreamingResponse:
     """Server-sent events: step → plan → block* → answer → done. Starts streaming immediately."""
     queue: asyncio.Queue[tuple[str, Any] | None] = asyncio.Queue()
 
@@ -119,14 +148,19 @@ async def chat_stream(req: ChatRequest, user: Principal = Depends(current_user))
     async def worker() -> None:
         api = AixbiApi(user.token)
         try:
-            await emit("step", {"agent": "start", "label": "Understanding your question", "status": "running", "detail": "", "ms": 0})
+            await emit(
+                "step",
+                {"agent": "start", "label": "Understanding your question", "status": "running", "detail": "", "ms": 0},
+            )
             context = await _context(api, req.conversation_id)
-            result = await graph.run(req.question, graph.Deps(api=api, organisation_id=user.organisation_id, emit=emit), context)
+            result = await graph.run(
+                req.question, graph.Deps(api=api, organisation_id=user.organisation_id, emit=emit), context
+            )
             saved = await _persist(api, req, result)
             await emit("done", {**result, **saved})
         except ApiError as e:
             await emit("error", {"message": e.message, "status": e.status})
-        except Exception as e:  # noqa: BLE001 - surface a clear error to the client, keep details in logs
+        except Exception as e:
             log.exception("chat failed")
             await emit("error", {"message": "The analysis could not be completed.", "detail": type(e).__name__})
         finally:
@@ -142,4 +176,6 @@ async def chat_stream(req: ChatRequest, user: Principal = Depends(current_user))
         finally:
             task.cancel()
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(
+        events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )

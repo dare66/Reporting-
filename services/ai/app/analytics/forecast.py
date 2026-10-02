@@ -7,9 +7,12 @@ from __future__ import annotations
 import math
 import warnings
 from datetime import date, timedelta
+from typing import Any
 
 import numpy as np
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+from ..types import JSON, JSONList
 
 SEASON = {"day": 7, "week": 52, "month": 12, "quarter": 4}
 Z80 = 1.2816
@@ -25,12 +28,20 @@ def _next_period(d: date, grain: str, k: int) -> date:
     return date(d.year + m // 12, m % 12 + 1, 1)
 
 
-def _fit(y: np.ndarray, grain: str):
+def _fit(y: np.ndarray, grain: str) -> tuple[Any, str]:
+    """Fits exponential smoothing; returns the statsmodels results object (untyped) and the method name."""
     season = SEASON.get(grain)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         if season and len(y) >= 2 * season:
-            model = ExponentialSmoothing(y, trend="add", damped_trend=True, seasonal="add", seasonal_periods=season, initialization_method="estimated")
+            model = ExponentialSmoothing(
+                y,
+                trend="add",
+                damped_trend=True,
+                seasonal="add",
+                seasonal_periods=season,
+                initialization_method="estimated",
+            )
             method = "holt_winters_additive"
         else:
             model = ExponentialSmoothing(y, trend="add", damped_trend=True, initialization_method="estimated")
@@ -38,7 +49,7 @@ def _fit(y: np.ndarray, grain: str):
         return model.fit(optimized=True), method
 
 
-def forecast(series: list[dict], grain: str, horizon: int) -> dict:
+def forecast(series: JSONList, grain: str, horizon: int) -> JSON:
     points = [(date.fromisoformat(str(p["period"])[:10]), p["value"]) for p in series if p.get("value") is not None]
     if len(points) < 6:
         raise ValueError("At least 6 historical periods are needed to forecast.")
@@ -74,12 +85,14 @@ def forecast(series: list[dict], grain: str, horizon: int) -> dict:
     out = []
     for h, v in enumerate(pred, start=1):
         width = Z80 * sigma * math.sqrt(h)
-        out.append({
-            "period": _next_period(dates[-1], grain, h).isoformat(),
-            "value": round(clip(float(v)), 6),
-            "lower": round(clip(float(v) - width), 6),
-            "upper": round(clip(float(v) + width), 6),
-        })
+        out.append(
+            {
+                "period": _next_period(dates[-1], grain, h).isoformat(),
+                "value": round(clip(float(v)), 6),
+                "lower": round(clip(float(v) - width), 6),
+                "upper": round(clip(float(v) + width), 6),
+            }
+        )
 
     return {
         "method": method,
