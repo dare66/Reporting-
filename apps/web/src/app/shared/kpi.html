@@ -1,0 +1,22 @@
+@let c = card();
+<a
+  class="kpi"
+  [routerLink]="link() ? '/investigate' : null"
+  [queryParams]="link() ? { metric: c.ref } : null"
+  [class.hero]="hero()"
+>
+  <div class="label">{{ c.label }}</div>
+  <div class="value" [class.big]="hero()">{{ value() }}</div>
+  <div class="meta">
+    <span class="delta" [class]="c.sentiment">{{ arrowFor() }} {{ change() }}</span>
+    <span class="muted">vs prev.</span>
+    @if (c.target_status) {
+      <span class="badge" [class.good]="c.target_status === 'met'" [class.warning]="c.target_status === 'missed'">
+        {{ c.target_status === 'met' ? '✓ target' : '! below ' + target() }}
+      </span>
+    }
+  </div>
+  @if (c.sparkline.length > 1) {
+    <app-spark [points]="c.sparkline" [color]="sparkColor()" [height]="hero() ? 56 : 34" [label]="c.label + ' trend'" />
+  }
+</a>

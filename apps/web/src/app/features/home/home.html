@@ -4,99 +4,198 @@
       <div class="eyebrow signal">{{ today }}</div>
       <h1>{{ data()?.greeting ?? 'Welcome' }}, {{ auth.user()?.first_name }}</h1>
       <p class="fresh muted">
-        @if (stale()) { <span class="badge warning">Showing cached data from {{ ago(stale()) }}</span> }
-        @else if (data()) { Live · data as of {{ fmtDate(data().freshness.data_as_of, 'long') }} · synced {{ ago(data().freshness.last_sync_at) }} }
+        @if (stale()) {
+          <span class="badge warning">Showing cached data from {{ ago(stale()) }}</span>
+        } @else if (data(); as d) {
+          Live · data as of {{ fmtDate(d.freshness.data_as_of, 'long') }} · synced
+          {{ ago(d.freshness.last_sync_at) }}
+        }
       </p>
     </div>
     <div class="seg" role="tablist" aria-label="Period">
-      @for (r of ranges; track r.key) { <button [class.on]="range() === r.key" (click)="setRange(r.key)">{{ r.label }}</button> }
+      @for (r of ranges; track r.key) {
+        <button [class.on]="range() === r.key" (click)="setRange(r.key)">{{ r.label }}</button>
+      }
     </div>
   </header>
 
-  @if (error() && !data()) {
-    <app-error [message]="error()!" (retry)="load()"/>
+  @if (!data() && error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
   } @else if (!data()) {
-    <app-working title="Preparing your briefing" [steps]="['Reading governed KPIs', 'Ranking what changed', 'Writing your summary']"/>
-  } @else {
+    <app-working
+      title="Preparing your briefing"
+      [steps]="['Reading governed KPIs', 'Ranking what changed', 'Writing your summary']"
+    />
+  } @else if (data(); as d) {
     <section class="brief stagger">
       <div class="attention panel">
         <div class="att-head">
           <div class="big">{{ issues().length }}</div>
-          <div><div class="t">{{ issues().length === 1 ? 'thing needs' : 'things need' }} your attention</div>
-            <div class="muted">ranked by severity · {{ wins().length }} going well</div></div>
+          <div>
+            <div class="t">{{ issues().length === 1 ? 'thing needs' : 'things need' }} your attention</div>
+            <div class="muted">ranked by severity · {{ wins().length }} going well</div>
+          </div>
         </div>
         <ul>
-          @for (a of data().attention.slice(0, 6); track $index) {
+          @for (a of d.attention.slice(0, 6); track $index) {
             <li [class]="a.severity">
               <span class="glyph">{{ a.severity === 'positive' ? '✓' : '!' }}</span>
-              <span class="txt"><b>{{ a.title }}</b><small>{{ a.detail }}</small></span>
-              <a class="btn sm" [class.signal]="a.severity !== 'positive'" [href]="a.action.link" (click)="$event.preventDefault(); router_go(a.action.link)">{{ a.action.label }}</a>
+              <span class="txt"
+                ><b>{{ a.title }}</b
+                ><small>{{ a.detail }}</small></span
+              >
+              <a
+                class="btn sm"
+                [class.signal]="a.severity !== 'positive'"
+                [href]="a.action.link"
+                (click)="$event.preventDefault(); openLink(a.action.link)"
+                >{{ a.action.label }}</a
+              >
             </li>
           }
         </ul>
       </div>
       <div class="summary">
-        <div class="eyebrow ai"><app-icon name="ai" [size]="14"/> AI summary</div>
-        <p class="lead">{{ data().summary }}</p>
-        @if (data().insights[0]; as top) {
+        <div class="eyebrow ai"><app-icon name="ai" [size]="14" /> AI summary</div>
+        <p class="lead">{{ d.summary }}</p>
+        @if (d.insights[0]; as top) {
           <div class="top-insight">
             <div class="eyebrow">Top insight</div>
             <p>{{ top.title }}</p>
-            <div class="row"><button class="btn sm ai" (click)="investigate(top)">Investigate <app-icon name="arrowRight" [size]="14"/></button>
-              <button class="btn sm ghost" (click)="openEvidence(top)"><app-icon name="evidence" [size]="14"/> View evidence</button></div>
+            <div class="row">
+              <button class="btn sm ai" (click)="investigate(top)">
+                Investigate <app-icon name="arrowRight" [size]="14" />
+              </button>
+              <button class="btn sm ghost" (click)="openEvidence(top)">
+                <app-icon name="evidence" [size]="14" /> View evidence
+              </button>
+            </div>
           </div>
         }
         @if (auth.can('ai.use')) {
-          <a routerLink="/ai" [queryParams]="{ q: 'Show me this month\'s performance' }" class="ask-row">Ask a follow-up <app-icon name="arrowRight" [size]="14"/></a>
+          <a routerLink="/ai" [queryParams]="{ q: 'Show me this month\'s performance' }" class="ask-row"
+            >Ask a follow-up <app-icon name="arrowRight" [size]="14"
+          /></a>
         }
       </div>
     </section>
 
-    @if (data().pulse_error) { <app-error [message]="data().pulse_error" (retry)="load()"/> }
+    @if (d.pulse_error) {
+      <app-error [message]="d.pulse_error" (retry)="load()" />
+    }
     <section class="pulse panel" aria-label="Business health">
-      @for (c of data().pulse; track c.ref; let i = $index) { <app-kpi [card]="c" [hero]="i === 0"/> }
+      @for (c of d.pulse; track c.ref; let i = $index) {
+        <app-kpi [card]="c" [hero]="i === 0" />
+      }
     </section>
 
     <section class="grid">
       <div class="panel insights">
-        <div class="panel-head"><div><div class="eyebrow ai">AI insights</div><h2>What changed and why</h2></div><a routerLink="/insights" class="btn sm ghost">All insights</a></div>
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow ai">AI insights</div>
+            <h2>What changed and why</h2>
+          </div>
+          <a routerLink="/insights" class="btn sm ghost">All insights</a>
+        </div>
         <ol class="ins-list">
-          @for (i of data().insights; track i.id; let n = $index) {
+          @for (i of d.insights; track i.id; let n = $index) {
             <li>
               <span class="n">{{ n + 1 }}</span>
-              <div class="body"><b>{{ i.title }}</b><p class="secondary">{{ i.body }}</p>
-                <div class="row"><button class="btn sm ghost" (click)="openEvidence(i)"><app-icon name="evidence" [size]="14"/> View evidence</button>
-                  @if (i.metric_key) { <button class="btn sm ghost" (click)="investigate(i)">Investigate</button> }</div></div>
+              <div class="body">
+                <b>{{ i.title }}</b>
+                <p class="secondary">{{ i.body }}</p>
+                <div class="row">
+                  <button class="btn sm ghost" (click)="openEvidence(i)">
+                    <app-icon name="evidence" [size]="14" /> View evidence
+                  </button>
+                  @if (i.metric_key) {
+                    <button class="btn sm ghost" (click)="investigate(i)">Investigate</button>
+                  }
+                </div>
+              </div>
               <span class="badge" [class]="i.severity">{{ i.kind }}</span>
             </li>
-          } @empty { <p class="muted" style="padding:20px">No material changes detected for this period.</p> }
+          } @empty {
+            <p class="muted" style="padding: 20px">No material changes detected for this period.</p>
+          }
         </ol>
       </div>
       <div class="panel world">
-        <div class="panel-head"><div><div class="eyebrow">Source markets · last 12 months</div><h2>Where applications come from</h2></div>
-          <div class="seg"><button [class.on]="view3d()" (click)="view3d.set(true)">3D</button><button [class.on]="!view3d()" (click)="view3d.set(false)">2D</button></div></div>
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Source markets · last 12 months</div>
+            <h2>Where applications come from</h2>
+          </div>
+          <div class="seg">
+            <button [class.on]="view3d()" (click)="view3d.set(true)">3D</button
+            ><button [class.on]="!view3d()" (click)="view3d.set(false)">2D</button>
+          </div>
+        </div>
         @if (markets().length) {
-          @if (view3d()) { <app-globe [data]="markets()" [height]="360" legend="Column height = applications · tap to drill" (pick)="drill($event)"/> }
-          @else { <div style="padding:8px 16px 16px"><app-chart [spec]="marketSpec()" [height]="340" (select)="drill($event.category)"/></div> }
-        } @else { <p class="muted" style="padding:20px">Market view requires query access.</p> }
+          @if (view3d()) {
+            <app-globe
+              [data]="markets()"
+              [height]="360"
+              legend="Column height = applications · tap to drill"
+              (pick)="drill($event)"
+            />
+          } @else {
+            <div style="padding: 8px 16px 16px">
+              <app-chart [spec]="marketSpec()" [height]="340" (categorySelect)="drill($event.category)" />
+            </div>
+          }
+        } @else {
+          <p class="muted" style="padding: 20px">Market view requires query access.</p>
+        }
       </div>
     </section>
 
     <section class="grid two">
       <div class="panel">
-        <div class="panel-head"><h3>Recent reports</h3><a routerLink="/reports" class="btn sm ghost">Reports</a></div>
+        <div class="panel-head">
+          <h3>Recent reports</h3>
+          <a routerLink="/reports" class="btn sm ghost">Reports</a>
+        </div>
         <ul class="plain">
-          @for (r of data().recent_reports; track r.id) { <li><a [routerLink]="['/reports', r.id]"><app-icon name="report" [size]="16"/><span>{{ r.title }}</span><span class="badge">{{ r.status }}</span><small class="muted">{{ ago(r.updated_at) }}</small></a></li> }
-          @empty { <li class="muted" style="padding:12px 20px">No reports yet — ask the AI to create one.</li> }
+          @for (r of d.recent_reports; track r.id) {
+            <li>
+              <a [routerLink]="['/reports', r.id]"
+                ><app-icon name="report" [size]="16" /><span>{{ r.title }}</span
+                ><span class="badge">{{ r.status }}</span
+                ><small class="muted">{{ ago(r.updated_at) }}</small></a
+              >
+            </li>
+          } @empty {
+            <li class="muted" style="padding: 12px 20px">No reports yet — ask the AI to create one.</li>
+          }
         </ul>
       </div>
       <div class="panel">
-        <div class="panel-head"><h3>Favourite dashboards</h3><a routerLink="/dashboards" class="btn sm ghost">Dashboards</a></div>
+        <div class="panel-head">
+          <h3>Favourite dashboards</h3>
+          <a routerLink="/dashboards" class="btn sm ghost">Dashboards</a>
+        </div>
         <ul class="plain">
-          @for (d of data().favourite_dashboards; track d.id) { <li><a [routerLink]="['/dashboards', d.id]"><app-icon name="dashboard" [size]="16"/><span>{{ d.title }}</span><small class="muted">{{ d.description }}</small></a></li> }
+          @for (d of d.favourite_dashboards; track d.id) {
+            <li>
+              <a [routerLink]="['/dashboards', d.id]"
+                ><app-icon name="dashboard" [size]="16" /><span>{{ d.title }}</span
+                ><small class="muted">{{ d.description }}</small></a
+              >
+            </li>
+          }
         </ul>
       </div>
     </section>
   }
 </div>
-@if (evidence(); as e) { <app-evidence [title]="e.title" [body]="e.body" [calculation]="e.calculation" [items]="e.items" (close)="evidence.set(null)"/> }
+@if (evidence(); as e) {
+  <app-evidence
+    [title]="e.title"
+    [body]="e.body"
+    [calculation]="e.calculation"
+    [items]="e.items"
+    (dismiss)="evidence.set(null)"
+  />
+}

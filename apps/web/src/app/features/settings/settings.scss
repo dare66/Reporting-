@@ -1,0 +1,35 @@
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.pad {
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.small {
+  font-size: 12px;
+}
+.neg {
+  color: var(--neg);
+}
+.key {
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--bg-3);
+  word-break: break-all;
+}
+.sess {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 960px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}

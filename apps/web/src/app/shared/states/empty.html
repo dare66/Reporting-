@@ -1,0 +1,26 @@
+<div class="empty">
+  <div class="art">
+    <svg viewBox="0 0 120 80" width="120" height="80" aria-hidden="true">
+      <g fill="none" stroke="currentColor" stroke-width="1.2" opacity=".5">
+        <path d="M8 70h104" />
+        <path d="M8 50h104" opacity=".4" />
+        <path d="M8 30h104" opacity=".25" />
+      </g>
+      <path
+        d="M10 62 32 48l18 8 22-24 18 10 20-18"
+        fill="none"
+        stroke="var(--accent)"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-dasharray="4 5"
+      />
+      <circle cx="110" cy="24" r="4" fill="var(--accent)" />
+    </svg>
+  </div>
+  <div class="eyebrow signal">{{ eyebrow() }}</div>
+  <h2>{{ title() }}</h2>
+  <p class="secondary">{{ body() }}</p>
+  @if (action()) {
+    <button class="btn signal" (click)="act.emit()">{{ action() }} <app-icon name="arrowRight" [size]="16" /></button>
+  }
+</div>

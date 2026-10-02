@@ -1,0 +1,69 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Dashboards</div>
+      <h1>Living views of the business</h1>
+      <p class="lede">
+        Every dashboard reflows for desktop, tablet and phone. Ask the AI to build one, or start from a blank canvas.
+      </p>
+    </div>
+    <div class="row">
+      @if (auth.can('ai.use')) {
+        <a
+          class="btn ai"
+          routerLink="/ai"
+          [queryParams]="{ q: 'Create a dashboard for university student application performance' }"
+          ><app-icon name="ai" [size]="16" /> Generate with AI</a
+        >
+      }
+      @if (auth.can('dashboards.manage')) {
+        <button class="btn signal" (click)="create()"><app-icon name="plus" [size]="16" /> New dashboard</button>
+      }
+    </div>
+  </header>
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  }
+  <div class="grid">
+    @for (d of items(); track d.id) {
+      <a class="card panel rise" [routerLink]="['/dashboards', d.id]">
+        <div class="thumb" aria-hidden="true">
+          <i class="k"></i><i class="k"></i><i class="k"></i><i class="c"></i><i class="s"></i>
+        </div>
+        <div class="row">
+          <b>{{ d.title }}</b
+          ><span class="spacer"></span>
+          <button
+            class="btn icon sm ghost fav"
+            [class.on]="d.is_favourite"
+            (click)="$event.preventDefault(); $event.stopPropagation(); fav(d)"
+            [attr.aria-label]="d.is_favourite ? 'Remove favourite' : 'Add favourite'"
+          >
+            <app-icon name="star" [size]="15" />
+          </button>
+        </div>
+        <p class="muted">{{ d.description }}</p>
+        <div class="row small muted">
+          <span>{{ d.widgets_count }} widgets</span>·<span>{{ d.owner }}</span
+          >·<span>{{ ago(d.updated_at) }}</span>
+          @if (d.is_home) {
+            <span class="badge">Home</span>
+          }
+          @if (d.visibility === 'private') {
+            <span class="badge">Private</span>
+          }
+        </div>
+      </a>
+    } @empty {
+      @if (loaded()) {
+        <app-empty
+          eyebrow="Dashboards"
+          title="Build your first intelligence view"
+          body="Ask the AI analyst to generate a dashboard from a sentence, or start blank."
+          [action]="auth.can('dashboards.manage') ? 'New dashboard' : null"
+          (act)="create()"
+        />
+      }
+    }
+  </div>
+</div>

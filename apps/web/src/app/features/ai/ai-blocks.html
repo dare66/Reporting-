@@ -1,0 +1,211 @@
+@let b = block();
+@switch (b.type) {
+  @case ('kpis') {
+    <div class="kpis">
+      @for (c of b.cards; track c.ref) {
+        <app-kpi [card]="c" />
+      }
+    </div>
+  }
+  @case ('chart') {
+    <div class="card">
+      <div class="head">
+        <b>{{ b.title }}</b>
+        @if (b.viz.reason) {
+          <span class="why" [title]="b.viz.reason">why this chart?</span>
+        }
+      </div>
+      @if (b.viz.type === 'map') {
+        <div class="seg mini">
+          <button [class.on]="globe()" (click)="globe.set(true)">3D globe</button
+          ><button [class.on]="!globe()" (click)="globe.set(false)">2D map</button>
+        </div>
+        @if (globe()) {
+          <app-globe
+            [data]="globeData(b)"
+            [height]="300"
+            [format]="b.series[0].format"
+            (pick)="ask.emit('Show ' + b.series[0].label + ' for ' + $event + ' by institution')"
+          />
+        } @else {
+          <app-chart [spec]="spec(b)" [height]="300" />
+        }
+      } @else {
+        <app-chart
+          [spec]="spec(b)"
+          [height]="b.rows ? Math.max(180, Math.min(420, b.rows.length * 30 + 40)) : 260"
+          (categorySelect)="drill(b, $event.category)"
+        />
+      }
+    </div>
+  }
+  @case ('table') {
+    <div class="card">
+      <div class="head">
+        <b>{{ b.title }}</b>
+      </div>
+      <div class="scroll-x">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>{{ b.dimension.label }}</th>
+              @for (s of b.series; track s.key) {
+                <th class="r">{{ s.label }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of b.rows; track $index) {
+              <tr>
+                <td>{{ r[b.dimension.key] }}</td>
+                @for (s of b.series; track s.key) {
+                  <td class="r">{{ cell(r[s.key], s.format) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+  @case ('drivers') {
+    <div class="card">
+      <app-drivers [data]="b" (explore)="ask.emit('Show ' + b.label + ' for ' + $event.member + ' over time')" />
+    </div>
+  }
+  @case ('forecast') {
+    <div class="card">
+      <div class="head">
+        <b>{{ b.title }}</b
+        ><span class="badge ai">{{ b.method.replaceAll('_', ' ') }}</span>
+        @if (b.diagnostics.backtest_mape; as mape) {
+          <span class="muted small">backtest error {{ (mape * 100).toFixed(1) }}%</span>
+        }
+      </div>
+      <app-chart [spec]="forecastSpec(b)" [height]="280" />
+    </div>
+  }
+  @case ('scenario') {
+    <div class="card scenario">
+      <div class="head">
+        <b>What-if simulation</b>
+        <span class="muted small"
+          >demand {{ sign(b.assumptions.demand_change_pct) }}% · officers {{ sign(b.assumptions.officer_change_pct) }}%
+          · productivity {{ sign(b.assumptions.productivity_change_pct) }}%</span
+        >
+      </div>
+      <div class="cmp">
+        @for (row of scenarioRows(b); track row.label) {
+          <div class="cmp-row">
+            <span>{{ row.label }}</span
+            ><span class="muted">{{ row.base }}</span
+            ><span class="arrow">→</span><b [class.neg]="row.bad">{{ row.proj }}</b>
+          </div>
+        }
+      </div>
+      @if (b.projected.additional_officers_needed) {
+        <p class="call">
+          <app-icon name="user" [size]="15" /> About <b>{{ b.projected.additional_officers_needed }}</b> more officers
+          to restore {{ f(b.sla_target, 'percent') }} SLA.
+        </p>
+      }
+      <p class="muted small">
+        SLA sensitivity fitted by OLS on {{ b.model.observations }} weeks (R² {{ b.model.r_squared?.toFixed(2) }}).
+        <a routerLink="/forecast" class="link">Adjust assumptions →</a>
+      </p>
+    </div>
+  }
+  @case ('report') {
+    <div class="card artifact">
+      <div class="doc"><app-icon name="report" [size]="22" /></div>
+      <div class="grow">
+        <div class="eyebrow">Report · v{{ b.version }} · {{ b.status }}</div>
+        <b class="t">{{ b.title }}</b>
+        <div class="muted small">{{ b.note }}</div>
+        <div class="chips">
+          @for (s of b.sections; track s.id) {
+            <span class="chip" [class.err]="s.error">{{ s.title }}</span>
+          }
+        </div>
+        <div class="row wrap" style="margin-top: 10px">
+          <a class="btn sm primary" [routerLink]="['/reports', b.report_id]">Open report</a>
+          @for (fmtKey of exportFormats; track fmtKey) {
+            <button
+              class="btn sm"
+              (click)="exportReport(b.report_id, b.title, fmtKey)"
+              [disabled]="exporting() === fmtKey"
+            >
+              <app-icon name="download" [size]="14" />{{
+                exporting() === fmtKey ? 'Generating…' : fmtKey === 'pptx' ? 'PPT' : fmtKey.toUpperCase()
+              }}
+            </button>
+          }
+        </div>
+        @if (exportError()) {
+          <p class="neg small">{{ exportError() }}</p>
+        }
+      </div>
+    </div>
+  }
+  @case ('alert') {
+    <div class="card artifact">
+      <div class="doc alert"><app-icon name="alert" [size]="22" /></div>
+      <div class="grow kv">
+        <span>Metric</span><b>{{ b.rule.metric }}</b
+        ><span>Condition</span><b>{{ b.rule.condition }}</b
+        ><span>Window</span><b>{{ b.rule.window }}</b> <span>Frequency</span><b>{{ b.rule.frequency }}</b
+        ><span>Channels</span><b>{{ b.rule.channels.join(' + ') }}</b>
+      </div>
+      <a class="btn sm" routerLink="/alerts">Manage</a>
+    </div>
+  }
+  @case ('dashboard') {
+    <div class="card artifact">
+      <div class="doc"><app-icon name="dashboard" [size]="22" /></div>
+      <div class="grow">
+        <b class="t">{{ b.title }}</b>
+        <div class="chips">
+          @for (w of b.widgets; track $index) {
+            <span class="chip">{{ w.title }}</span>
+          }
+        </div>
+      </div>
+      <a class="btn sm primary" [routerLink]="['/dashboards', b.dashboard_id]">Open</a>
+    </div>
+  }
+  @case ('anomalies') {
+    <div class="card">
+      <div class="head">
+        <b>{{ b.title }}</b>
+      </div>
+      @for (a of b.items; track a.id) {
+        <div class="anom">
+          <span class="badge" [class.critical]="a.severity !== 'medium'" [class.warning]="a.severity === 'medium'"
+            >! {{ a.severity }}</span
+          >
+          <span class="grow"
+            ><b>{{ a.evidence.label }}</b> <span class="muted">{{ fmtDate(a.period) }}</span
+            ><br />
+            <small class="muted"
+              >expected {{ f(a.expected, a.evidence.format) }} · actual <b>{{ f(a.actual, a.evidence.format) }}</b> ·
+              {{ Math.abs(a.score).toFixed(1) }}σ {{ a.evidence.direction }}</small
+            ></span
+          >
+          <button class="btn sm" (click)="ask.emit('Why did ' + a.evidence.label + ' change?')">Investigate</button>
+        </div>
+      } @empty {
+        <p class="muted">No open anomalies.</p>
+      }
+    </div>
+  }
+  @case ('capabilities') {
+    <div class="caps">
+      @for (c of b.items; track c.title) {
+        <button class="cap" (click)="ask.emit(c.example)">
+          <b>{{ c.title }}</b
+          ><span>{{ c.example }}</span>
+        </button>
+      }
+    </div>
+  }
+}

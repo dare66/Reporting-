@@ -1,0 +1,100 @@
+.tree {
+  display: grid;
+  justify-items: center;
+}
+.root {
+  text-align: center;
+  display: grid;
+  gap: 2px;
+  padding: 14px 22px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  min-width: 220px;
+}
+.delta-big {
+  font-size: 34px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+.root.neg .delta-big {
+  color: var(--neg);
+}
+.wires {
+  width: 100%;
+  height: 30px;
+}
+.leaves {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+.leaf {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  cursor: pointer;
+  color: inherit;
+  transition:
+    border-color 0.2s,
+    transform 0.2s var(--ease);
+}
+.leaf:hover {
+  border-color: var(--ink-3);
+  transform: translateY(-1px);
+}
+.leaf.main {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: linear-gradient(180deg, var(--accent-soft), transparent);
+}
+.dim {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.member {
+  font-weight: 650;
+  font-size: 15px;
+  line-height: 1.2;
+}
+.vals {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.share {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-3);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.share .fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.small {
+  font-size: 11.5px;
+}
+.onset {
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 720px) {
+  .leaves {
+    grid-template-columns: 1fr !important;
+  }
+  .wires {
+    display: none;
+  }
+}

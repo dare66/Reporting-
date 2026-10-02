@@ -1,0 +1,208 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Data platform</div>
+      <h1>Connect, understand, model</h1>
+      <p class="lede">
+        Bring data in; AIXBI profiles it, proposes a semantic model, and makes it askable — under the same governance as
+        everything else.
+      </p>
+    </div>
+  </header>
+
+  @if (auth.can('data.manage')) {
+    <section class="journey panel">
+      <ol>
+        @for (s of journey; track s; let i = $index) {
+          <li [class.on]="i <= step()">
+            <span>{{ i + 1 }}</span
+            >{{ s }}
+          </li>
+        }
+      </ol>
+      <label
+        class="drop"
+        [class.over]="over()"
+        (dragover)="$event.preventDefault(); over.set(true)"
+        (dragleave)="over.set(false)"
+        (drop)="$event.preventDefault(); over.set(false); upload($event.dataTransfer?.files?.[0])"
+      >
+        <input type="file" accept=".csv,.xlsx,.xls,.json" (change)="upload($any($event.target).files?.[0])" hidden />
+        <app-icon name="upload" [size]="22" /><b>Drop a CSV, Excel or JSON file</b
+        ><span class="muted">or click to browse · up to 50 MB</span>
+      </label>
+      @if (uploading()) {
+        <app-working
+          title="Ingesting your data"
+          [steps]="['Reading file', 'Inferring types', 'Loading analytical table', 'Profiling quality']"
+        />
+      }
+      @if (uploadError(); as message) {
+        <app-error title="We couldn't ingest this file" [message]="message" (retry)="uploadError.set(null)" />
+      }
+    </section>
+  }
+
+  <h3 class="sec-title">Connected sources</h3>
+  <div class="sources">
+    @for (s of sources(); track s.id) {
+      <div class="src panel">
+        <div class="row">
+          <app-connector-mark [key]="s.connector_key" [size]="36" />
+          <div class="grow">
+            <b>{{ s.name }}</b>
+            <div class="muted small">{{ s.connector_key }} · {{ s.sync_mode }} · {{ s.datasets_count }} datasets</div>
+          </div>
+          <span class="badge" [class.good]="s.status === 'connected'" [class.critical]="s.status === 'error'">{{
+            s.status
+          }}</span>
+        </div>
+        <div class="stats">
+          <span
+            >Last sync<b>{{ ago(s.last_sync_at) }}</b></span
+          ><span
+            >Records<b>{{ s.last_run ? compact(s.last_run.records) : '—' }}</b></span
+          >
+          <span
+            >Duration<b>{{ duration(s.last_run?.duration_ms) }}</b></span
+          >
+          <span
+            >Errors<b [class.neg]="s.last_run?.error_count">{{ s.last_run?.error_count ?? 0 }}</b></span
+          ><span
+            >Warnings<b>{{ s.last_run?.warning_count ?? 0 }}</b></span
+          >
+        </div>
+        @if (s.last_error) {
+          <p class="neg small">{{ s.last_error }}</p>
+        }
+        @if (auth.can('data.manage') && !['csv', 'excel', 'json'].includes(s.connector_key)) {
+          <div class="row">
+            <button class="btn sm" (click)="test(s)">Test connection</button>
+            @if (testResult()[s.id]; as t) {
+              <span class="small" [class.neg]="!t.ok">{{ t.message }}</span>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <h3 class="sec-title">Datasets</h3>
+  <section class="panel">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th>Source</th>
+          <th class="r">Rows</th>
+          <th class="r">Columns</th>
+          <th>Freshness</th>
+          <th>Quality</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (d of datasets(); track d.id) {
+          <tr>
+            <td>
+              <b>{{ d.label }}</b>
+              <div class="muted small mono">{{ d.physical_schema }}.{{ d.physical_table }}</div>
+            </td>
+            <td>{{ d.data_source?.name }}</td>
+            <td class="r">{{ compact(d.row_count ?? 0) }}</td>
+            <td class="r">{{ d.fields_count }}</td>
+            <td>{{ ago(d.freshness_at) }}</td>
+            <td>
+              @if (d.profile?.issues?.length; as issueCount) {
+                <span class="badge warning">{{ issueCount }} issues</span>
+              } @else {
+                <span class="badge good">✓ clean</span>
+              }
+            </td>
+            <td class="r"><a class="btn sm ghost" [routerLink]="['/data/datasets', d.id]">Open →</a></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <h3 class="sec-title">Connector library</h3>
+  <div class="connectors">
+    @for (c of connectors(); track c.key) {
+      <button
+        class="conn panel"
+        [class.planned]="c.status !== 'available'"
+        (click)="pickConnector(c)"
+        [disabled]="c.status !== 'available' || !auth.can('data.manage')"
+      >
+        <app-connector-mark [key]="c.key" /><b>{{ c.name }}</b
+        ><span class="muted small">{{ c.category }} · {{ c.capabilities.join(', ').replaceAll('_', ' ') }}</span>
+        @if (c.status !== 'available') {
+          <span class="badge">On the roadmap</span>
+        }
+      </button>
+    }
+  </div>
+
+  @if (connector(); as c) {
+    <div class="scrim" appScrim (dismiss)="closeConnector()"></div>
+    <form
+      class="modal panel fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Connect a data source"
+      cdkTrapFocus
+      [cdkTrapFocusAutoCapture]="true"
+      (submit)="$event.preventDefault(); createSource()"
+    >
+      <div class="row">
+        <app-connector-mark [key]="c.key" />
+        <h3>Connect {{ c.name }}</h3>
+      </div>
+      @if (['csv', 'excel', 'json'].includes(c.key)) {
+        <p class="muted">Use the upload area above for files.</p>
+      } @else if (ingest(); as i) {
+        <p>Send JSON records to this URL. It contains a secret token and <b>will not be shown again</b>.</p>
+        <div class="row">
+          <input
+            class="input grow mono"
+            [value]="i.method + ' ' + i.url"
+            readonly
+            #ingestUrl
+            aria-label="Webhook URL"
+            (focus)="$any($event.target).select()"
+          /><button type="button" class="btn" (click)="copyIngestUrl(i.url)">{{ copied() ? 'Copied' : 'Copy' }}</button>
+        </div>
+        <p class="muted small">
+          Body: one object or an array of objects. Records are appended to the dataset “{{ form.name }}”.
+        </p>
+        <div class="row">
+          <span class="spacer"></span><button type="button" class="btn signal" (click)="closeConnector()">Done</button>
+        </div>
+      } @else {
+        <label class="field">Name<input class="input" [(ngModel)]="form.name" name="name" required /></label>
+        @for (f of c.config_schema; track f.key) {
+          <label class="field"
+            >{{ f.key }}{{ f.required ? ' *' : ''
+            }}<input
+              class="input"
+              [type]="f.type === 'secret' ? 'password' : f.type === 'integer' ? 'number' : 'text'"
+              [(ngModel)]="form.config[f.key]"
+              [name]="f.key"
+              [required]="f.required ?? false"
+          /></label>
+        }
+        <p class="muted small">
+          Credentials are encrypted at rest (AES-256) and never shown again. Connections run read-only.
+        </p>
+        @if (formError()) {
+          <p class="neg small">{{ formError() }}</p>
+        }
+        <div class="row">
+          <span class="spacer"></span><button type="button" class="btn ghost" (click)="closeConnector()">Cancel</button
+          ><button class="btn signal">Connect &amp; test</button>
+        </div>
+      }
+    </form>
+  }
+</div>

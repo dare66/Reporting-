@@ -1,0 +1,91 @@
+@if (error(); as message) {
+  <p class="err">{{ message }}</p>
+} @else {
+  @if (summary(); as c) {
+    <div class="summary">
+      @for (p of c.paragraphs; track $index) {
+        <p>{{ p }}</p>
+      }
+    </div>
+  }
+  @if (kpis(); as c) {
+    <div class="kpis">
+      @for (k of c.cards; track k.ref) {
+        <app-kpi [card]="k" [link]="false" />
+      }
+    </div>
+  }
+  @if (chart(); as c) {
+    @if (c.caption) {
+      <p class="caption">{{ c.caption }}</p>
+    }
+    @if (trend(); as spec) {
+      <app-chart [spec]="spec" [height]="260" />
+    }
+  }
+  @if (breakdownContent(); as c) {
+    <p class="caption">{{ c.label }} by {{ c.dimension_label }}</p>
+    @if (breakdown(); as spec) {
+      <app-chart [spec]="spec" [height]="Math.max(200, c.rows.length * 30 + 30)" />
+    }
+  }
+  @if (forecastContent(); as c) {
+    <p class="caption">{{ c.label }} · {{ c.method.replaceAll('_', ' ') }} · shaded band is the 80% interval</p>
+    @if (forecast(); as spec) {
+      <app-chart [spec]="spec" [height]="260" />
+    }
+  }
+  @if (rootCause(); as c) {
+    <app-drivers [data]="c" />
+  }
+  @if (anomalies(); as c) {
+    @if (!c.items.length) {
+      <p class="muted">{{ c.empty_message }}</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Date</th>
+            <th class="r">Expected</th>
+            <th class="r">Actual</th>
+            <th class="r">Deviation</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (a of c.items; track a.id) {
+            <tr>
+              <td>{{ a.label }}</td>
+              <td>{{ date(a.period) }}</td>
+              <td class="r">{{ f(a.expected, a.format) }}</td>
+              <td class="r">
+                <b>{{ f(a.actual, a.format) }}</b>
+              </td>
+              <td class="r">{{ Math.abs(a.score).toFixed(1) }}σ {{ a.direction }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+  @if (risks(); as c) {
+    @for (r of c.items; track $index) {
+      <div class="risk" [class.high]="r.severity === 'high'">
+        <span class="badge" [class.critical]="r.severity === 'high'" [class.warning]="r.severity !== 'high'">{{
+          r.severity
+        }}</span>
+        <div>
+          <b>{{ r.title }}</b>
+          <p class="muted">{{ r.detail }}</p>
+        </div>
+      </div>
+    } @empty {
+      <p class="muted">{{ c.empty_message }}</p>
+    }
+  }
+  @if (text(); as c) {
+    @for (p of c.markdown.split('\n\n'); track $index) {
+      <p>{{ p }}</p>
+    }
+  }
+}

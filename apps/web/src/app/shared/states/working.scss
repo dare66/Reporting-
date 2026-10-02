@@ -1,0 +1,63 @@
+.working {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 28px;
+}
+.title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.steps span {
+  animation: lit 3.6s infinite;
+}
+.steps i {
+  font-style: normal;
+  opacity: 0.4;
+}
+@keyframes lit {
+  0%,
+  100% {
+    color: var(--ink-3);
+  }
+  20% {
+    color: var(--ink-1);
+  }
+}
+.orbit {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex: none;
+}
+.orbit span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: var(--accent);
+  animation: spin 1.2s linear infinite;
+}
+.orbit span:nth-child(2) {
+  inset: 6px;
+  border-top-color: var(--ai);
+  animation-duration: 1.8s;
+  animation-direction: reverse;
+}
+.orbit span:nth-child(3) {
+  inset: 12px;
+  border-top-color: var(--series-1);
+  animation-duration: 2.4s;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,131 @@
+.wizard {
+  padding: 24px;
+  margin-bottom: 24px;
+  display: grid;
+  gap: 14px;
+}
+.areas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.area {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.area:hover,
+.area.on {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.area app-icon {
+  color: var(--accent);
+}
+.area span {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.area small {
+  color: var(--ink-3);
+}
+.timeline {
+  list-style: none;
+  display: flex;
+  gap: 0;
+  padding: 0;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+.timeline li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px 8px 0;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.timeline .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-3);
+}
+.timeline li.done {
+  color: var(--ink-1);
+}
+.timeline li.done .dot {
+  background: var(--pos);
+  border-color: var(--pos);
+}
+.timeline li.active {
+  color: var(--accent);
+}
+.timeline li.active .dot {
+  border-color: var(--accent);
+  animation: pulse-ring 1.2s infinite;
+}
+.filters {
+  margin-bottom: 12px;
+}
+.filters .chip {
+  text-transform: capitalize;
+}
+.list {
+  display: grid;
+  gap: 10px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  transition: border-color 0.2s;
+}
+.item:hover {
+  border-color: var(--line-2);
+}
+.doc {
+  width: 40px;
+  height: 50px;
+  border-radius: 6px;
+  background: var(--bg-3);
+  padding: 8px 6px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  flex: none;
+}
+.doc i {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ink-3);
+  opacity: 0.6;
+}
+.doc i.s {
+  width: 60%;
+}
+.doc b {
+  height: 12px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.6;
+  margin-top: 3px;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.small {
+  font-size: 12px;
+  gap: 6px;
+}

@@ -1,28 +1,54 @@
 <div class="page">
-  @if (error()) { <app-error [message]="error()!" (retry)="load()"/> }
-  @else if (!dash()) { <app-working title="Building dashboard" [steps]="['Loading layout', 'Running governed queries', 'Rendering visuals']"/> }
-  @else {
-    @let d = dash();
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  } @else if (!dash()) {
+    <app-working
+      title="Building dashboard"
+      [steps]="['Loading layout', 'Running governed queries', 'Rendering visuals']"
+    />
+  } @else if (dash(); as d) {
     <header class="page-head">
       <div>
         <a routerLink="/dashboards" class="muted back">← Dashboards</a>
-        @if (editing()) { <input class="input title-input" [value]="d.title" (change)="rename($any($event.target).value)" aria-label="Dashboard title"> }
-        @else { <h1>{{ d.title }}</h1> }
+        @if (editing()) {
+          <input
+            class="input title-input"
+            [value]="d.title"
+            (change)="rename($any($event.target).value)"
+            aria-label="Dashboard title"
+          />
+        } @else {
+          <h1>{{ d.title }}</h1>
+        }
         <p class="lede">{{ d.description }}</p>
       </div>
       <div class="row wrap">
         @if (!editing()) {
-          <select class="select filter" [ngModel]="filterCountry()" (ngModelChange)="applyFilter($event)" aria-label="Country filter">
-            <option value="">All countries</option>@for (c of countries(); track c) { <option [value]="c">{{ c }}</option> }</select>
-          <button class="btn ghost" (click)="showComments.set(!showComments())"><app-icon name="comment" [size]="16"/> {{ comments().length }}</button>
+          <select
+            class="select filter"
+            [ngModel]="filterCountry()"
+            (ngModelChange)="applyFilter($event)"
+            aria-label="Country filter"
+          >
+            <option value="">All countries</option>
+            @for (c of countries(); track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select>
+          <button class="btn ghost" (click)="showComments.set(!showComments())">
+            <app-icon name="comment" [size]="16" /> {{ comments().length }}
+          </button>
           @if (d.can_edit) {
-            <button class="btn ghost" (click)="share()"><app-icon name="share" [size]="16"/> {{ d.visibility === 'private' ? 'Share with organisation' : 'Shared' }}</button>
-            <button class="btn" (click)="startEdit()"><app-icon name="edit" [size]="16"/> Edit layout</button>
+            <button class="btn ghost" (click)="share()">
+              <app-icon name="share" [size]="16" />
+              {{ d.visibility === 'private' ? 'Share with organisation' : 'Shared' }}
+            </button>
+            <button class="btn" (click)="startEdit()"><app-icon name="edit" [size]="16" /> Edit layout</button>
           }
         } @else {
           <button class="btn ghost icon" (click)="undoStep()" [disabled]="!canUndo()" aria-label="Undo">↶</button>
           <button class="btn ghost icon" (click)="redoStep()" [disabled]="!canRedo()" aria-label="Redo">↷</button>
-          <button class="btn" (click)="openAdd()"><app-icon name="plus" [size]="16"/> Add widget</button>
+          <button class="btn" (click)="openAdd()"><app-icon name="plus" [size]="16" /> Add widget</button>
           <button class="btn ghost" (click)="cancel()">Cancel</button>
           <button class="btn signal" (click)="save()">Save layout</button>
         }
@@ -32,25 +58,57 @@
     @if (breakpoint() === 'mobile' && sections().length > 1 && !editing()) {
       <div class="sections" role="tablist">
         <button class="chip" [class.on]="!section()" (click)="section.set(null)">All</button>
-        @for (s of sections(); track s.key) { <button class="chip" [class.on]="section() === s.key" (click)="section.set(s.key)">{{ s.label }}</button> }
+        @for (s of sections(); track s.key) {
+          <button class="chip" [class.on]="section() === s.key" (click)="section.set(s.key)">{{ s.label }}</button>
+        }
       </div>
     }
-    @if (editing()) { <p class="hint muted"><app-icon name="drag" [size]="14"/> Drag the header to move, the corner to resize. Widgets snap to the 12-column grid. ⌘Z / ⌘⇧Z to undo/redo. Tablet and mobile layouts reflow automatically.</p> }
+    @if (editing()) {
+      <p class="hint muted">
+        <app-icon name="drag" [size]="14" /> Drag the header to move, the corner to resize. Widgets snap to the
+        12-column grid. ⌘Z / ⌘⇧Z to undo/redo. Tablet and mobile layouts reflow automatically.
+      </p>
+    }
 
-    <div class="grid" #grid [class.edit]="editing()" [style.grid-template-columns]="'repeat(' + cols() + ', minmax(0, 1fr))'">
+    <div
+      class="grid"
+      #grid
+      [class.edit]="editing()"
+      [style.grid-template-columns]="'repeat(' + cols() + ', minmax(0, 1fr))'"
+    >
       @for (w of widgets(); track w.id) {
         @if (inSection(w)) {
           <div class="cell panel" [style]="style(w)" [class.kpi]="w.type === 'kpi'">
             @if (editing()) {
-              <div class="handle" (pointerdown)="pointerDown($event, w, 'move', grid)"><app-icon name="drag" [size]="14"/> {{ w.title }}
+              <div class="handle" (pointerdown)="pointerDown($event, w, 'move', grid)">
+                <app-icon name="drag" [size]="14" /> {{ w.title }}
                 <span class="spacer"></span>
-                <button class="btn icon sm ghost" (pointerdown)="$event.stopPropagation()" (click)="duplicate(w)" aria-label="Duplicate"><app-icon name="layers" [size]="13"/></button>
-                <button class="btn icon sm ghost" (pointerdown)="$event.stopPropagation()" (click)="removeWidget(w)" aria-label="Remove"><app-icon name="trash" [size]="13"/></button></div>
+                <button
+                  class="btn icon sm ghost"
+                  (pointerdown)="$event.stopPropagation()"
+                  (click)="duplicate(w)"
+                  aria-label="Duplicate"
+                >
+                  <app-icon name="layers" [size]="13" />
+                </button>
+                <button
+                  class="btn icon sm ghost"
+                  (pointerdown)="$event.stopPropagation()"
+                  (click)="removeWidget(w)"
+                  aria-label="Remove"
+                >
+                  <app-icon name="trash" [size]="13" />
+                </button>
+              </div>
               <div class="resize" (pointerdown)="pointerDown($event, w, 'size', grid)" aria-label="Resize"></div>
             }
             @if (!editing()) {
-              @for (v of [version()]; track v) { <app-widget [widget]="w" [dashboardId]="d.id" [height]="height(w)" [filters]="filters()"/> }
-            } @else { <div class="ghost-body muted">{{ w.type }} · {{ w.pos.w }}×{{ w.pos.h }}</div> }
+              @for (v of [version()]; track v) {
+                <app-widget [widget]="w" [dashboardId]="d.id" [height]="height(w)" [filters]="filters()" />
+              }
+            } @else {
+              <div class="ghost-body muted">{{ w.type }} · {{ w.pos.w }}×{{ w.pos.h }}</div>
+            }
           </div>
         }
       }
@@ -58,21 +116,74 @@
 
     @if (showComments()) {
       <aside class="comments panel">
-        <div class="row"><b>Discussion</b><span class="spacer"></span><button class="btn icon sm ghost" (click)="showComments.set(false)"><app-icon name="close" [size]="14"/></button></div>
-        @for (c of comments(); track c.id) { <div class="comment"><b>{{ c.user.name }}</b> <span class="muted small">{{ ago(c.created_at) }}</span><p>{{ c.body }}</p></div> }
-        @empty { <p class="muted small">No comments yet. Use &#64;Name or &#64;Department to mention.</p> }
-        <form class="row" (submit)="$event.preventDefault(); postComment()"><input class="input" [ngModel]="comment()" (ngModelChange)="comment.set($event)" name="c" placeholder="&#64;Finance please validate this revenue anomaly…"><button class="btn signal">Post</button></form>
+        <div class="row">
+          <b>Discussion</b><span class="spacer"></span
+          ><button class="btn icon sm ghost" (click)="showComments.set(false)">
+            <app-icon name="close" [size]="14" />
+          </button>
+        </div>
+        @for (c of comments(); track c.id) {
+          <div class="comment">
+            <b>{{ c.user?.name ?? 'Former user' }}</b> <span class="muted small">{{ ago(c.created_at) }}</span>
+            <p>{{ c.body }}</p>
+          </div>
+        } @empty {
+          <p class="muted small">No comments yet. Use &#64;Name or &#64;Department to mention.</p>
+        }
+        <form class="row" (submit)="$event.preventDefault(); postComment()">
+          <input
+            class="input"
+            [ngModel]="comment()"
+            (ngModelChange)="comment.set($event)"
+            name="c"
+            placeholder="&#64;Finance please validate this revenue anomaly…"
+          /><button class="btn signal">Post</button>
+        </form>
       </aside>
     }
     @if (adding()) {
-      <div class="scrim" (click)="adding.set(false)"></div>
-      <div class="add panel fade-in" role="dialog" aria-label="Add widget">
+      <div class="scrim" appScrim (dismiss)="adding.set(false)"></div>
+      <div
+        class="add panel fade-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add widget"
+        cdkTrapFocus
+        [cdkTrapFocusAutoCapture]="true"
+      >
         <h3>Add widget</h3>
-        <label class="field">Type<select class="select" #t><option value="chart">Chart</option><option value="kpi">KPI</option></select></label>
-        <label class="field">Metric<select class="select" #m>@for (mod of catalog(); track mod.key) { <optgroup [label]="mod.name">@for (x of metricsOf(mod); track x.key) { <option [value]="x.ref">{{ x.label }}</option> }</optgroup> }</select></label>
-        <label class="field">Break down by (optional)<select class="select" #dm><option value="">— over time —</option>
-          @for (k of ['country', 'region', 'institution', 'course', 'field_of_study', 'channel', 'stage', 'payment_type']; track k) { <option [value]="k">{{ k.replace('_', ' ') }}</option> }</select></label>
-        <div class="row"><span class="spacer"></span><button class="btn ghost" (click)="adding.set(false)">Cancel</button><button class="btn signal" (click)="addWidget(t.value, m.value, dm.value)">Add</button></div>
+        <label class="field"
+          >Type<select class="select" #t>
+            <option value="chart">Chart</option>
+            <option value="kpi">KPI</option>
+          </select></label
+        >
+        <label class="field"
+          >Metric<select class="select" #m>
+            @for (mod of catalog(); track mod.key) {
+              <optgroup [label]="mod.name">
+                @for (x of mod.metrics; track x.key) {
+                  <option [value]="x.ref">{{ x.label }}</option>
+                }
+              </optgroup>
+            }
+          </select></label
+        >
+        <label class="field"
+          >Break down by (optional)<select class="select" #dm>
+            <option value="">— over time —</option>
+            @for (
+              k of ['country', 'region', 'institution', 'course', 'field_of_study', 'channel', 'stage', 'payment_type'];
+              track k
+            ) {
+              <option [value]="k">{{ k.replace('_', ' ') }}</option>
+            }
+          </select></label
+        >
+        <div class="row">
+          <span class="spacer"></span><button class="btn ghost" (click)="adding.set(false)">Cancel</button
+          ><button class="btn signal" (click)="addWidget(t.value, m.value, dm.value)">Add</button>
+        </div>
       </div>
     }
   }

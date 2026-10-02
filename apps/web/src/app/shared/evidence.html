@@ -1,0 +1,75 @@
+<div class="scrim" appScrim (dismiss)="dismiss.emit()"></div>
+<aside
+  class="sheet glass"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Evidence"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <div class="grab"></div>
+  <header class="row">
+    <div>
+      <div class="eyebrow ai">Evidence</div>
+      <h3>{{ title() }}</h3>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn icon ghost" (click)="dismiss.emit()" aria-label="Close"><app-icon name="close" /></button>
+  </header>
+  @if (body()) {
+    <p class="secondary">{{ body() }}</p>
+  }
+  @if (calculation()) {
+    <div class="calc">
+      <span class="eyebrow">Calculation</span>
+      <div>{{ calculation() }}</div>
+    </div>
+  }
+  <div class="eyebrow" style="margin-top: 8px">Queries ({{ items().length }})</div>
+  @for (e of items(); track $index; let i = $index) {
+    <div class="item">
+      <div class="row">
+        <b>{{ e.label || 'Query ' + (i + 1) }}</b
+        ><span class="spacer"></span>
+        @if (e.cached) {
+          <span class="badge">cached</span>
+        }
+        <span class="mono muted">#{{ (e.query_hash || '').slice(0, 10) }}</span>
+      </div>
+      @if (e.query ?? e.semantic_query; as q) {
+        <div class="kv">
+          <span>Model</span><span>{{ q.model }}</span
+          ><span>Metrics</span><span>{{ (q.metrics || q.measures || []).join(', ') }}</span>
+          @if (q.dimensions?.length) {
+            <span>By</span><span>{{ q.dimensions?.join(', ') }}</span>
+          }
+          @if (q.filters; as qf) {
+            @if (qf.length) {
+              <span>Filters</span><span>{{ filters(qf) }}</span>
+            }
+          }
+          @if (q.time?.range; as range) {
+            <span>Period</span><span>{{ period(range) }}</span>
+          }
+        </div>
+      }
+      @if (e.sql) {
+        <button class="btn sm ghost" (click)="toggle(i)">{{ open() === i ? 'Hide' : 'Show' }} SQL</button>
+        @if (open() === i) {
+          <pre class="mono">{{ e.sql }}</pre>
+        }
+      }
+      <div class="muted small">
+        Executed {{ when(e.executed_at) }}
+        @if (e.row_count !== undefined) {
+          · {{ e.row_count }} rows
+        }
+      </div>
+    </div>
+  } @empty {
+    <p class="muted">No query evidence was recorded for this item.</p>
+  }
+  <p class="muted small foot">
+    <app-icon name="lock" [size]="13" /> Queries ran under your permissions, with row-level security applied.
+  </p>
+</aside>

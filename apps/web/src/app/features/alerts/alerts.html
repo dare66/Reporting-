@@ -1,0 +1,102 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Alerts</div>
+      <h1>Know the moment it matters</h1>
+      <p class="lede">
+        Alerts evaluate governed metrics on a schedule and notify with the value, the threshold and the leading driver.
+      </p>
+    </div>
+    @if (auth.can('alerts.manage')) {
+      <form class="nl panel" (submit)="$event.preventDefault(); conversational()">
+        <app-icon name="ai" [size]="16" /><input
+          [ngModel]="text()"
+          (ngModelChange)="text.set($event)"
+          name="t"
+          placeholder="Alert me when SLA falls below 90%"
+        /><button class="btn sm ai" [disabled]="!text()">Create</button>
+      </form>
+    }
+  </header>
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  }
+  <section class="panel">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Rule</th>
+          <th>State</th>
+          <th class="r">Last value</th>
+          <th>Checks</th>
+          <th>Channels</th>
+          <th>Last evaluated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of rules(); track r.id) {
+          <tr>
+            <td>
+              <b>{{ r.name }}</b>
+              <div class="muted small">
+                {{ r.semantic_model?.name }} · {{ r.window.replaceAll('_', ' ') }}
+                @if (r.created_via === 'conversation') {
+                  · <span class="ai-t">created by conversation</span>
+                }
+              </div>
+            </td>
+            <td>
+              @if (r.last_state === 'breached') {
+                <span class="badge critical">! breached</span>
+              } @else {
+                <span class="badge good">✓ ok</span>
+              }
+            </td>
+            <td class="r">{{ r.last_value === null ? '—' : val(r) }}</td>
+            <td>every {{ r.frequency_minutes }} min</td>
+            <td>{{ r.channels.join(', ') }}</td>
+            <td class="muted">{{ ago(r.last_evaluated_at) }}</td>
+            <td class="r">
+              <div class="row">
+                <button class="btn sm" (click)="evaluate(r)" [disabled]="busy() === r.id">
+                  {{ busy() === r.id ? 'Checking…' : 'Check now' }}
+                </button>
+                @if (auth.can('alerts.manage')) {
+                  <button class="btn sm ghost" (click)="toggle(r)">{{ r.is_active ? 'Pause' : 'Resume' }}</button
+                  ><button class="btn sm ghost icon" (click)="remove(r)" aria-label="Delete">
+                    <app-icon name="trash" [size]="14" />
+                  </button>
+                }
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="muted">No alert rules yet — describe one above.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+  <h3 style="margin: 28px 0 12px">Recent alerts</h3>
+  <section class="panel">
+    @for (a of history(); track a.id) {
+      <div class="hist">
+        <span class="badge critical">{{ a.rule?.name }}</span
+        ><span class="grow">{{ a.message }}</span
+        ><span class="muted small">{{ ago(a.fired_at) }}</span>
+        <a class="btn sm ghost" routerLink="/investigate" [queryParams]="{ metric: a.evidence.card?.ref }"
+          >Investigate</a
+        >
+        @if (!a.acknowledged_at) {
+          <button class="btn sm" (click)="ack(a)">Acknowledge</button>
+        } @else {
+          <span class="muted small">acknowledged</span>
+        }
+      </div>
+    } @empty {
+      <p class="muted" style="padding: 16px">No alerts have fired.</p>
+    }
+  </section>
+</div>

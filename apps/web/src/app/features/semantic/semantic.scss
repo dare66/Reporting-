@@ -1,0 +1,109 @@
+.models {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.model {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 16px;
+  cursor: pointer;
+  color: inherit;
+}
+.model.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 20px;
+  align-items: start;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+}
+.list button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  color: inherit;
+}
+.list button:hover,
+.list button.on {
+  background: var(--bg-3);
+}
+code {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.dims li {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.detail {
+  padding: 12px 20px 20px;
+  display: grid;
+  gap: 12px;
+}
+.grow {
+  flex: 1;
+}
+.small {
+  font-size: 12px;
+}
+.ok {
+  color: var(--pos);
+}
+.lineage {
+  display: grid;
+  gap: 0;
+}
+.node {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--line-2);
+  margin-left: 6px;
+  position: relative;
+}
+.node::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg-1);
+  border: 2px solid var(--ink-3);
+}
+.node.metric::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.node small {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+.node a {
+  color: var(--ai);
+  font-size: 13px;
+}
+@media (max-width: 960px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}

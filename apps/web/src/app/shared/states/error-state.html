@@ -1,0 +1,19 @@
+<div class="err" role="alert">
+  <div class="icon"><app-icon name="warning" [size]="20" /></div>
+  <div class="body">
+    <div class="t">{{ title() }}</div>
+    <div class="secondary">{{ message() }}</div>
+    @if (lastSuccess()) {
+      <div class="muted small">Last successful update: {{ lastSuccess() }}</div>
+    }
+    <div class="row" style="margin-top: 12px">
+      <button class="btn sm" (click)="retry.emit()"><app-icon name="refresh" [size]="14" /> Retry</button>
+      @if (details()) {
+        <button class="btn sm ghost" (click)="open.set(!open())">Technical details</button>
+      }
+    </div>
+    @if (open()) {
+      <pre class="mono">{{ details() }}</pre>
+    }
+  </div>
+</div>

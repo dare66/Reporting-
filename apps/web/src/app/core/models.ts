@@ -1,0 +1,1016 @@
+/**
+ * Shapes of the AIXBI API payloads used by the web app.
+ *
+ * Derived from live responses; the API (apps/api) is the source of truth.
+ * Section/widget content that varies by type is modelled as a discriminated
+ * union where the UI branches on it, and as a typed record elsewhere.
+ */
+
+/** A JSON object whose keys are owned by the API (query rows, free-form configs). */
+export type JsonObject = Record<string, unknown>;
+
+export type Format = 'number' | 'percent' | 'currency' | 'duration_days' | string;
+export type Sentiment = 'positive' | 'negative' | 'neutral';
+export type Direction = 'up' | 'down' | 'flat';
+export type Severity = 'info' | 'low' | 'medium' | 'high' | 'warning' | 'critical' | string;
+export type Grain = 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+/** `{ data }` envelope used by most endpoints. */
+export interface Envelope<T> {
+  data: T;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+// ── Time & evidence ─────────────────────────────────────────────────────────
+
+export interface Period {
+  from: string;
+  to: string;
+  label: string;
+}
+
+/** A semantic query: the contract between UI, AI agents and the query engine. */
+export interface SemanticQuery {
+  model: string;
+  metrics?: string[];
+  measures?: string[];
+  dimensions?: string[];
+  filters?: QueryFilter[];
+  time?: { range?: string | Period | { from: string; to: string }; grain?: Grain };
+  sort?: { key: string; dir: 'asc' | 'desc' }[];
+  limit?: number;
+}
+
+export interface QueryFilter {
+  dimension: string;
+  op: string;
+  value?: unknown;
+}
+
+/** Proof attached to every computed number: the query behind it. */
+export interface Evidence {
+  label?: string;
+  query_hash: string;
+  semantic_query?: SemanticQuery;
+  query?: SemanticQuery;
+  sql: string;
+  executed_at: string;
+  row_count: number;
+  cached?: boolean;
+}
+
+// ── Query engine ────────────────────────────────────────────────────────────
+
+export interface QueryColumn {
+  key: string;
+  label: string;
+  role: 'dimension' | 'metric' | 'measure' | 'time' | string;
+  type: string;
+  format?: Format;
+  /** Time columns: the bucket size. */
+  grain?: Grain;
+}
+
+export type QueryRow = Record<string, string | number | boolean | null>;
+
+export interface QueryResult {
+  columns: QueryColumn[];
+  rows: QueryRow[];
+  meta: {
+    query_hash: string;
+    sql: string;
+    duration_ms: number;
+    cached: boolean;
+    truncated: boolean;
+    row_count: number;
+    executed_at: string;
+    query: SemanticQuery;
+    partial_from: string | null;
+  };
+}
+
+// ── Semantic layer ──────────────────────────────────────────────────────────
+
+export interface CatalogDimension {
+  key: string;
+  label: string;
+  type: string;
+  synonyms: string[];
+  description: string | null;
+  is_sensitive: boolean;
+  accessible: boolean;
+  dataset: string;
+  field: string;
+}
+
+export interface CatalogMeasure {
+  key: string;
+  label: string;
+  aggregation: string;
+  field: string | null;
+  filters: QueryFilter[] | JsonObject[];
+}
+
+export interface CatalogMetric {
+  key: string;
+  ref: string;
+  label: string;
+  description: string | null;
+  format: Format;
+  higher_is_better: boolean;
+  target: number | null;
+  synonyms: string[];
+  is_kpi: boolean;
+  owner: string | null;
+  expression: string;
+}
+
+export interface CatalogModel {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  time_dimension: string | null;
+  datasets: { id: string; name: string; label: string; table: string }[];
+  dimensions: CatalogDimension[];
+  measures: CatalogMeasure[];
+  metrics: CatalogMetric[];
+  hierarchies: { key: string; label: string; levels: string[] }[];
+}
+
+export interface SemanticModelSummary {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  domain: string | null;
+  version: number;
+  status: string;
+  time_dimension: string | null;
+  metrics_count: number;
+  dimensions_count: number;
+  measures_count: number;
+  base_dataset: { id: string; label: string; row_count: number; freshness_at: string | null } | null;
+  updated_at: string;
+}
+
+// ── KPIs & analysis ─────────────────────────────────────────────────────────
+
+export interface ChangeSummary {
+  change: number | null;
+  change_pct: number | null;
+  direction: Direction;
+  sentiment: Sentiment;
+}
+
+export interface KpiCard extends ChangeSummary {
+  ref: string;
+  model: string;
+  metric: string;
+  label: string;
+  description: string | null;
+  format: Format;
+  higher_is_better: boolean;
+  value: number | null;
+  previous: number | null;
+  target: number | null;
+  target_status: 'met' | 'missed' | null;
+  sparkline: { period: string; value: number | null }[];
+  sparkline_grain: Grain;
+  period: Period;
+  previous_period: Period;
+  evidence: { current: Evidence; previous: Evidence };
+  executed_at: string;
+  cached: boolean;
+}
+
+export interface MemberImpact {
+  member: string;
+  current_value: number | null;
+  previous_value: number | null;
+  current_volume: number;
+  previous_volume: number;
+  impact: number;
+  impact_share: number | null;
+  volume_share: number;
+  excess_impact: number;
+}
+
+export interface Driver extends MemberImpact {
+  dimension: string;
+  dimension_label: string;
+}
+
+export interface DimensionBreakdown {
+  key: string;
+  label: string;
+  explained_share: number;
+  member_count: number;
+  members: MemberImpact[];
+}
+
+export interface Onset {
+  date: string;
+  before_mean: number;
+  after_mean: number;
+  shift_sigma: number | null;
+  significant: boolean;
+  series?: { date: string; value: number }[];
+}
+
+export interface RootCause extends ChangeSummary {
+  ref: string;
+  metric: string;
+  label: string;
+  format: Format;
+  higher_is_better: boolean;
+  current: { value: number | null; period: Period };
+  previous: { value: number | null; period: Period };
+  drivers: Driver[];
+  dimensions: DimensionBreakdown[];
+  onset: Onset | null;
+  method: string;
+  evidence: Evidence[];
+}
+
+export interface ForecastPoint {
+  period: string;
+  value: number;
+  lower: number;
+  upper: number;
+}
+
+export interface Forecast {
+  id: string;
+  metric_key: string;
+  grain: Grain;
+  horizon: number;
+  method: string;
+  history: { period: string; value: number | null }[];
+  points: ForecastPoint[];
+  diagnostics: {
+    observations: number;
+    residual_sigma: number;
+    backtest_mape: number | null;
+    backtest_periods: number;
+    interval: number;
+    seasonal_period: number | null;
+    label: string;
+    format: Format;
+    ref: string;
+    evidence: Evidence;
+    horizon_key: string;
+  };
+  created_at: string;
+}
+
+export interface ScenarioAssumptions {
+  demand_change_pct: number;
+  officer_change_pct: number;
+  productivity_change_pct: number;
+}
+
+export interface Scenario {
+  assumptions: ScenarioAssumptions;
+  baseline: {
+    period: Period;
+    applications: number;
+    decisions: number;
+    capacity: number;
+    officers: number;
+    utilisation: number | null;
+    sla_compliance: number | null;
+    avg_processing_days: number | null;
+    revenue: number;
+    revenue_per_application: number;
+  };
+  projected: {
+    applications: number;
+    capacity: number;
+    officers: number;
+    utilisation: number | null;
+    sla_compliance: number | null;
+    revenue: number;
+    required_officers_for_target: number | null;
+    additional_officers_needed: number | null;
+  };
+  sla_target: number;
+  model: {
+    intercept: number;
+    slope: number;
+    r_squared: number | null;
+    observations: number;
+    utilisation_range?: [number, number];
+    method: string;
+  };
+  extrapolated: boolean;
+  caveats: string[];
+}
+
+export interface Anomaly {
+  id: string;
+  semantic_model_id: string | null;
+  metric_key: string;
+  period: string;
+  grain: Grain;
+  expected: number;
+  actual: number;
+  lower: number | null;
+  upper: number | null;
+  score: number;
+  method: string;
+  severity: Severity;
+  status: 'open' | 'investigating' | 'resolved' | 'dismissed';
+  evidence: { label: string; format: Format; direction: string; higher_is_better: boolean; query?: SemanticQuery };
+  created_at: string;
+}
+
+/** Insight evidence: the queries behind the statement plus how it was calculated. */
+export interface InsightEvidence {
+  calculation?: string;
+  method?: string;
+  query?: Evidence;
+  queries?: { current?: Evidence; previous?: Evidence } | Evidence[];
+  applications?: { current?: Evidence };
+  capacity?: { current?: Evidence };
+  [detail: string]: unknown;
+}
+
+export interface Insight {
+  id: string;
+  metric_key: string;
+  kind: string;
+  severity: Severity;
+  title: string;
+  body: string;
+  evidence: InsightEvidence;
+  generated_by: string;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string;
+}
+
+// ── Home ────────────────────────────────────────────────────────────────────
+
+export interface AttentionItem {
+  kind: string;
+  severity: Severity;
+  title: string;
+  detail: string;
+  action: { label: string; link: string };
+}
+
+export interface HomeData {
+  greeting: string;
+  first_name: string;
+  as_of: string;
+  range: string;
+  summary: string;
+  attention: AttentionItem[];
+  pulse: KpiCard[];
+  pulse_error: string | null;
+  insights: Insight[];
+  recent_reports: { id: string; title: string; status: string; updated_at: string }[];
+  favourite_dashboards: { id: string; title: string; description: string | null; is_home: boolean }[];
+  unread_notifications: number;
+  freshness: { data_as_of: string | null; last_sync_at: string | null; failing_sources: number };
+}
+
+// ── Dashboards ──────────────────────────────────────────────────────────────
+
+export interface GridPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface Placement extends GridPosition {
+  id: string;
+  section: string | null;
+}
+
+export interface Widget {
+  id: string;
+  dashboard_id: string;
+  type: string;
+  title: string | null;
+  section: string | null;
+  query: SemanticQuery;
+  /** Visual options; keys depend on the widget type (type, compare, horizon, text…). */
+  viz: JsonObject;
+  position: GridPosition;
+  priority: number;
+}
+
+export interface DashboardSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  theme: string;
+  is_home: boolean;
+  visibility: string;
+  updated_at: string;
+  widgets_count: number;
+  owner: string;
+  is_favourite: boolean;
+  can_edit: boolean;
+}
+
+export interface Dashboard {
+  id: string;
+  title: string;
+  description: string | null;
+  theme: string;
+  filters: QueryFilter[];
+  sections: { key: string; label: string }[];
+  visibility: string;
+  is_home: boolean;
+  widgets: Widget[];
+  layouts: { desktop: Placement[]; tablet: Placement[]; mobile: Placement[] };
+  can_edit: boolean;
+  updated_at: string;
+}
+
+// ── Reports ─────────────────────────────────────────────────────────────────
+
+export type ReportStatus = 'draft' | 'in_review' | 'published' | 'archived' | string;
+
+/** Fields every computed section carries: the blueprint that produced it, or the error it hit. */
+interface SectionBase {
+  blueprint?: JsonObject;
+  error?: string;
+}
+
+export interface SummaryContent extends SectionBase {
+  paragraphs: string[];
+  period: Period;
+  generated_from: string;
+}
+export interface KpisContent extends SectionBase {
+  cards: KpiCard[];
+  period: Period;
+}
+export interface TrendContent extends SectionBase {
+  metric: string;
+  label: string;
+  format: Format;
+  grain: Grain;
+  chart: 'area' | 'line';
+  series: { period: string; value: number | null }[];
+  target: number | null;
+  caption: string | null;
+}
+export interface BreakdownContent extends SectionBase {
+  metric: string;
+  label: string;
+  format: Format;
+  dimension: string;
+  dimension_label: string;
+  rows: { member: string; value: number | null }[];
+}
+export interface ForecastContent extends SectionBase {
+  metric: string;
+  label: string;
+  format: Format;
+  grain: Grain;
+  method: string;
+  history: { period: string; value: number | null }[];
+  points: ForecastPoint[];
+}
+export interface AnomaliesContent extends SectionBase {
+  items: {
+    id: string;
+    metric: string;
+    label: string;
+    format: Format;
+    period: string;
+    expected: number;
+    actual: number;
+    score: number;
+    severity: Severity;
+    direction: string;
+  }[];
+  empty_message: string | null;
+}
+export interface RisksContent extends SectionBase {
+  items: { severity: 'high' | 'medium'; title: string; detail: string }[];
+  empty_message: string | null;
+}
+export interface TextContent extends SectionBase {
+  markdown: string;
+}
+export type RootCauseContent = RootCause & SectionBase;
+
+interface SectionOf<T extends string, C> {
+  id: string;
+  report_id: string;
+  position: number;
+  type: T;
+  title: string | null;
+  content: C;
+}
+
+/** A report section; `content` is computed by the API's ReportBuilder for its `type`. */
+export type ReportSection =
+  | SectionOf<'summary', SummaryContent>
+  | SectionOf<'kpis', KpisContent>
+  | SectionOf<'chart', TrendContent>
+  | SectionOf<'breakdown', BreakdownContent>
+  | SectionOf<'forecast', ForecastContent>
+  | SectionOf<'root_cause', RootCauseContent>
+  | SectionOf<'anomalies', AnomaliesContent>
+  | SectionOf<'risks', RisksContent>
+  | SectionOf<'text', TextContent>;
+
+export type SectionType = ReportSection['type'];
+
+export interface ReportVersion {
+  id: string;
+  version: number;
+  status: ReportStatus;
+  note: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export type ExportFormat = 'pdf' | 'pptx' | 'xlsx' | 'csv' | 'html';
+
+export interface ReportExport {
+  id: string;
+  format: ExportFormat;
+  status: 'queued' | 'running' | 'ready' | 'failed';
+  bytes: number | null;
+  error: string | null;
+  created_at: string;
+}
+
+export type ScheduleFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly';
+
+export interface ScheduleSettings {
+  frequency: ScheduleFrequency;
+  time_of_day: string;
+  formats: ExportFormat[];
+  channels: ('email' | 'push' | 'in_app')[];
+}
+
+export interface ReportSchedule extends ScheduleSettings {
+  id: string;
+  recipients: string[];
+  is_active: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+}
+
+export interface ReportSummary {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  type: string;
+  status: ReportStatus;
+  theme: string;
+  parameters: { range?: string; period?: Period; range_label?: string } | null;
+  current_version: number;
+  published_at: string | null;
+  updated_at: string;
+  sections_count?: number;
+  owner?: { id: string; name: string };
+}
+
+export interface Report extends ReportSummary {
+  sections: ReportSection[];
+  versions: ReportVersion[];
+  exports: ReportExport[];
+  schedules: ReportSchedule[];
+  can_edit: boolean;
+}
+
+export interface ReportTemplate {
+  id: string;
+  /** Null for platform templates; set for templates an organisation authored. */
+  organisation_id: string | null;
+  key: string;
+  name: string;
+  audience: string;
+  description: string | null;
+  sections: JsonObject[];
+  theme: string;
+}
+
+export interface ReportComparison {
+  from: number;
+  to: number;
+  title_changed: boolean;
+  changes: {
+    section: string | null;
+    change: 'added' | 'removed' | 'modified';
+    kpis?: { label: string; format: Format; from: number | null; to: number | null }[];
+    text?: { from: string[]; to: string[] };
+  }[];
+}
+
+// ── Alerts & notifications ──────────────────────────────────────────────────
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  metric_key: string;
+  operator: string;
+  threshold: number;
+  window: string;
+  filters: QueryFilter[];
+  frequency_minutes: number;
+  channels: string[];
+  recipients: string[];
+  is_active: boolean;
+  last_state: string | null;
+  last_value: number | null;
+  last_evaluated_at: string | null;
+  created_via: string;
+  alerts_count: number;
+  semantic_model: { id: string; key: string; name: string } | null;
+  /** The watched metric's label and display format. */
+  metric: { label: string; format: Format } | null;
+}
+
+/** One firing of an alert rule. */
+export interface AlertEvent {
+  id: string;
+  alert_rule_id: string;
+  value: number;
+  message: string;
+  /** The KPI card at the time of firing (without its sparkline) and the top driver, if found. */
+  evidence: { card?: Omit<KpiCard, 'sparkline'>; driver?: Driver | null };
+  fired_at: string;
+  acknowledged_at: string | null;
+  rule?: Pick<AlertRule, 'id' | 'name' | 'metric_key'>;
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  severity: Severity;
+  title: string;
+  body: string;
+  link: string | null;
+  data: JsonObject;
+  channels: string[];
+  read_at: string | null;
+  created_at: string;
+}
+
+// ── Data platform ───────────────────────────────────────────────────────────
+
+export interface ConfigField {
+  key: string;
+  type: 'string' | 'secret' | 'integer' | string;
+  required?: boolean;
+}
+
+export interface Connector {
+  id: string;
+  key: string;
+  name: string;
+  category: string;
+  capabilities: string[];
+  config_schema: ConfigField[];
+  status: 'available' | 'planned' | string;
+}
+
+export interface IngestionRun {
+  id: string;
+  mode: string;
+  status: string;
+  records: number;
+  duration_ms: number | null;
+  error_count: number;
+  warning_count: number;
+  log: { level: string; message: string }[];
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface DataSource {
+  id: string;
+  connector_key: string;
+  name: string;
+  status: string;
+  sync_mode: string;
+  schedule: string | null;
+  last_sync_at: string | null;
+  last_error: string | null;
+  datasets_count: number;
+  last_run: IngestionRun | null;
+  config_keys: string[];
+}
+
+export interface ConnectionTest {
+  ok: boolean;
+  message: string;
+  tables?: string[];
+}
+
+/**
+ * Column statistics from the profiler. Sensitive columns come back as
+ * `{ redacted: true }` for viewers without data.sensitive.
+ */
+export interface FieldProfile {
+  redacted?: boolean;
+  null_count?: number;
+  null_pct?: number;
+  distinct?: number;
+  /** Text form of the minimum/maximum (numbers and dates). */
+  min?: string | null;
+  max?: string | null;
+  /** Only for low-cardinality text columns. */
+  top_values?: { value: string; count: number }[];
+  /** Values more than four standard deviations from the mean (numeric columns). */
+  outliers_4sd?: number;
+}
+
+export interface DatasetField {
+  id: string;
+  name: string;
+  label: string;
+  data_type: string;
+  description: string | null;
+  is_sensitive: boolean;
+  profile: FieldProfile | null;
+}
+
+export interface DatasetSummary {
+  id: string;
+  name: string;
+  label: string;
+  description: string | null;
+  physical_schema: string;
+  physical_table: string;
+  /** Null until the dataset is first profiled. */
+  row_count: number | null;
+  freshness_at: string | null;
+  profile: {
+    issues: { field?: string; severity?: string; message: string }[];
+    profiled_at: string | null;
+    column_count: number;
+  } | null;
+  fields_count?: number;
+  data_source: { id: string; name: string; connector_key: string; status: string; last_sync_at: string | null } | null;
+}
+
+export interface Dataset extends DatasetSummary {
+  fields: DatasetField[];
+}
+
+/** First rows of a dataset; sensitive columns are masked unless the viewer may see them. */
+export interface DatasetPreview {
+  columns: string[];
+  rows: QueryRow[];
+  masked: boolean;
+}
+
+/** A generated semantic model awaiting review; every choice carries a reason. */
+export interface SemanticProposal {
+  key: string;
+  name: string;
+  description: string | null;
+  base: string;
+  time_dimension: string | null;
+  dimensions: { key: string; label: string; field: string; type: string; sensitive: boolean }[];
+  measures: { key: string; label: string; aggregation: string }[];
+  metrics: {
+    key: string;
+    label: string;
+    expression: string;
+    format: Format;
+    is_kpi: boolean;
+    synonyms: string[];
+    reason: string;
+  }[];
+  reasons: string[];
+}
+
+export interface UploadResult {
+  run: IngestionRun;
+  dataset: Dataset;
+}
+
+/** Where a metric comes from and where it is used. */
+export interface MetricLineage {
+  metric: { ref: string; label: string; expression: string; description: string | null; owner: string | null };
+  /** Null fields when the base dataset was uploaded rather than synced from a source. */
+  source: { name: string | null; connector: string | null; last_sync_at: string | null };
+  table: { name: string; label: string; freshness_at: string | null; row_count: number | null };
+  transformations: { field: string; transformation: string }[];
+  semantic_model: { key: string; name: string; version: number };
+  dashboards: { id: string; title: string }[];
+  reports: { id: string; title: string; status: string }[];
+}
+
+// ── Identity & administration ───────────────────────────────────────────────
+
+export interface RoleRef {
+  key: string;
+  name: string;
+}
+
+export interface Role {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  experience: string;
+  is_system: boolean;
+  permissions_count: number;
+  permissions: { id: string; key: string }[];
+}
+
+export interface Permission {
+  id: string;
+  key: string;
+  group: string;
+  description: string | null;
+}
+
+/** Row-level access attributes; currently the countries a user may see. */
+export interface DataScope {
+  country_codes?: string[];
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  first_name: string;
+  email: string;
+  title: string | null;
+  status: 'active' | 'suspended' | string;
+  roles: RoleRef[];
+  experience: string;
+  department: string | null;
+  team: string | null;
+  /** Null means the user sees all data. */
+  data_scope: DataScope | null;
+  mfa_enabled: boolean;
+  last_login_at: string | null;
+}
+
+export interface Organisation {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  industry: string | null;
+  currency: string;
+  timezone: string;
+  branding: { accent?: string; logo_text?: string };
+  settings: JsonObject;
+}
+
+export interface FeatureFlag {
+  key: string;
+  enabled: boolean;
+  description: string | null;
+}
+
+export interface HealthComponent {
+  status: 'ok' | 'degraded' | 'down' | 'not_configured' | 'unknown' | string;
+  latency_ms: number | null;
+  detail: string;
+}
+
+export interface SystemHealth {
+  components: Record<string, HealthComponent>;
+  query_performance: {
+    last_hour_queries: number;
+    avg_ms: number;
+    p95_ms: number;
+    cache_hit_rate: number;
+    failures: number;
+  };
+  checked_at: string;
+}
+
+export interface Session {
+  id: string;
+  device: string | null;
+  ip_address: string | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string;
+}
+
+// ── Governance ──────────────────────────────────────────────────────────────
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  decision: string;
+  result: string;
+  query_hash: string | null;
+  query_sql: string | null;
+  duration_ms: number | null;
+  row_count: number | null;
+  ip_address: string | null;
+  meta: JsonObject;
+  created_at: string;
+  user: { id: string; name: string; email: string } | null;
+}
+
+export interface DataQualityEntry {
+  id: string;
+  label: string;
+  table: string;
+  /** Null until the dataset is first profiled. */
+  row_count: number | null;
+  freshness_at: string | null;
+  profiled_at: string | null;
+  source: { name: string; status: string; last_sync_at: string | null } | null;
+  sensitive_fields: string[];
+  quality_score: number;
+  issues: { field?: string; severity?: string; message: string }[];
+}
+
+export interface AiGovernance {
+  totals: {
+    runs: number;
+    succeeded: number;
+    failed: number;
+    refused: number;
+    tokens_in: number;
+    tokens_out: number;
+    cost_usd: number;
+    avg_latency_ms: number;
+    grounded_share: number;
+    feedback_positive: number;
+    feedback_negative: number;
+  };
+  by_day: { day: string; runs: number; tokens_in: number; tokens_out: number; cost: string; latency: string }[];
+  by_planner: { planner: string; runs: number }[];
+  by_intent: { intent: string; runs: number }[];
+  recent: {
+    id: string;
+    question: string;
+    intent: string | null;
+    status: string;
+    planner: string | null;
+    model: string | null;
+    tokens_in: number;
+    tokens_out: number;
+    cost_usd: number;
+    latency_ms: number;
+    created_at: string;
+    conversation_id: string;
+    evidence: Evidence[];
+  }[];
+  models: {
+    id: string;
+    provider: string;
+    model: string;
+    purpose: string;
+    cost_per_mtok_in: number;
+    cost_per_mtok_out: number;
+    is_default: boolean;
+    enabled: boolean;
+  }[];
+  agents: {
+    id: string;
+    key: string;
+    name: string;
+    description: string;
+    stage: string;
+    upstream: string[];
+    enabled: boolean;
+  }[];
+  prompts: { id: string; key: string; version: number; is_active: boolean }[];
+}
+
+// ── Search, collaboration, AI conversations ────────────────────────────────
+
+export interface SearchResult {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string | null;
+  link: string;
+}
+
+export interface Comment {
+  id: string;
+  body: string;
+  user: { id: string; name: string; title: string | null } | null;
+  created_at: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updated_at: string;
+}

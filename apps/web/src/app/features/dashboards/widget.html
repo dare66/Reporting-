@@ -1,0 +1,100 @@
+@let w = widget();
+@if (w.type !== 'kpi') {
+  <div class="w-head">
+    <b>{{ w.title }}</b
+    ><span class="spacer"></span>
+    @if (w.type === 'globe') {
+      <div class="seg mini">
+        <button [class.on]="three()" (click)="three.set(true)">3D</button
+        ><button [class.on]="!three()" (click)="three.set(false)">2D</button>
+      </div>
+    }
+  </div>
+}
+@if (error()) {
+  <div class="w-err">
+    <app-icon name="warning" [size]="16" /><span>{{ error() }}</span
+    ><button class="btn sm ghost" (click)="load()">Retry</button>
+  </div>
+} @else if (!data()) {
+  <div class="skeleton fill"></div>
+} @else {
+  @switch (w.type) {
+    @case ('kpi') {
+      @for (c of kpis() ?? []; track c.ref) {
+        <app-kpi [card]="c" />
+      }
+    }
+    @case ('insight') {
+      <ol class="ins">
+        @for (i of (insights() ?? []).slice(0, 4); track i.id) {
+          <li>
+            <b>{{ i.title }}</b>
+            @if (i.metric_key) {
+              <a routerLink="/investigate" [queryParams]="{ metric: i.metric_key }">Investigate →</a>
+            }
+          </li>
+        }
+      </ol>
+    }
+    @case ('table') {
+      @if (result(); as res) {
+        <div class="tbl">
+          <table class="table">
+            <thead>
+              <tr>
+                @for (c of res.columns; track c.key) {
+                  <th [class.r]="c.role === 'metric'">{{ c.label }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of res.rows; track $index) {
+                <tr>
+                  @for (c of res.columns; track c.key) {
+                    <td [class.r]="c.role === 'metric'">
+                      {{ c.role === 'metric' ? cell(r[c.key], c.format) : r[c.key] }}
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+    @case ('globe') {
+      @if (three()) {
+        <app-globe [data]="globe()" [height]="height() - 50" [autoRotate]="true" />
+      } @else if (mapSpec(); as spec) {
+        <app-chart [spec]="spec" [height]="height() - 50" [tableToggle]="false" />
+      }
+    }
+    @case ('anomalies') {
+      <ul class="anom">
+        @for (a of (anomalies() ?? []).slice(0, 5); track a.id) {
+          <li>
+            <span class="badge critical">{{ Math.abs(a.score).toFixed(1) }}σ</span
+            ><span>{{ a.evidence.label }} · {{ date(a.period) }}</span
+            ><b>{{ f(a.actual, a.evidence.format) }}</b>
+          </li>
+        } @empty {
+          <li class="muted">No open anomalies</li>
+        }
+      </ul>
+    }
+    @case ('forecast') {
+      @if (forecastSpec(); as spec) {
+        <app-chart [spec]="spec" [height]="height() - 50" [tableToggle]="false" />
+      }
+    }
+    @case ('text') {
+      <p class="secondary">{{ w.viz['text'] }}</p>
+    }
+    @default {
+      @if (chartSpec(); as spec) {
+        <app-chart [spec]="spec" [height]="height() - 50" />
+      }
+    }
+  }
+}

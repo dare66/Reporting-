@@ -1,25 +1,46 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 export const API = '/api/v1';
 export const AI = '/ai-api/v1';
 
+export type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+/** Error body shapes produced by the API (`{error}`) and the AI service (`{detail}`). */
+interface ErrorBody {
+  error?: { message?: string };
+  detail?: string;
+  message?: string;
+}
+
 /** Thin promise-based client. Errors surface as ApiFailure with the API's friendly message. */
 @Injectable({ providedIn: 'root' })
 export class Api {
   private http = inject(HttpClient);
 
-  get<T = any>(path: string, params?: Record<string, any>): Promise<T> {
+  get<T>(path: string, params?: QueryParams): Promise<T> {
     let p = new HttpParams();
-    Object.entries(params ?? {}).forEach(([k, v]) => v !== undefined && v !== null && v !== '' && (p = p.set(k, String(v))));
+    for (const [key, value] of Object.entries(params ?? {})) {
+      if (value !== undefined && value !== null && value !== '') p = p.set(key, String(value));
+    }
     return firstValueFrom(this.http.get<T>(API + path, { params: p }));
   }
-  post<T = any>(path: string, body: any = {}): Promise<T> { return firstValueFrom(this.http.post<T>(API + path, body)); }
-  put<T = any>(path: string, body: any = {}): Promise<T> { return firstValueFrom(this.http.put<T>(API + path, body)); }
-  patch<T = any>(path: string, body: any = {}): Promise<T> { return firstValueFrom(this.http.patch<T>(API + path, body)); }
-  delete<T = any>(path: string): Promise<T> { return firstValueFrom(this.http.delete<T>(API + path)); }
-  upload<T = any>(path: string, form: FormData): Promise<T> { return firstValueFrom(this.http.post<T>(API + path, form)); }
+  post<T>(path: string, body: unknown = {}): Promise<T> {
+    return firstValueFrom(this.http.post<T>(API + path, body));
+  }
+  put<T>(path: string, body: unknown = {}): Promise<T> {
+    return firstValueFrom(this.http.put<T>(API + path, body));
+  }
+  patch<T>(path: string, body: unknown = {}): Promise<T> {
+    return firstValueFrom(this.http.patch<T>(API + path, body));
+  }
+  delete<T = void>(path: string): Promise<T> {
+    return firstValueFrom(this.http.delete<T>(API + path));
+  }
+  upload<T>(path: string, form: FormData): Promise<T> {
+    return firstValueFrom(this.http.post<T>(API + path, form));
+  }
   async download(path: string, filename: string): Promise<void> {
     const blob = await firstValueFrom(this.http.get(API + path, { responseType: 'blob' }));
     const url = URL.createObjectURL(blob);
@@ -29,6 +50,16 @@ export class Api {
   }
 }
 
-export function errorMessage(e: any): string {
-  return e?.error?.error?.message ?? e?.error?.detail ?? e?.error?.message ?? (e?.status === 0 ? 'The service is unreachable.' : 'Something went wrong.');
+/** The friendliest message available for a failed call. */
+export function errorMessage(e: unknown): string {
+  if (e instanceof HttpErrorResponse) {
+    const body = (e.error ?? {}) as ErrorBody;
+    return (
+      body.error?.message ??
+      body.detail ??
+      body.message ??
+      (e.status === 0 ? 'The service is unreachable.' : 'Something went wrong.')
+    );
+  }
+  return e instanceof Error ? e.message : 'Something went wrong.';
 }

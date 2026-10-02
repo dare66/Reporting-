@@ -1,0 +1,14 @@
+<div class="working" role="status" aria-live="polite">
+  <div class="orbit"><span></span><span></span><span></span></div>
+  <div>
+    <div class="title">{{ title() }}</div>
+    <div class="steps">
+      @for (s of steps(); track s; let i = $index) {
+        <span [style.animation-delay]="i * 0.9 + 's'">{{ s }}</span>
+        @if (i < steps().length - 1) {
+          <i>→</i>
+        }
+      }
+    </div>
+  </div>
+</div>

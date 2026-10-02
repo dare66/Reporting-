@@ -1,0 +1,95 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow ai">AI insights</div>
+      <h1>What deserves attention</h1>
+      <p class="lede">
+        Insights are computed from governed metrics — period changes, concentrated drivers, demand vs. capacity and
+        statistical anomalies. Every one links to its evidence.
+      </p>
+    </div>
+    <div class="row">
+      @if (auth.can('analytics.advanced')) {
+        <button class="btn" (click)="scan()" [disabled]="busy()">
+          <app-icon name="pulse" [size]="16" /> {{ busy() === 'scan' ? 'Scanning…' : 'Scan for anomalies' }}
+        </button>
+      }
+      <button class="btn signal" (click)="generate()" [disabled]="busy()">
+        <app-icon name="refresh" [size]="16" /> {{ busy() === 'gen' ? 'Analysing…' : 'Refresh insights' }}
+      </button>
+    </div>
+  </header>
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  }
+  @if (busy() === 'gen') {
+    <app-working
+      title="Generating insights"
+      [steps]="['Comparing periods', 'Decomposing changes', 'Checking capacity', 'Ranking']"
+    />
+  }
+  <section class="cols">
+    <div class="stack">
+      <div class="eyebrow">Insights · {{ insights().length }}</div>
+      @for (i of insights(); track i.id) {
+        <article class="ins panel rise" [class]="i.severity">
+          <div class="row">
+            <span class="badge" [class]="i.severity">{{ i.kind }}</span
+            ><span class="muted small">{{ ago(i.created_at) }}</span>
+          </div>
+          <h3>{{ i.title }}</h3>
+          <p class="secondary">{{ i.body }}</p>
+          <div class="row">
+            <button class="btn sm" (click)="show(i)"><app-icon name="evidence" [size]="14" /> View evidence</button>
+            @if (i.metric_key) {
+              <a class="btn sm ghost" routerLink="/investigate" [queryParams]="{ metric: i.metric_key }"
+                >Investigate →</a
+              >
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="muted">No insights yet. Refresh to analyse the latest data.</p>
+      }
+    </div>
+    <div class="stack">
+      <div class="eyebrow">Open anomalies · {{ anomalies().length }}</div>
+      @for (a of anomalies(); track a.id) {
+        <article class="anom panel">
+          <div class="row">
+            <span class="badge" [class.critical]="a.severity !== 'medium'" [class.warning]="a.severity === 'medium'"
+              >! {{ a.severity }}</span
+            >
+            <b>{{ a.evidence.label }}</b
+            ><span class="spacer"></span><span class="muted small">{{ date(a.period) }}</span>
+          </div>
+          <div class="cmp">
+            <span
+              >Expected<b>{{ f(a.expected, a.evidence.format) }}</b></span
+            ><span
+              >Actual<b class="neg">{{ f(a.actual, a.evidence.format) }}</b></span
+            ><span
+              >Deviation<b>{{ Math.abs(a.score).toFixed(1) }}σ</b></span
+            >
+          </div>
+          <div class="row">
+            <a class="btn sm signal" routerLink="/investigate" [queryParams]="{ metric: a.metric_key }">Investigate</a>
+            <button class="btn sm ghost" (click)="setStatus(a, 'dismissed')">Dismiss</button
+            ><button class="btn sm ghost" (click)="setStatus(a, 'resolved')">Resolve</button>
+          </div>
+        </article>
+      } @empty {
+        <p class="muted">No open anomalies.</p>
+      }
+    </div>
+  </section>
+</div>
+@if (ev(); as e) {
+  <app-evidence
+    [title]="e.title"
+    [body]="e.body"
+    [calculation]="e.calculation"
+    [items]="e.items"
+    (dismiss)="ev.set(null)"
+  />
+}

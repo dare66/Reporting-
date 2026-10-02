@@ -1,0 +1,103 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Reports</div>
+      <h1>Board-ready, in minutes</h1>
+      <p class="lede">
+        Every section is computed from governed data with its evidence attached. Export to PDF, PowerPoint or Excel;
+        version, publish and schedule.
+      </p>
+    </div>
+    @if (auth.can('reports.manage')) {
+      <button class="btn signal" (click)="wizard.set(true)"><app-icon name="plus" [size]="16" /> Create report</button>
+    }
+  </header>
+
+  @if (wizard()) {
+    <section class="wizard panel rise">
+      @if (stage() === null) {
+        <div class="eyebrow ai">Step {{ area() ? 2 : 1 }} of 2</div>
+        @if (!area()) {
+          <h2>What do you want to understand?</h2>
+          <div class="areas">
+            @for (a of areas; track a.key) {
+              <button class="area" (click)="a.key === 'custom' ? custom() : area.set(a)">
+                <app-icon [name]="a.icon" [size]="22" /><b>{{ a.label }}</b
+                ><span>{{ a.blurb }}</span>
+              </button>
+            }
+          </div>
+        } @else if (area(); as chosen) {
+          <h2>{{ chosen.label }} — choose a format</h2>
+          <div class="areas">
+            @for (t of templatesFor(); track t.key) {
+              <button class="area" [class.on]="template() === t.key" (click)="template.set(t.key)">
+                <b>{{ t.name }}</b
+                ><span>{{ t.description }}</span
+                ><small>{{ t.sections.length }} sections</small>
+              </button>
+            }
+          </div>
+          <div class="row wrap" style="margin-top: 16px">
+            <span class="muted">Period</span>
+            <div class="seg">
+              @for (p of periods; track p.key) {
+                <button [class.on]="period() === p.key" (click)="period.set(p.key)">{{ p.label }}</button>
+              }
+            </div>
+            <span class="spacer"></span><button class="btn ghost" (click)="area.set(null)">Back</button>
+            <button class="btn signal" [disabled]="!template()" (click)="generate()">Generate report</button>
+          </div>
+        }
+      } @else {
+        @let current = stage() ?? 0;
+        <h2>Generating your report</h2>
+        <ol class="timeline">
+          @for (s of stages; track s; let i = $index) {
+            <li [class.done]="i < current" [class.active]="i === current"><span class="dot"></span>{{ s }}</li>
+          }
+        </ol>
+        <p class="muted">
+          Computing every section from live, governed data — KPIs, trends, drivers, anomalies and forecast.
+        </p>
+      }
+      @if (error(); as message) {
+        <app-error [message]="message" (retry)="generate()" />
+      }
+    </section>
+  }
+
+  <div class="filters row">
+    @for (s of ['all', 'draft', 'published', 'archived']; track s) {
+      <button class="chip" [class.on]="status() === s" (click)="status.set(s)">{{ s }}</button>
+    }
+  </div>
+  <div class="list">
+    @for (r of filtered(); track r.id) {
+      <a class="item panel" [routerLink]="['/reports', r.id]">
+        <div class="doc"><i></i><i></i><i class="s"></i><b></b></div>
+        <div class="grow">
+          <b>{{ r.title }}</b>
+          <div class="muted small">{{ r.subtitle }}</div>
+          <div class="row small muted">
+            <span class="badge" [class.good]="r.status === 'published'">{{ r.status }}</span
+            ><span>v{{ r.current_version }}</span
+            >·<span>{{ r.sections_count }} sections</span>·<span>{{ r.owner?.name }}</span
+            >·<span>{{ ago(r.updated_at) }}</span>
+          </div>
+        </div>
+        <app-icon name="arrowRight" [size]="16" />
+      </a>
+    } @empty {
+      @if (loaded()) {
+        <app-empty
+          eyebrow="Reports"
+          title="Your first report is one click away"
+          body="Pick what you want to understand and AIXBI computes, writes and lays it out."
+          [action]="auth.can('reports.manage') ? 'Create report' : null"
+          (act)="wizard.set(true)"
+        />
+      }
+    }
+  </div>
+</div>

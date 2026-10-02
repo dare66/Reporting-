@@ -1,0 +1,55 @@
+@if (showTable()) {
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{{ spec().isTime ? 'Period' : 'Category' }}</th>
+          @for (s of spec().series; track s.key) {
+            <th class="r">{{ s.name }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of spec().categories; track $index; let i = $index) {
+          <tr>
+            <td>
+              {{ spec().isTime ? date(c) : c }}
+              @if (spec().partialFrom && c >= spec().partialFrom!) {
+                <span class="badge">partial</span>
+              }
+            </td>
+            @for (s of spec().series; track s.key) {
+              <td class="r">{{ f(s.data[i], s.format) }}</td>
+            }
+          </tr>
+        }
+        @for (c of spec().forecast?.categories ?? []; track c; let i = $index) {
+          <tr>
+            <td>{{ date(c) }} <span class="badge ai">forecast</span></td>
+            <td class="r">
+              {{ f(spec().forecast!.value[i], spec().format) }}
+              <span class="muted"
+                >({{ f(spec().forecast!.lower[i], spec().format) }}–{{
+                  f(spec().forecast!.upper[i], spec().format)
+                }})</span
+              >
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+<div
+  #host
+  class="host"
+  [style.height.px]="height()"
+  [class.hidden]="showTable()"
+  role="img"
+  [attr.aria-label]="ariaLabel()"
+></div>
+@if (tableToggle()) {
+  <button class="btn sm ghost toggle" (click)="showTable.set(!showTable())" [attr.aria-pressed]="showTable()">
+    <app-icon [name]="showTable() ? 'chart' : 'table'" [size]="14" />{{ showTable() ? 'Chart' : 'Table' }}
+  </button>
+}

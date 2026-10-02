@@ -1,104 +1,255 @@
 <div class="page">
-  @if (error()) { <app-error [message]="error()!" (retry)="error.set(null); load()"/> }
-  @if (!report() && !error()) { <app-working title="Opening report" [steps]="['Loading sections', 'Rendering charts']"/> }
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="error.set(null); load()" />
+  }
+  @if (!report() && !error()) {
+    <app-working title="Opening report" [steps]="['Loading sections', 'Rendering charts']" />
+  }
   @if (report(); as r) {
     <header class="page-head">
       <div>
         <a routerLink="/reports" class="muted back">← Reports</a>
-        <div class="row wrap"><span class="badge" [class.good]="r.status === 'published'">{{ r.status }}</span><span class="muted small">v{{ r.current_version }} · {{ r.parameters?.range_label }} · updated {{ ago(r.updated_at) }}</span></div>
+        <div class="row wrap">
+          <span class="badge" [class.good]="r.status === 'published'">{{ r.status }}</span
+          ><span class="muted small"
+            >v{{ r.current_version }} · {{ r.parameters?.range_label }} · updated {{ ago(r.updated_at) }}</span
+          >
+        </div>
         <h1>{{ r.title }}</h1>
-        @if (r.subtitle) { <p class="lede">{{ r.subtitle }}</p> }
+        @if (r.subtitle) {
+          <p class="lede">{{ r.subtitle }}</p>
+        }
       </div>
       <div class="row wrap actions">
-        <button class="btn" (click)="panel.set(panel() === 'export' ? null : 'export')"><app-icon name="download" [size]="16"/> Export</button>
+        <button class="btn" (click)="panel.set(panel() === 'export' ? null : 'export')">
+          <app-icon name="download" [size]="16" /> Export
+        </button>
         @if (canEdit()) {
-          <button class="btn ghost" (click)="refresh()" [disabled]="!!busy()"><app-icon name="refresh" [size]="16"/> {{ busy() === 'refresh' ? 'Refreshing…' : 'Refresh data' }}</button>
-          <button class="btn ghost" (click)="panel.set(panel() === 'versions' ? null : 'versions')"><app-icon name="history" [size]="16"/> Versions</button>
-          <button class="btn ghost" (click)="panel.set(panel() === 'schedule' ? null : 'schedule')"><app-icon name="calendar" [size]="16"/> Schedule</button>
-          @if (auth.can('reports.publish') && r.status !== 'published') { <button class="btn signal" (click)="publish()" [disabled]="!!busy()">Publish</button> }
-          @if (r.status === 'published') { <button class="btn ghost" (click)="archive()">Archive</button> }
+          <button class="btn ghost" (click)="refresh()" [disabled]="!!busy()">
+            <app-icon name="refresh" [size]="16" /> {{ busy() === 'refresh' ? 'Refreshing…' : 'Refresh data' }}
+          </button>
+          <button class="btn ghost" (click)="panel.set(panel() === 'versions' ? null : 'versions')">
+            <app-icon name="history" [size]="16" /> Versions
+          </button>
+          <button class="btn ghost" (click)="panel.set(panel() === 'schedule' ? null : 'schedule')">
+            <app-icon name="calendar" [size]="16" /> Schedule
+          </button>
+          @if (auth.can('reports.publish') && r.status !== 'published') {
+            <button class="btn signal" (click)="publish()" [disabled]="!!busy()">Publish</button>
+          }
+          @if (r.status === 'published') {
+            <button class="btn ghost" (click)="archive()">Archive</button>
+          }
         }
-        @if (auth.can('reports.manage')) { <button class="btn ghost" (click)="duplicate()">Duplicate</button> }
+        @if (auth.can('reports.manage')) {
+          <button class="btn ghost" (click)="duplicate()">Duplicate</button>
+        }
       </div>
     </header>
 
     @if (panel() === 'export') {
       <section class="drawer panel rise">
         <div class="row wrap">
-          @for (x of [['pdf','PDF','Print-ready document'],['pptx','PowerPoint','Editable native charts'],['xlsx','Excel','One sheet per section'],['csv','CSV','Every number, long format'],['html','Interactive HTML','Shareable page']]; track x[0]) {
-            <button class="fmt" (click)="exportAs(x[0])" [disabled]="!!busy()"><b>{{ busy() === 'export-' + x[0] ? 'Generating…' : x[1] }}</b><small>{{ x[2] }}</small></button>
+          @for (x of exportFormats; track x[0]) {
+            <button class="fmt" (click)="exportAs(x[0])" [disabled]="!!busy()">
+              <b>{{ busy() === 'export-' + x[0] ? 'Generating…' : x[1] }}</b
+              ><small>{{ x[2] }}</small>
+            </button>
           }
         </div>
-        @if (r.exports?.length) { <div class="muted small" style="margin-top:10px">Recent: @for (e of r.exports.slice(0, 4); track e.id) { <span>{{ e.format.toUpperCase() }} · {{ e.status }}{{ e.bytes ? ' · ' + bytes(e.bytes) : '' }} · {{ ago(e.created_at) }}; </span> }</div> }
+        @if (r.exports.length) {
+          <div class="muted small" style="margin-top: 10px">
+            Recent:
+            @for (e of r.exports.slice(0, 4); track e.id) {
+              <span
+                >{{ e.format.toUpperCase() }} · {{ e.status }}{{ e.bytes ? ' · ' + bytes(e.bytes) : '' }} ·
+                {{ ago(e.created_at) }};
+              </span>
+            }
+          </div>
+        }
       </section>
     }
     @if (panel() === 'versions') {
       <section class="drawer panel rise">
-        <div class="row"><b>Version history</b><span class="muted small">Select two versions to compare</span><span class="spacer"></span><button class="btn sm" (click)="saveVersion()">Save version</button></div>
-        <ul class="versions">@for (v of r.versions; track v.id) {
-          <li><b>v{{ v.version }}</b><span class="badge">{{ v.status }}</span><span class="muted">{{ v.note }}</span><span class="muted small">{{ ago(v.created_at) }}</span><span class="spacer"></span>
-            <button class="btn sm ghost" [class.on]="compareA() === v.version" (click)="compare(v.version)">{{ compareA() === v.version ? 'Selected' : 'Compare' }}</button>
-            @if (v.version !== r.current_version) { <button class="btn sm ghost" (click)="restore(v.version)">Restore</button> }</li> }</ul>
+        <div class="row">
+          <b>Version history</b><span class="muted small">Select two versions to compare</span
+          ><span class="spacer"></span><button class="btn sm" (click)="saveVersion()">Save version</button>
+        </div>
+        <ul class="versions">
+          @for (v of r.versions; track v.id) {
+            <li>
+              <b>v{{ v.version }}</b
+              ><span class="badge">{{ v.status }}</span
+              ><span class="muted">{{ v.note }}</span
+              ><span class="muted small">{{ ago(v.created_at) }}</span
+              ><span class="spacer"></span>
+              <button class="btn sm ghost" [class.on]="compareA() === v.version" (click)="compare(v.version)">
+                {{ compareA() === v.version ? 'Selected' : 'Compare' }}
+              </button>
+              @if (v.version !== r.current_version) {
+                <button class="btn sm ghost" (click)="restore(v.version)">Restore</button>
+              }
+            </li>
+          }
+        </ul>
         @if (diff(); as d) {
-          <div class="diff"><b>v{{ d.from }} → v{{ d.to }}</b>
-            @for (c of d.changes; track $index) { <div><span class="badge">{{ c.change }}</span> {{ c.section }}
-              @for (k of c.kpis ?? []; track k.label) { <div class="muted small">{{ k.label }}: {{ f(k.from, k.format) }} → {{ f(k.to, k.format) }}</div> }
-              @if (c.text) { <div class="muted small">Narrative rewritten ({{ c.text.from.length }} → {{ c.text.to.length }} paragraphs)</div> }</div> }
-            @empty { <p class="muted">No differences.</p> }</div>
+          <div class="diff">
+            <b>v{{ d.from }} → v{{ d.to }}</b>
+            @for (c of d.changes; track $index) {
+              <div>
+                <span class="badge">{{ c.change }}</span> {{ c.section }}
+                @for (k of c.kpis ?? []; track k.label) {
+                  <div class="muted small">{{ k.label }}: {{ f(k.from, k.format) }} → {{ f(k.to, k.format) }}</div>
+                }
+                @if (c.text) {
+                  <div class="muted small">
+                    Narrative rewritten ({{ c.text.from.length }} → {{ c.text.to.length }} paragraphs)
+                  </div>
+                }
+              </div>
+            } @empty {
+              <p class="muted">No differences.</p>
+            }
+          </div>
         }
       </section>
     }
     @if (panel() === 'schedule') {
       <section class="drawer panel rise">
         <div class="row wrap">
-          <label class="field">Frequency<select class="select" [ngModel]="sched().frequency" (ngModelChange)="patchSched('frequency', $event)">
-            @for (fq of ['daily', 'weekly', 'monthly', 'quarterly']; track fq) { <option [value]="fq">{{ fq }}</option> }</select></label>
-          <label class="field">Time<input class="input" type="time" [ngModel]="sched().time_of_day" (ngModelChange)="patchSched('time_of_day', $event)"></label>
-          <div class="field">Formats<div class="row">@for (fm of ['pdf', 'pptx', 'xlsx']; track fm) { <button class="chip" [class.on]="sched().formats.includes(fm)" (click)="patchSched('formats', toggle(sched().formats, fm))">{{ fm }}</button> }</div></div>
-          <div class="field">Channels<div class="row">@for (ch of ['email', 'push', 'in_app']; track ch) { <button class="chip" [class.on]="sched().channels.includes(ch)" (click)="patchSched('channels', toggle(sched().channels, ch))">{{ ch.replace('_', '-') }}</button> }</div></div>
+          <label class="field"
+            >Frequency<select
+              class="select"
+              [ngModel]="sched().frequency"
+              (ngModelChange)="patchSched('frequency', $event)"
+            >
+              @for (fq of ['daily', 'weekly', 'monthly', 'quarterly']; track fq) {
+                <option [value]="fq">{{ fq }}</option>
+              }
+            </select></label
+          >
+          <label class="field"
+            >Time<input
+              class="input"
+              type="time"
+              [ngModel]="sched().time_of_day"
+              (ngModelChange)="patchSched('time_of_day', $event)"
+          /></label>
+          <div class="field">
+            Formats
+            <div class="row">
+              @for (fm of scheduleFormats; track fm) {
+                <button
+                  class="chip"
+                  [class.on]="sched().formats.includes(fm)"
+                  (click)="patchSched('formats', toggle(sched().formats, fm))"
+                >
+                  {{ fm }}
+                </button>
+              }
+            </div>
+          </div>
+          <div class="field">
+            Channels
+            <div class="row">
+              @for (ch of channels; track ch) {
+                <button
+                  class="chip"
+                  [class.on]="sched().channels.includes(ch)"
+                  (click)="patchSched('channels', toggle(sched().channels, ch))"
+                >
+                  {{ ch.replace('_', '-') }}
+                </button>
+              }
+            </div>
+          </div>
           <span class="spacer"></span><button class="btn signal" (click)="schedule()">Add schedule</button>
         </div>
-        @for (s of r.schedules; track s.id) { <div class="row small sched"><app-icon name="calendar" [size]="14"/> {{ s.frequency }} at {{ s.time_of_day }} · {{ s.formats.join(', ') }} via {{ s.channels.join(', ') }} · next {{ fmtDate(s.next_run_at, 'time') }}<span class="spacer"></span><button class="btn sm ghost" (click)="unschedule(s)">Remove</button></div> }
+        @for (s of r.schedules; track s.id) {
+          <div class="row small sched">
+            <app-icon name="calendar" [size]="14" /> {{ s.frequency }} at {{ s.time_of_day }} ·
+            {{ s.formats.join(', ') }} via {{ s.channels.join(', ') }} · next {{ fmtDate(s.next_run_at, 'time')
+            }}<span class="spacer"></span><button class="btn sm ghost" (click)="unschedule(s)">Remove</button>
+          </div>
+        }
       </section>
     }
 
     @if (mobile()) {
       <!-- Mobile reader: one section per swipe -->
       <div class="swipe" #sw (scroll)="onScroll(sw)">
-        @for (s of sections(); track s.id) { <article class="page-card panel"><div class="eyebrow signal">{{ s.title }}</div><app-report-section [section]="s"/></article> }
+        @for (s of sections(); track s.id) {
+          <article class="page-card panel">
+            <div class="eyebrow signal">{{ s.title }}</div>
+            <app-report-section [section]="s" />
+          </article>
+        }
       </div>
-      <div class="dots">@for (s of sections(); track s.id; let i = $index) { <span [class.on]="i === active()"></span> }</div>
+      <div class="dots">
+        @for (s of sections(); track s.id; let i = $index) {
+          <span [class.on]="i === active()"></span>
+        }
+      </div>
     } @else {
       <div class="layout">
         <nav class="toc">
           <div class="eyebrow">Contents</div>
-          @for (s of sections(); track s.id) { <a [href]="'#s-' + s.id" (click)="$event.preventDefault(); scrollTo(s.id)">{{ s.title }}</a> }
+          @for (s of sections(); track s.id) {
+            <a [href]="'#s-' + s.id" (click)="$event.preventDefault(); scrollTo(s.id)">{{ s.title }}</a>
+          }
           @if (canEdit()) {
-            <div class="eyebrow" style="margin-top:18px">Theme</div>
-            <select class="select" [ngModel]="r.theme" (ngModelChange)="setTheme($event)">@for (t of themes; track t) { <option [value]="t">{{ t }}</option> }</select>
-            <button class="btn sm" style="margin-top:12px" (click)="panel.set('add')"><app-icon name="plus" [size]="14"/> Add section</button>
+            <div class="eyebrow" style="margin-top: 18px">Theme</div>
+            <select class="select" [ngModel]="r.theme" (ngModelChange)="setTheme($event)">
+              @for (t of themes; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+            <button class="btn sm" style="margin-top: 12px" (click)="panel.set('add')">
+              <app-icon name="plus" [size]="14" /> Add section
+            </button>
           }
         </nav>
         <div class="doc" cdkDropList (cdkDropListDropped)="drop($event)" [cdkDropListDisabled]="!canEdit()">
-          <div class="cover"><div class="eyebrow signal">{{ auth.user()?.organisation?.name }}</div><h2>{{ r.title }}</h2><p class="muted">{{ r.parameters?.period?.from }} → {{ r.parameters?.period?.to }}</p></div>
+          <div class="cover">
+            <div class="eyebrow signal">{{ auth.user()?.organisation?.name }}</div>
+            <h2>{{ r.title }}</h2>
+            <p class="muted">{{ r.parameters?.period?.from }} → {{ r.parameters?.period?.to }}</p>
+          </div>
           @for (s of sections(); track s.id) {
             <section class="sec" [id]="'s-' + s.id" cdkDrag>
               <div class="sec-head">
-                @if (canEdit()) { <span class="grip" cdkDragHandle aria-label="Reorder"><app-icon name="drag" [size]="16"/></span> }
-                <h3>{{ s.title }}</h3><span class="spacer"></span>
                 @if (canEdit()) {
-                  @if (s.type === 'summary' || s.type === 'text') { <button class="btn sm ghost" (click)="editing.set(editing() === s.id ? null : s.id)"><app-icon name="edit" [size]="14"/> Edit</button> }
-                  <button class="btn sm ghost icon" (click)="deleteSection(s)" aria-label="Delete section"><app-icon name="trash" [size]="14"/></button>
+                  <span class="grip" cdkDragHandle aria-label="Reorder"><app-icon name="drag" [size]="16" /></span>
+                }
+                <h3>{{ s.title }}</h3>
+                <span class="spacer"></span>
+                @if (canEdit()) {
+                  @if (s.type === 'summary' || s.type === 'text') {
+                    <button class="btn sm ghost" (click)="editing.set(editing() === s.id ? null : s.id)">
+                      <app-icon name="edit" [size]="14" /> Edit
+                    </button>
+                  }
+                  <button class="btn sm ghost icon" (click)="deleteSection(s)" aria-label="Delete section">
+                    <app-icon name="trash" [size]="14" />
+                  </button>
                 }
               </div>
               @if (editing() === s.id) {
                 <div class="editor">
-                  <input class="input" #title [value]="s.title" aria-label="Section title">
+                  <input class="input" #title [value]="s.title" aria-label="Section title" />
                   <textarea class="input" #body rows="8" [value]="text(s)" aria-label="Narrative"></textarea>
-                  <p class="muted small">Narrative is editable; figures in charts and KPIs always come from governed queries.</p>
-                  <div class="row"><span class="spacer"></span><button class="btn ghost" (click)="editing.set(null)">Cancel</button><button class="btn signal" (click)="saveSection(s, title.value, body.value)">Save</button></div>
+                  <p class="muted small">
+                    Narrative is editable; figures in charts and KPIs always come from governed queries.
+                  </p>
+                  <div class="row">
+                    <span class="spacer"></span><button class="btn ghost" (click)="editing.set(null)">Cancel</button
+                    ><button class="btn signal" (click)="saveSection(s, title.value, body.value)">Save</button>
+                  </div>
                 </div>
-              } @else { <app-report-section [section]="s"/> }
+              } @else {
+                <app-report-section [section]="s" />
+              }
             </section>
           }
         </div>
@@ -106,14 +257,59 @@
     }
 
     @if (panel() === 'add') {
-      <div class="scrim" (click)="panel.set(null)"></div>
-      <div class="add panel fade-in" role="dialog" aria-label="Add section">
+      <div class="scrim" appScrim (dismiss)="panel.set(null)"></div>
+      <div
+        class="add panel fade-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add section"
+        cdkTrapFocus
+        [cdkTrapFocusAutoCapture]="true"
+      >
         <h3>Add section</h3>
-        <label class="field">Type<select class="select" #t>@for (x of ['chart', 'breakdown', 'forecast', 'root_cause', 'anomalies', 'kpis', 'text']; track x) { <option [value]="x">{{ x.replace('_', ' ') }}</option> }</select></label>
-        <label class="field">Title<input class="input" #tt placeholder="e.g. Revenue by market"></label>
-        <label class="field">Metric<select class="select" #m>@for (x of ['applications.total_applications', 'revenue.revenue', 'decisions.sla_compliance', 'decisions.rejection_rate', 'decisions.approval_rate', 'decisions.avg_processing_days']; track x) { <option [value]="x">{{ x }}</option> }</select></label>
-        <label class="field">Dimension (breakdowns)<select class="select" #d><option value="">—</option>@for (x of ['country', 'institution', 'course', 'region', 'channel']; track x) { <option [value]="x">{{ x }}</option> }</select></label>
-        <div class="row"><span class="spacer"></span><button class="btn ghost" (click)="panel.set(null)">Cancel</button><button class="btn signal" (click)="addSection(t.value, tt.value, m.value, d.value)" [disabled]="busy() === 'section'">{{ busy() === 'section' ? 'Computing…' : 'Add' }}</button></div>
+        <label class="field"
+          >Type<select class="select" #t>
+            @for (x of ['chart', 'breakdown', 'forecast', 'root_cause', 'anomalies', 'kpis', 'text']; track x) {
+              <option [value]="x">{{ x.replace('_', ' ') }}</option>
+            }
+          </select></label
+        >
+        <label class="field">Title<input class="input" #tt placeholder="e.g. Revenue by market" /></label>
+        <label class="field"
+          >Metric<select class="select" #m>
+            @for (
+              x of [
+                'applications.total_applications',
+                'revenue.revenue',
+                'decisions.sla_compliance',
+                'decisions.rejection_rate',
+                'decisions.approval_rate',
+                'decisions.avg_processing_days',
+              ];
+              track x
+            ) {
+              <option [value]="x">{{ x }}</option>
+            }
+          </select></label
+        >
+        <label class="field"
+          >Dimension (breakdowns)<select class="select" #d>
+            <option value="">—</option>
+            @for (x of ['country', 'institution', 'course', 'region', 'channel']; track x) {
+              <option [value]="x">{{ x }}</option>
+            }
+          </select></label
+        >
+        <div class="row">
+          <span class="spacer"></span><button class="btn ghost" (click)="panel.set(null)">Cancel</button
+          ><button
+            class="btn signal"
+            (click)="addSection(t.value, tt.value, m.value, d.value)"
+            [disabled]="busy() === 'section'"
+          >
+            {{ busy() === 'section' ? 'Computing…' : 'Add' }}
+          </button>
+        </div>
       </div>
     }
   }

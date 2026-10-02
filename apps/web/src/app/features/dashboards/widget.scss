@@ -1,0 +1,80 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+:host ::ng-deep app-kpi .kpi {
+  padding: 12px 16px;
+  gap: 2px;
+}
+:host ::ng-deep app-kpi .value {
+  font-size: 26px;
+}
+:host ::ng-deep app-kpi app-spark {
+  margin-top: 2px;
+}
+.w-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  min-height: 40px;
+}
+.w-head b {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.seg.mini button {
+  height: 22px;
+  font-size: 11px;
+}
+.fill {
+  flex: 1;
+  margin: 12px 16px 16px;
+}
+:host ::ng-deep app-chart {
+  padding: 4px 12px 8px;
+}
+.w-err {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 16px;
+  color: var(--neg);
+  font-size: 12.5px;
+}
+.ins {
+  margin: 0;
+  padding: 6px 16px 12px 34px;
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+}
+.ins a {
+  display: block;
+  color: var(--ai);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.tbl {
+  overflow: auto;
+  padding: 0 8px 8px;
+  flex: 1;
+}
+.anom {
+  list-style: none;
+  margin: 0;
+  padding: 4px 16px 12px;
+  display: grid;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.anom li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.anom span:nth-child(2) {
+  flex: 1;
+}

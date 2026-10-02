@@ -1,0 +1,28 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Notifications</div>
+      <h1>What happened</h1>
+    </div>
+    <button class="btn" (click)="readAll()">Mark all read</button>
+  </header>
+  @for (g of groups(); track g.label) {
+    <h3 class="g">{{ g.label }}</h3>
+    <section class="panel">
+      @for (n of g.items; track n.id) {
+        <button class="n" [class.unread]="!n.read_at" (click)="open(n)">
+          <span class="ic" [class]="n.severity"><app-icon [name]="icon(n.type)" [size]="16" /></span>
+          <span class="t"
+            ><b>{{ n.title }}</b
+            ><span>{{ n.body }}</span></span
+          ><small class="muted">{{ ago(n.created_at) }}</small>
+          @if (n.link) {
+            <span class="go">{{ n.type === 'alert' || n.type === 'anomaly' ? 'Investigate' : 'Open' }} →</span>
+          }
+        </button>
+      }
+    </section>
+  } @empty {
+    <p class="muted">Nothing yet. Alerts, anomalies, mentions and finished reports appear here.</p>
+  }
+</div>

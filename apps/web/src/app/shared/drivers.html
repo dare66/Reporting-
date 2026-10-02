@@ -1,0 +1,49 @@
+@let d = data();
+<div class="tree">
+  <div class="root" [class.neg]="d.sentiment === 'negative'">
+    <div class="eyebrow">{{ d.label }}</div>
+    <div class="delta-big">{{ change() }}</div>
+    <div class="muted">{{ f(d.previous.value) }} → {{ f(d.current.value) }}</div>
+  </div>
+  @if (d.drivers.length) {
+    <svg class="wires" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+      @for (dr of top(); track $index; let i = $index) {
+        <path
+          [attr.d]="'M50,0 C50,12 ' + x(i) + ',12 ' + x(i) + ',24'"
+          fill="none"
+          stroke="var(--line-2)"
+          stroke-width=".6"
+          vector-effect="non-scaling-stroke"
+        />
+      }
+    </svg>
+    <div class="leaves" [style.grid-template-columns]="'repeat(' + top().length + ', minmax(0,1fr))'">
+      @for (dr of top(); track $index; let i = $index) {
+        <button class="leaf" (click)="explore.emit(dr)" [class.main]="i === 0">
+          @if (i === 0) {
+            <span class="eyebrow signal">Main driver</span>
+          }
+          <span class="dim">{{ dr.dimension_label }}</span>
+          <span class="member">{{ dr.member }}</span>
+          <span class="vals"
+            >{{ f(dr.previous_value) }} → <b>{{ f(dr.current_value) }}</b></span
+          >
+          <span class="share"><span class="fill" [style.width.%]="share(dr)"></span></span>
+          <span class="muted small">{{ share(dr) }}% of the change</span>
+        </button>
+      }
+    </div>
+  } @else {
+    <p class="muted" style="text-align: center; margin-top: 12px">
+      No single segment explains the change — it is broad-based.
+    </p>
+  }
+  @if (d.onset; as onset) {
+    @if (onset.significant) {
+      <div class="onset">
+        <span class="dot" style="background: var(--neg)"></span> Shift began around <b>{{ date(onset.date) }}</b> ·
+        {{ onset.shift_sigma }}σ step
+      </div>
+    }
+  }
+</div>

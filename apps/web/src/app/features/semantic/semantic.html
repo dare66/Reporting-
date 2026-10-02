@@ -1,0 +1,160 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Semantic layer</div>
+      <h1>One definition of every number</h1>
+      <p class="lede">
+        Metrics, dimensions and relationships defined once, secured once, and reused by dashboards, reports and the AI
+        analyst.
+      </p>
+    </div>
+  </header>
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  }
+  <div class="models">
+    @for (m of models(); track m.key) {
+      <button class="model panel" [class.on]="sel() === m.key" (click)="sel.set(m.key); metric.set(null)">
+        <span class="eyebrow">{{ m.domain }}</span
+        ><b>{{ m.name }}</b
+        ><span class="muted small">{{ m.description }}</span>
+        <span class="row small muted"
+          ><span>{{ m.metrics_count }} metrics</span>·<span>{{ m.dimensions_count }} dimensions</span>·<span
+            >v{{ m.version }}</span
+          ></span
+        >
+      </button>
+    }
+  </div>
+
+  @if (model(); as m) {
+    <div class="cols">
+      <section class="panel">
+        <div class="panel-head"><h3>Metrics</h3></div>
+        <ul class="list">
+          @for (x of m.metrics; track x.key) {
+            <li>
+              <button [class.on]="metric()?.key === x.key" (click)="openMetric(x)">
+                <span
+                  ><b>{{ x.label }}</b>
+                  @if (x.is_kpi) {
+                    <span class="badge">KPI</span>
+                  }
+                </span>
+                <small class="muted">{{ x.description }}</small>
+                @if (x.expression) {
+                  <code class="mono">{{ x.expression }}</code>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      </section>
+      <section class="panel">
+        @if (metric(); as x) {
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">{{ m.name }}</div>
+              <h2>{{ x.label }}</h2>
+            </div>
+            <a class="btn sm" routerLink="/explore" [queryParams]="{ metric: x.ref }">Explore →</a>
+          </div>
+          <div class="detail">
+            @if (auth.can('semantic.manage')) {
+              <label class="field">Label<input class="input" [(ngModel)]="edit.label" /></label>
+              <label class="field"
+                >Description<textarea class="input" rows="2" [(ngModel)]="edit.description"></textarea>
+              </label>
+              <div class="row">
+                <label class="field grow"
+                  >Target<input class="input" type="number" step="any" [(ngModel)]="edit.target"
+                /></label>
+                <label class="field grow">Owner<input class="input" [(ngModel)]="edit.owner" /></label>
+              </div>
+              <label class="field"
+                >Synonyms (how people ask for it — comma separated)<input class="input" [(ngModel)]="edit.synonyms"
+              /></label>
+              <div class="row">
+                <label class="row small"><input type="checkbox" [(ngModel)]="edit.is_kpi" /> Headline KPI</label
+                ><label class="row small"
+                  ><input type="checkbox" [(ngModel)]="edit.higher_is_better" /> Higher is better</label
+                >
+                <span class="spacer"></span>
+                @if (saved()) {
+                  <span class="small ok">✓ saved</span>
+                }
+                <button class="btn signal" (click)="save(x)">Save</button>
+              </div>
+            } @else {
+              <p>{{ x.description }}</p>
+              <p class="muted small">Synonyms: {{ x.synonyms.join(', ') }}</p>
+            }
+            <div class="eyebrow" style="margin-top: 12px">Lineage</div>
+            @if (lineage(); as l) {
+              <div class="lineage">
+                <div class="node">
+                  <small>Source</small><b>{{ l.source.name ?? '—' }}</b
+                  ><span class="muted">{{ l.source.connector }} · synced {{ ago(l.source.last_sync_at) }}</span>
+                </div>
+                <div class="node">
+                  <small>Table</small><b class="mono">{{ l.table.name }}</b
+                  ><span class="muted">{{ fmt(l.table.row_count) }} rows</span>
+                </div>
+                @for (t of l.transformations; track $index) {
+                  <div class="node">
+                    <small>Field → transformation</small><b class="mono">{{ t.field.split('.').at(-1) }}</b
+                    ><span class="mono muted">{{ t.transformation }}</span>
+                  </div>
+                }
+                <div class="node metric">
+                  <small>Metric</small><b>{{ l.metric.label }}</b
+                  ><span class="mono muted">{{ l.metric.expression }}</span>
+                </div>
+                <div class="node">
+                  <small>Used in</small>
+                  @for (d of l.dashboards; track d.id) {
+                    <a [routerLink]="['/dashboards', d.id]">▦ {{ d.title }}</a>
+                  }
+                  @for (r of l.reports; track r.id) {
+                    <a [routerLink]="['/reports', r.id]">▤ {{ r.title }}</a>
+                  }
+                  @if (!l.dashboards.length && !l.reports.length) {
+                    <span class="muted">Not yet used</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="panel-head"><h3>Dimensions</h3></div>
+          <ul class="list dims">
+            @for (d of m.dimensions; track d.key) {
+              <li>
+                <div>
+                  <b>{{ d.label }}</b> <span class="badge">{{ d.type }}</span>
+                  @if (d.is_sensitive) {
+                    <span class="badge critical"><app-icon name="lock" [size]="11" /> sensitive</span>
+                  }
+                  <div class="muted small">
+                    {{ d.dataset }}{{ d.field ? '.' + d.field : '' }} · {{ d.synonyms.join(', ') }}
+                  </div>
+                </div>
+              </li>
+            }
+          </ul>
+          @if (m.hierarchies.length) {
+            <div class="panel-head"><h3>Hierarchies (drill paths)</h3></div>
+            <ul class="list dims">
+              @for (h of m.hierarchies; track h.key) {
+                <li>
+                  <b>{{ h.label }}</b
+                  ><span class="muted"> {{ h.levels.join(' → ') }}</span>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </section>
+    </div>
+  }
+</div>

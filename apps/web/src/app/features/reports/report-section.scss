@@ -1,0 +1,43 @@
+:host {
+  display: block;
+}
+.err {
+  color: var(--neg);
+}
+.summary p {
+  font-size: 16px;
+  line-height: 1.65;
+  margin-bottom: 10px;
+  max-width: 72ch;
+}
+.summary p:first-child {
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.kpis app-kpi + app-kpi {
+  border-left: 1px solid var(--line);
+}
+.caption {
+  color: var(--ink-2);
+  margin-bottom: 34px;
+  font-size: 13.5px;
+}
+.risk {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--warning);
+  background: var(--bg-2);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  margin-bottom: 8px;
+}
+.risk.high {
+  border-color: var(--critical);
+}

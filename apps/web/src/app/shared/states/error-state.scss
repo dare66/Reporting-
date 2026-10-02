@@ -1,0 +1,27 @@
+.err {
+  display: flex;
+  gap: 14px;
+  padding: 20px;
+  border-radius: var(--r-md);
+  background: var(--neg-soft);
+  border: 1px solid color-mix(in srgb, var(--neg) 25%, transparent);
+}
+.icon {
+  color: var(--neg);
+}
+.t {
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.small {
+  font-size: 12px;
+  margin-top: 6px;
+}
+pre {
+  white-space: pre-wrap;
+  margin: 10px 0 0;
+  color: var(--ink-3);
+}

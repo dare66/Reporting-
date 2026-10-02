@@ -1,0 +1,180 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Forecast &amp; scenarios</div>
+      <h1>See what's coming — and what to do about it</h1>
+      <p class="lede">
+        Statistical forecasts with honest intervals and backtested accuracy, and a what-if model fitted on your own
+        operating history.
+      </p>
+    </div>
+  </header>
+
+  <section class="panel fc">
+    <div class="panel-head wrap-head">
+      <div class="row wrap">
+        <select class="select" [ngModel]="metric()" (ngModelChange)="metric.set($event); run()" aria-label="Metric">
+          @for (m of metrics; track m.ref) {
+            <option [value]="m.ref">{{ m.label }}</option>
+          }
+        </select>
+        <div class="seg">
+          @for (h of horizons; track h.key) {
+            <button [class.on]="horizon() === h.key" (click)="horizon.set(h.key); run()">{{ h.label }}</button>
+          }
+        </div>
+      </div>
+      @if (forecast(); as f) {
+        <div class="diag">
+          <span class="badge ai">{{ f.method.replaceAll('_', ' ') }}</span>
+          <span>{{ f.diagnostics.observations }} periods</span>
+          @if (f.diagnostics.backtest_mape !== null) {
+            <span
+              >backtest error <b>{{ (f.diagnostics.backtest_mape * 100).toFixed(1) }}%</b></span
+            >
+          }
+          <span>80% interval</span>
+        </div>
+      }
+    </div>
+    @if (error(); as message) {
+      <app-error [message]="message" (retry)="run()" />
+    } @else if (!forecast()) {
+      <app-working
+        title="Forecasting"
+        [steps]="[
+          'Collecting complete periods',
+          'Fitting exponential smoothing',
+          'Backtesting',
+          'Projecting intervals',
+        ]"
+      />
+    } @else if (forecast(); as fc) {
+      @if (spec(); as chartSpec) {
+        <div style="padding: 8px 16px 16px"><app-chart [spec]="chartSpec" [height]="340" /></div>
+      }
+      @if ((fc.diagnostics.backtest_mape ?? 0) > 0.15) {
+        <p class="warn">
+          <app-icon name="warning" [size]="14" /> Recent backtest error is high — read the band, not the line.
+        </p>
+      }
+    }
+  </section>
+
+  <section class="panel sim">
+    <div class="panel-head">
+      <div>
+        <div class="eyebrow">What-if simulation</div>
+        <h2>Demand vs. processing capacity</h2>
+      </div>
+    </div>
+    <div class="sim-grid">
+      <div class="sliders">
+        @for (s of sliders; track s.key) {
+          <label class="slider"
+            ><span class="row"
+              ><b>{{ s.label }}</b
+              ><span class="spacer"></span><span class="val">{{ sign(assume()[s.key]) }}%</span></span
+            >
+            <input
+              type="range"
+              [min]="s.min"
+              [max]="s.max"
+              step="1"
+              [ngModel]="assume()[s.key]"
+              (ngModelChange)="set(s.key, $event)"
+              [attr.aria-label]="s.label"
+            /><small class="muted">{{ s.hint }}</small></label
+          >
+        }
+        <div class="row">
+          <button class="btn ghost" (click)="reset()">Reset</button><span class="spacer"></span>
+          <input
+            class="input"
+            style="max-width: 200px"
+            [ngModel]="name()"
+            (ngModelChange)="name.set($event)"
+            placeholder="Scenario name"
+          /><button class="btn" (click)="simulate(true)" [disabled]="!name()">Save</button>
+        </div>
+      </div>
+      @if (scenarioError(); as message) {
+        <p class="warn"><app-icon name="warning" [size]="14" /> {{ message }}</p>
+      }
+      @if (scenario(); as s) {
+        <div class="outcome">
+          <div class="big-row">
+            <div>
+              <div class="eyebrow">Projected SLA</div>
+              <div class="hero-figure" [class.neg]="belowTarget(s)">
+                {{ f(s.projected.sla_compliance, 'percent') }}
+              </div>
+              <div class="muted">
+                from {{ f(s.baseline.sla_compliance, 'percent') }} today · target {{ f(s.sla_target, 'percent') }}
+              </div>
+            </div>
+            <div>
+              <div class="eyebrow">Utilisation</div>
+              <div class="mid">{{ f(s.projected.utilisation, 'percent') }}</div>
+              <div class="meter">
+                <i
+                  [style.width.%]="Math.min(100, (s.projected.utilisation ?? 0) * 60)"
+                  [class.over]="(s.projected.utilisation ?? 0) > 1"
+                ></i>
+              </div>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th></th>
+                <th class="r">Today (30d)</th>
+                <th class="r">Scenario</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Applications</td>
+                <td class="r">{{ f(s.baseline.applications) }}</td>
+                <td class="r">{{ f(s.projected.applications) }}</td>
+              </tr>
+              <tr>
+                <td>Capacity</td>
+                <td class="r">{{ f(s.baseline.capacity) }}</td>
+                <td class="r">{{ f(s.projected.capacity) }}</td>
+              </tr>
+              <tr>
+                <td>Officers</td>
+                <td class="r">{{ s.baseline.officers }}</td>
+                <td class="r">{{ s.projected.officers }}</td>
+              </tr>
+              <tr>
+                <td>Revenue</td>
+                <td class="r">{{ f(s.baseline.revenue, 'currency') }}</td>
+                <td class="r">{{ f(s.projected.revenue, 'currency') }}</td>
+              </tr>
+            </tbody>
+          </table>
+          @if (s.projected.additional_officers_needed; as extra) {
+            <p class="call">
+              <app-icon name="user" [size]="16" /> Staff requirement to hold {{ f(s.sla_target, 'percent') }} SLA:
+              <b>{{ s.projected.required_officers_for_target }}</b> officers (+{{ extra }}).
+            </p>
+          } @else if (s.projected.additional_officers_needed === 0) {
+            <p class="call">
+              <app-icon name="user" [size]="16" /> Current staffing holds {{ f(s.sla_target, 'percent') }} SLA:
+              <b>{{ s.projected.required_officers_for_target }}</b> officers (no change).
+            </p>
+          }
+          @for (c of s.caveats; track c) {
+            <p class="warn"><app-icon name="info" [size]="14" /> {{ c }}</p>
+          }
+          <p class="muted small">
+            Model: weekly SLA regressed on utilisation two weeks earlier · {{ s.model.observations }} weeks · R²
+            {{ s.model.r_squared?.toFixed(2) }} · slope {{ s.model.slope }}
+          </p>
+        </div>
+      }
+    </div>
+  </section>
+</div>

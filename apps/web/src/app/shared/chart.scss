@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  position: relative;
+}
+:host(.has-toggle) {
+  padding-top: 30px;
+}
+.host {
+  width: 100%;
+}
+.host.hidden {
+  display: none;
+}
+.toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0.7;
+}
+.toggle:hover {
+  opacity: 1;
+}
+.table-wrap {
+  max-height: var(--h, 320px);
+  overflow: auto;
+}

@@ -1,0 +1,142 @@
+.journey {
+  padding: 20px;
+  margin-bottom: 28px;
+  display: grid;
+  gap: 16px;
+}
+.journey ol {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.journey li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.journey li span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg-1);
+  font-size: 11px;
+  font-weight: 700;
+}
+.journey li.on {
+  color: var(--ink-1);
+}
+.journey li.on span {
+  background: var(--accent);
+  color: #140d02;
+}
+.drop {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.drop:hover,
+.drop.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.drop app-icon {
+  color: var(--accent);
+}
+.sec-title {
+  margin: 28px 0 12px;
+}
+.sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+.src {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.small {
+  font-size: 12px;
+}
+.neg {
+  color: var(--neg);
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.stats span {
+  display: grid;
+  font-size: 11px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stats b {
+  font-size: 14px;
+  color: var(--ink-1);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.connectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.conn {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: transform 0.2s var(--ease);
+}
+.conn:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: var(--line-2);
+}
+.conn.planned {
+  opacity: 0.6;
+  cursor: default;
+}
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 60;
+}
+.modal {
+  position: fixed;
+  z-index: 61;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 24px));
+  max-height: 90vh;
+  overflow: auto;
+  padding: 22px;
+  display: grid;
+  gap: 12px;
+}
