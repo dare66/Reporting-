@@ -20,8 +20,13 @@ interface Dialect
      */
     public function aggregate(string $aggregation, ?string $expression, ?string $filterSql): string;
 
-    public function caseInsensitiveContains(string $expression): string;
+    /** Case-insensitive pattern match of the expression against one bound pattern (see likePattern()). */
+    public function caseInsensitiveLike(string $expression): string;
 
-    /** Binding value paired with caseInsensitiveContains(). */
-    public function containsBinding(string $needle): string;
+    /**
+     * Binding for caseInsensitiveLike(): the needle with LIKE wildcards escaped.
+     *
+     * @param  'contains'|'starts_with'|'ends_with'  $mode
+     */
+    public function likePattern(string $needle, string $mode): string;
 }

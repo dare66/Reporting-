@@ -31,19 +31,24 @@ final class QueryCompiler
 
     public function compile(SemanticQuery $query, Catalog $catalog, SecurityContext $security): CompiledQuery
     {
+        if ($query->rankingFilters() !== []) {
+            throw new QueryValidationException('Ranking filters must be resolved before compiling.');
+        }
         $this->aliases = [$catalog->baseDatasetId => 't0'];
         $this->joins = [];
         $columns = [];
         $select = [];
         $selectBindings = [];
         $groupBy = [];
+        $timeExpr = null;
+        $dimensionExprs = [];
 
         // Time bucket first so results are naturally ordered series.
         if ($query->grain !== null) {
             $timeDim = $this->timeDimension($catalog);
-            $expr = $this->dialect->timeBucket($query->grain, $this->dimensionColumn($catalog, $timeDim, $security));
-            $select[] = $expr.' AS '.$this->dialect->quote('period');
-            $groupBy[] = $expr;
+            $timeExpr = $this->dialect->timeBucket($query->grain, $this->dimensionColumn($catalog, $timeDim, $security));
+            $select[] = $timeExpr.' AS '.$this->dialect->quote('period');
+            $groupBy[] = $timeExpr;
             $columns[] = ['key' => 'period', 'label' => ucfirst($query->grain), 'role' => 'time', 'type' => 'date', 'grain' => $query->grain];
         }
 
@@ -52,31 +57,40 @@ final class QueryCompiler
             $expr = $this->dimensionColumn($catalog, $dim, $security);
             $select[] = $expr.' AS '.$this->dialect->quote($key);
             $groupBy[] = $expr;
+            $dimensionExprs[] = $expr;
             $columns[] = ['key' => $key, 'label' => $dim['label'], 'role' => 'dimension', 'type' => $dim['type']];
         }
 
-        $measureSql = function (string $measureKey) use ($catalog, &$selectBindings): string {
-            [$sql, $bindings] = $this->measureSql($catalog, $catalog->measure($measureKey));
-            array_push($selectBindings, ...$bindings);
-
-            return $sql;
-        };
-
         foreach ($query->metrics as $key) {
             $metric = $catalog->metric($key);
-            $select[] = $catalog->metricAst($key)->toSql($measureSql).' AS '.$this->dialect->quote($key);
+            $select[] = $this->metricSql($catalog, $key, $selectBindings).' AS '.$this->dialect->quote($key);
             $columns[] = ['key' => $key, 'label' => $metric['label'], 'role' => 'metric', 'type' => 'number', 'format' => $metric['format']];
         }
+
+        $quick = new QuickFunctions($this->dialect, $catalog, $query->grain, $timeExpr, $dimensionExprs);
+        foreach ($query->calculations as $calc) {
+            // By reference: each occurrence of the metric in the window SQL appends its own bindings.
+            $metricSql = function () use ($catalog, $calc, &$selectBindings): string {
+                return $this->metricSql($catalog, $calc['metric'], $selectBindings);
+            };
+            [$sql, $column] = $quick->compile($calc, $metricSql);
+            $select[] = $sql.' AS '.$this->dialect->quote($column['key']);
+            $columns[] = $column;
+        }
+
         foreach ($query->measures as $key) {
             if (in_array($key, $query->metrics, true)) {
                 continue;
             }
             $measure = $catalog->measure($key);
-            $select[] = $measureSql($key).' AS '.$this->dialect->quote('m__'.$key);
+            [$sql, $bindings] = $this->measureSql($catalog, $measure);
+            array_push($selectBindings, ...$bindings);
+            $select[] = $sql.' AS '.$this->dialect->quote('m__'.$key);
             $columns[] = ['key' => 'm__'.$key, 'label' => $measure['label'], 'role' => 'measure', 'type' => 'number', 'format' => 'number'];
         }
 
         [$where, $whereBindings] = $this->whereClause($query, $catalog, $security);
+        [$having, $havingBindings] = $this->havingClause($query, $catalog);
 
         $base = $catalog->baseDataset();
         $sql = 'SELECT '.implode(', ', $select)
@@ -84,13 +98,49 @@ final class QueryCompiler
             .($this->joins ? ' '.implode(' ', $this->joins) : '')
             .($where ? ' WHERE '.implode(' AND ', $where) : '')
             .($groupBy ? ' GROUP BY '.implode(', ', $groupBy) : '')
+            .($having ? ' HAVING '.implode(' AND ', $having) : '')
             .$this->orderBy($query, $columns);
 
         $limit = min($query->limit ?? $this->maxRows, $this->maxRows);
         // Fetch one extra row so the executor can report truncation honestly.
         $sql .= ' LIMIT '.($limit + 1);
 
-        return new CompiledQuery($sql, [...$selectBindings, ...$whereBindings], $columns, $limit);
+        return new CompiledQuery($sql, [...$selectBindings, ...$whereBindings, ...$havingBindings], $columns, $limit);
+    }
+
+    /**
+     * SQL of a metric's aggregate expression; the bindings of its measure filters
+     * are appended to $bindings in the order they occur in the returned SQL.
+     *
+     * @param  array<int, mixed>  $bindings
+     */
+    private function metricSql(Catalog $catalog, string $metricKey, array &$bindings): string
+    {
+        return $catalog->metricAst($metricKey)->toSql(function (string $measureKey) use ($catalog, &$bindings): string {
+            [$sql, $b] = $this->measureSql($catalog, $catalog->measure($measureKey));
+            array_push($bindings, ...$b);
+
+            return $sql;
+        });
+    }
+
+    /**
+     * Measure filters ("institutions where SLA < 85%") compile to HAVING on the aggregate.
+     *
+     * @return array{0: array<int, string>, 1: array<int, mixed>}
+     */
+    private function havingClause(SemanticQuery $query, Catalog $catalog): array
+    {
+        $having = [];
+        $bindings = [];
+        foreach ($query->having as $h) {
+            $expr = $this->metricSql($catalog, $h['metric'], $bindings);
+            [$sql, $b] = $this->predicate($expr, $h['op'], $h['value']);
+            $having[] = $sql;
+            array_push($bindings, ...$b);
+        }
+
+        return [$having, $bindings];
     }
 
     /** @return array{0: array<int, string>, 1: array<int, mixed>} */
@@ -142,8 +192,11 @@ final class QueryCompiler
             'lt' => ["{$col} < ?", [$scalar($value)]],
             'lte' => ["{$col} <= ?", [$scalar($value)]],
             'in', 'not_in' => $this->inPredicate($col, $op, (array) $value),
-            'between' => $this->between($col, $value),
-            'contains' => [$this->dialect->caseInsensitiveContains($col), [$this->dialect->containsBinding((string) $value)]],
+            'between' => $this->between($col, $value, negate: false),
+            'not_between' => $this->between($col, $value, negate: true),
+            'contains', 'starts_with', 'ends_with' => [$this->dialect->caseInsensitiveLike($col), [$this->dialect->likePattern($this->text($value), $op)]],
+            // Missing text does not contain the needle, so NULLs qualify.
+            'not_contains' => ["({$col} IS NULL OR NOT ".$this->dialect->caseInsensitiveLike($col).')', [$this->dialect->likePattern($this->text($value), 'contains')]],
             'is_null' => ["{$col} IS NULL", []],
             'not_null' => ["{$col} IS NOT NULL", []],
             default => throw new QueryValidationException("Unsupported operator '{$op}'."),
@@ -168,13 +221,22 @@ final class QueryCompiler
     }
 
     /** @return array{0: string, 1: array<int, mixed>} */
-    private function between(string $col, mixed $value): array
+    private function between(string $col, mixed $value, bool $negate): array
     {
         if (! is_array($value) || count($value) !== 2) {
             throw new QueryValidationException('between needs exactly two values.');
         }
 
-        return ["{$col} BETWEEN ? AND ?", array_values($value)];
+        return ["{$col} ".($negate ? 'NOT BETWEEN' : 'BETWEEN').' ? AND ?', array_values($value)];
+    }
+
+    private function text(mixed $value): string
+    {
+        if (! is_scalar($value) || (string) $value === '') {
+            throw new QueryValidationException('Text filters need some text to match.');
+        }
+
+        return (string) $value;
     }
 
     /**
@@ -206,7 +268,13 @@ final class QueryCompiler
         return [$this->dialect->aggregate($measure['aggregation'], $expr, $filterSql), $bindings];
     }
 
-    /** @param  DimensionDef  $dim */
+    /**
+     * Registers the joins the dimension needs as a side effect.
+     *
+     * @param  DimensionDef  $dim
+     *
+     * @phpstan-impure
+     */
     private function dimensionColumn(Catalog $catalog, array $dim, SecurityContext $security, bool $enforceSensitivity = true): string
     {
         if ($enforceSensitivity && $dim['is_sensitive'] && ! $security->canSeeSensitive) {
@@ -228,7 +296,11 @@ final class QueryCompiler
         return $catalog->dimension($catalog->timeDimension);
     }
 
-    /** Resolves (and registers) the join path from the base dataset via many-to-one relationships. */
+    /**
+     * Resolves (and registers) the join path from the base dataset via many-to-one relationships.
+     *
+     * @phpstan-impure
+     */
     private function aliasFor(Catalog $catalog, string $datasetId): string
     {
         if (isset($this->aliases[$datasetId])) {

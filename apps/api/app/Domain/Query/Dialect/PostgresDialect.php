@@ -45,13 +45,13 @@ class PostgresDialect implements Dialect
         return in_array($aggregation, ['sum', 'count', 'count_distinct'], true) ? "COALESCE({$core}, 0)" : $core;
     }
 
-    public function caseInsensitiveContains(string $expression): string
+    public function caseInsensitiveLike(string $expression): string
     {
         return "{$expression} ILIKE ?";
     }
 
-    public function containsBinding(string $needle): string
+    public function likePattern(string $needle, string $mode): string
     {
-        return '%'.addcslashes($needle, '%_\\').'%';
+        return LikePattern::for($needle, $mode);
     }
 }

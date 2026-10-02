@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Query\QueryService;
 use App\Domain\Semantic\Catalog;
 use App\Domain\Semantic\CatalogRepository;
 use App\Domain\Semantic\SemanticModelImporter;
@@ -73,6 +74,14 @@ class SemanticModelController extends Controller
         return response()->json(['data' => $metric->fresh()]);
     }
 
+    /** Values of one dimension for filter pickers, limited by the caller's row-level security. */
+    public function members(Request $request, string $key, string $dimension, QueryService $queries): JsonResponse
+    {
+        $data = $request->validate(['search' => 'nullable|string|max:100', 'limit' => 'integer|min:1|max:500']);
+
+        return response()->json(['data' => $queries->members($this->catalogs->get($key), $dimension, $data['search'] ?? null, (int) ($data['limit'] ?? 200), $request->user())]);
+    }
+
     /** Source → table → field → transformation → metric → dashboards/reports. */
     public function lineage(string $key, string $metricKey): JsonResponse
     {
@@ -115,7 +124,7 @@ class SemanticModelController extends Controller
             'metrics' => array_values(array_map(fn ($m) => [
                 'key' => $m['key'], 'ref' => $c->key.'.'.$m['key'], 'label' => $m['label'], 'description' => $m['description'], 'format' => $m['format'],
                 'higher_is_better' => $m['higher_is_better'], 'target' => $m['target'], 'synonyms' => $m['synonyms'], 'is_kpi' => $m['is_kpi'],
-                'owner' => $m['owner'], 'expression' => $showTech ? $m['expression'] : null,
+                'owner' => $m['owner'], 'expression' => $showTech ? $m['expression'] : null, 'additive' => $c->isAdditive($m['key']),
             ], $c->metrics)),
             'hierarchies' => $c->hierarchies,
         ];

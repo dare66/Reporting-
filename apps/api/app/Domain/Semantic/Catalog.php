@@ -2,7 +2,10 @@
 
 namespace App\Domain\Semantic;
 
+use App\Domain\Query\Expression\BinaryNode;
 use App\Domain\Query\Expression\ExpressionParser;
+use App\Domain\Query\Expression\MeasureNode;
+use App\Domain\Query\Expression\NegateNode;
 use App\Domain\Query\Expression\Node;
 use App\Domain\Query\QueryValidationException;
 use App\Models\Dataset;
@@ -127,6 +130,26 @@ final class Catalog
     {
         return $this->parsedMetrics[$key] ??= (new ExpressionParser(array_keys($this->measures)))
             ->parse($this->metric($key)['expression']);
+    }
+
+    /**
+     * True when the metric can be summed across rows: built only from sum/count
+     * measures combined by + and −. Shares and running totals are only
+     * meaningful for these; ratios and averages are not additive.
+     */
+    public function isAdditive(string $metricKey): bool
+    {
+        return $this->additive($this->metricAst($metricKey));
+    }
+
+    private function additive(Node $node): bool
+    {
+        return match (true) {
+            $node instanceof MeasureNode => in_array($this->measure($node->key)['aggregation'], ['sum', 'count'], true),
+            $node instanceof BinaryNode => in_array($node->op, ['+', '-'], true) && $this->additive($node->left) && $this->additive($node->right),
+            $node instanceof NegateNode => $this->additive($node->inner),
+            default => false,
+        };
     }
 
     /** @return DatasetDef */

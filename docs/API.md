@@ -18,9 +18,23 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 |---|---|---|
 | GET | `/semantic-models`, `/semantic-models/{key}`, `/semantic-catalog` | semantic.view or query.run |
 | GET | `/semantic-models/{key}/metrics/{metric}/lineage` | 〃 |
+| GET | `/semantic-models/{key}/dimensions/{dimension}/members?search=&limit=` | 〃 — distinct values for filter pickers, alphabetical, max 500; limited by row-level security, 403 on sensitive dimensions |
 | POST | `/semantic-models/import` · PATCH `/semantic-models/{key}/metrics/{metric}` | semantic.manage |
 | POST | `/query` | query.run — semantic query (see ARCHITECTURE.md); SQL returned only with query.explain |
 | POST | `/query/explain` | query.explain |
+
+**Query extensions (Widget Studio).** The contract is described in full in [design/widget-studio.md](design/widget-studio.md#1-query-contract-api).
+
+- **Filter operators:**
+  - Members: `in`, `not_in`, `eq`, `neq`.
+  - Text: `contains`, `not_contains`, `starts_with`, `ends_with` (case-insensitive; LIKE wildcards are escaped).
+  - Numeric: `gt`, `gte`, `lt`, `lte`, `between`, `not_between`.
+  - Null: `is_null`, `not_null`.
+  - Ranking: `top` and `bottom`, with `value: {n, metric}`. These are resolved by a governed pre-query under the caller's security; the evidence keeps the ranking, and the SQL binds the resolved members.
+- **`having: [{metric, op, value}]`:** measure filters, compiled to `HAVING`.
+- **`calculations: [{fn, metric, window?}]`:** quick functions, compiled to SQL window functions. Each one adds a column keyed `<metric>__<fn>` with a `calc` descriptor.
+  - Available `fn` values: `percent_of_total`, `running_sum`, `year_to_date`, `difference`, `percent_change`, `moving_average` (window 2–24), `rank`.
+  - Totals and running sums require an additive metric. Each catalog metric carries an `additive` flag.
 | POST | `/kpis` | `{metrics:["model.metric"], range, compare}` → cards with change, target status, sparkline, evidence |
 
 ## Analysis
@@ -36,7 +50,16 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 | GET | `/search?q=` | dashboards, reports, metrics (synonyms), datasets, insights, conversations; `ask_ai` hint |
 
 ## Dashboards
-`GET/POST /dashboards`, `GET/PATCH/DELETE /dashboards/{id}` (includes desktop/tablet/mobile layouts), `PUT /dashboards/{id}/layout`, `POST/PATCH/DELETE /dashboards/{id}/widgets[/{w}]`, `POST /dashboards/{id}/widgets/{w}/data` (merges dashboard filters).
+`GET/POST /dashboards`, `GET/PATCH/DELETE /dashboards/{id}` (includes desktop/tablet/mobile layouts), `PUT /dashboards/{id}/layout`, `POST/PATCH/DELETE /dashboards/{id}/widgets[/{w}]`, `POST /dashboards/{id}/widgets/{w}/data`.
+
+**Dashboard filters.**
+
+- **Saved defaults.** `dashboard.filters` holds the defaults as `[{dimension, op, value, label?, disabled?}]`, set with `PATCH /dashboards/{id}`.
+- **Viewer's filter set.** Widget data takes `{filters}`, the viewer's current set, which replaces the defaults.
+  - Paused (`disabled`) filters are skipped.
+  - Each filter applies only to widgets whose model has that dimension.
+- **`filter_dimensions`.** `GET /dashboards/{id}` returns the filterable dimensions as `[{key, label, type, models}]`, excluding time dimensions and any sensitive dimensions the user cannot access.
+- **Picking members.** `GET /dashboards/{id}/filter-members?dimension=&search=` (dashboards.view) lists members for dashboard viewers who lack query rights. It is scoped to the dashboard's models and limited by row-level security.
 
 ## Reports
 `GET /report-templates`, `POST /report-templates`, `GET/POST /reports`, `POST /reports/generate` (`template`, `range`, `focus_metrics`, `exclude_sections`), `GET/PATCH/DELETE /reports/{id}`, sections `POST/PATCH/DELETE /reports/{id}/sections[/{s}]`, `PUT /reports/{id}/sections/order`, `POST /reports/{id}/refresh|publish|archive|duplicate|versions`, `POST /reports/{id}/versions/{v}/restore`, `GET /reports/{id}/compare?a=&b=`, exports `POST /reports/{id}/exports {format: pdf|pptx|xlsx|csv|html}` → `GET /report-exports/{id}[/download]`, schedules `POST/DELETE /reports/{id}/schedules`.

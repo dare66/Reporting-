@@ -16,7 +16,7 @@ class QueryController extends Controller
 
     public function run(Request $request): JsonResponse
     {
-        $request->validate(['model' => 'required|string', 'metrics' => 'array', 'dimensions' => 'array', 'filters' => 'array', 'time' => 'array', 'sort' => 'array', 'limit' => 'integer|min:1']);
+        $request->validate(['model' => 'required|string', 'metrics' => 'array', 'dimensions' => 'array', 'filters' => 'array', 'time' => 'array', 'sort' => 'array', 'having' => 'array', 'calculations' => 'array', 'limit' => 'integer|min:1']);
         $result = $this->queries->run($request->input('model'), SemanticQuery::fromArray($request->all()), $request->user(), ! $request->boolean('fresh'));
         $data = $result->toArray();
         if (! $request->user()->hasPermission('query.explain')) {

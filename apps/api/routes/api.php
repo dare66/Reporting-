@@ -46,6 +46,7 @@ Route::middleware(['auth.jwt', 'throttle:api'])->group(function () {
         Route::get('semantic-catalog', [SemanticModelController::class, 'catalog']);
         Route::get('semantic-models/{key}', [SemanticModelController::class, 'show']);
         Route::get('semantic-models/{key}/metrics/{metric}/lineage', [SemanticModelController::class, 'lineage']);
+        Route::get('semantic-models/{key}/dimensions/{dimension}/members', [SemanticModelController::class, 'members']);
     });
     Route::middleware('perm:semantic.manage')->group(function () {
         Route::post('semantic-models/import', [SemanticModelController::class, 'import']);
@@ -78,6 +79,7 @@ Route::middleware(['auth.jwt', 'throttle:api'])->group(function () {
         Route::get('dashboards', [DashboardController::class, 'index']);
         Route::get('dashboards/{id}', [DashboardController::class, 'show']);
         Route::post('dashboards/{id}/widgets/{widget}/data', [DashboardController::class, 'widgetData']);
+        Route::get('dashboards/{id}/filter-members', [DashboardController::class, 'filterMembers']);
     });
     Route::middleware('perm:dashboards.manage')->group(function () {
         Route::post('dashboards', [DashboardController::class, 'store']);

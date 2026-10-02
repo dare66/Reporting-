@@ -62,13 +62,13 @@ class ClickHouseDialect implements Dialect
         };
     }
 
-    public function caseInsensitiveContains(string $expression): string
+    public function caseInsensitiveLike(string $expression): string
     {
-        return "positionCaseInsensitive({$expression}, ?) > 0";
+        return "ilike({$expression}, ?)";
     }
 
-    public function containsBinding(string $needle): string
+    public function likePattern(string $needle, string $mode): string
     {
-        return $needle;
+        return LikePattern::for($needle, $mode);
     }
 }
