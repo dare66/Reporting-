@@ -1,0 +1,86 @@
+<div class="ai-layout">
+  <aside class="history" [class.open]="showHistory()">
+    <button class="btn signal new" (click)="newConversation()"><app-icon name="plus" [size]="16"/> New analysis</button>
+    <div class="eyebrow" style="padding:14px 8px 6px">Recent</div>
+    @for (c of conversations(); track c.id) {
+      <button class="conv" [class.on]="c.id === conversationId()" (click)="open(c.id)"><span>{{ c.title }}</span><small>{{ ago(c.updated_at) }}</small></button>
+    } @empty { <p class="muted small" style="padding:8px">Your conversations appear here.</p> }
+  </aside>
+
+  <section class="chat">
+    <header class="chat-head">
+      <button class="btn icon ghost hist-btn" (click)="showHistory.set(!showHistory())" aria-label="Conversations"><app-icon name="history"/></button>
+      <div><div class="eyebrow ai"><app-icon name="ai" [size]="14"/> AI Analyst</div><h2>Ask your data</h2></div>
+      <span class="spacer"></span>
+      <span class="badge"><app-icon name="lock" [size]="12"/> Answers use only data you are authorised to see</span>
+    </header>
+
+    <div class="thread" #thread>
+      @if (!turns().length) {
+        <div class="intro rise">
+          <div class="workforce" aria-label="AI workforce">
+            <svg viewBox="0 0 100 104" preserveAspectRatio="xMidYMid meet">
+              @for (e of edges; track $index) {
+                <line [attr.x1]="e[0].x" [attr.y1]="e[0].y" [attr.x2]="e[1].x" [attr.y2]="e[1].y" class="edge"/>
+              }
+            </svg>
+            @for (a of agents; track a.key) {
+              <button class="agent" [style.left.%]="a.x" [style.top.%]="a.y / 1.04" (mouseenter)="hoverAgent.set(a)" (focus)="hoverAgent.set(a)" (mouseleave)="hoverAgent.set(null)">{{ a.label }}</button>
+            }
+          </div>
+          <div class="intro-copy">
+            <div class="eyebrow ai">Your AI data analyst</div>
+            <h1>What do you want to understand?</h1>
+            <p class="secondary">{{ hoverAgent()?.d ?? 'Ten specialised agents work together on every question. Each answer shows its work: the plan, the governed queries, and the evidence behind every number.' }}</p>
+            <div class="starters">@for (s of starters; track s) { <button class="chip" (click)="send(s)">{{ s }}</button> }</div>
+          </div>
+        </div>
+      }
+
+      @for (t of turns(); track $index) {
+        @if (t.role === 'user') {
+          <div class="msg user rise"><div class="bubble">{{ t.text }}</div></div>
+        } @else {
+          <div class="msg assistant rise">
+            <div class="avatar-ai"><app-icon name="ai" [size]="16"/></div>
+            <div class="content">
+              @if (t.steps.length || t.pending) {
+                <details class="pipeline" [open]="t.pending">
+                  <summary>
+                    @if (t.pending) { <span class="live"></span> {{ t.steps.at(-1)?.label ?? 'Understanding your question' }}… }
+                    @else { Analysed by {{ t.steps.length }} agents · {{ t.planner?.startsWith('llm') ? 'LLM planner' : 'semantic planner' }} · {{ t.evidence.length }} governed queries }
+                  </summary>
+                  <ol>@for (s of t.steps; track $index) { <li [class]="s.status"><b>{{ s.label }}</b><span>{{ s.detail }}</span></li> }</ol>
+                </details>
+              }
+              @if (t.text) { <div class="answer" [innerHTML]="html(t.text)"></div> }
+              @else if (t.pending && !t.blocks.length) { <div class="skeleton" style="height:16px;width:70%"></div><div class="skeleton" style="height:16px;width:45%;margin-top:8px"></div> }
+              @if (t.error) { <div class="err"><app-icon name="warning" [size]="16"/> {{ t.error }}</div> }
+              <div class="blocks">@for (b of t.blocks; track $index) { <app-ai-block [block]="b" (ask)="send($event)"/> }</div>
+              @if (!t.pending && !t.error) {
+                <div class="foot row wrap">
+                  @if (t.evidence.length) { <button class="btn sm ghost" (click)="evidence.set(t.evidence)"><app-icon name="evidence" [size]="14"/> Evidence ({{ t.evidence.length }})</button> }
+                  @if (t.runId) {
+                    <button class="btn sm ghost icon" [class.on]="t.feedback === 1" (click)="feedback(t, 1)" aria-label="Helpful"><app-icon name="thumbUp" [size]="14"/></button>
+                    <button class="btn sm ghost icon" [class.on]="t.feedback === -1" (click)="feedback(t, -1)" aria-label="Not helpful"><app-icon name="thumbDown" [size]="14"/></button>
+                  }
+                  @if (t.narrator && t.narrator !== 'llm') { <span class="muted small" title="The narrative was assembled from computed facts">computed narrative</span> }
+                </div>
+                @if (t.suggestions.length && $last) {
+                  <div class="suggest">@for (s of t.suggestions; track s) { <button class="chip" (click)="send(s)">{{ s }}</button> }</div>
+                }
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+
+    <form class="composer glass" (submit)="$event.preventDefault(); send()">
+      <textarea [ngModel]="draft()" (ngModelChange)="draft.set($event)" name="q" rows="1" (keydown)="keydown($event)"
+        placeholder="Ask about performance, causes, forecasts — or ask for a report, dashboard or alert" aria-label="Ask the AI analyst"></textarea>
+      <button class="btn signal icon send" [disabled]="busy() || !draft().trim()" aria-label="Send"><app-icon name="send" [size]="16"/></button>
+    </form>
+  </section>
+</div>
+@if (evidence(); as items) { <app-evidence title="Evidence behind this answer" [items]="items" (close)="evidence.set(null)"/> }

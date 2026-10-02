@@ -1,0 +1,17 @@
+.workspace { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
+.builder .seg { flex-wrap: wrap; }
+.builder { overflow-x: hidden; min-width: 0; padding: 18px; display: grid; gap: 18px; position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto; }
+.sec { display: grid; gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; border-radius: var(--r-md); background: var(--bg-3); font-size: 12.5px; }
+.filter b { font-weight: 600; } .filter button { margin-left: auto; }
+.canvas { padding: 16px 18px; min-height: 560px; }
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.viz { width: auto; min-width: 200px; }
+.trail { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; font-size: 12.5px; }
+.reason { font-size: 12.5px; display: flex; gap: 6px; align-items: center; margin: 4px 0 28px; }
+.chart-wrap { transition: opacity .2s; } .chart-wrap.dim { opacity: .5; }
+.meta { margin-top: 12px; font-size: 12.5px; }
+.sm-select { height: 30px; width: auto; font-size: 12.5px; }
+.sql { white-space: pre-wrap; padding: 12px; border-radius: var(--r-md); background: var(--bg-0); color: var(--ink-2); max-height: 260px; overflow: auto; }
+@media (max-width: 960px) { .workspace { grid-template-columns: 1fr; } .builder { position: static; max-height: none; } }

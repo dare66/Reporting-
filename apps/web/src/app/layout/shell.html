@@ -1,0 +1,108 @@
+<div class="frame">
+  <aside class="rail" aria-label="Main navigation">
+    <a routerLink="/home" class="brand" aria-label="AIXBI home">
+      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--bg-3)"/><path d="M7 22 13 10l4 8 3-5 5 9" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="word">AIXBI</span>
+    </a>
+    <div class="org">{{ user()?.organisation?.name }}</div>
+    <nav>
+      @for (grp of groups(); track grp.g) {
+        @if (grp.g !== 'primary') { <div class="group">{{ grp.g === 'intelligence' ? 'Intelligence' : 'Platform' }}</div> }
+        @for (n of grp.items; track n.path) {
+          <a [routerLink]="n.path" routerLinkActive="on" class="nav-item" [class.ai]="n.path === '/ai'">
+            <app-icon [name]="n.icon" [size]="18"/><span>{{ n.label }}</span>
+          </a>
+        }
+      }
+    </nav>
+    <div class="spacer"></div>
+    <a routerLink="/settings" class="me">
+      <span class="avatar">{{ initials(user()?.name) }}</span>
+      <span class="who"><b>{{ user()?.name }}</b><small>{{ user()?.title }}</small></span>
+    </a>
+  </aside>
+
+  <div class="main">
+    <header class="top glass">
+      <button class="search" (click)="searchOpen.set(true)" aria-label="Search or ask (Ctrl+K)">
+        <app-icon name="search" [size]="16"/><span>Search, or ask anything about your business…</span><kbd>⌘K</kbd>
+      </button>
+      <span class="spacer"></span>
+      @if (!online()) { <span class="badge warning">Offline — showing cached data</span> }
+      <button class="btn icon ghost" (click)="theme.toggle()" [attr.aria-label]="'Switch to ' + (theme.resolved() === 'dark' ? 'light' : 'dark') + ' mode'">
+        <app-icon [name]="theme.resolved() === 'dark' ? 'sun' : 'moon'"/>
+      </button>
+      <div class="bell-wrap">
+        <button class="btn icon ghost bell" (click)="bellOpen.set(!bellOpen())" aria-label="Notifications">
+          <app-icon name="bell"/>@if (unread()) { <span class="count">{{ unread() > 9 ? '9+' : unread() }}</span> }
+        </button>
+        @if (bellOpen()) {
+          <div class="pop panel rise" role="dialog" aria-label="Notifications">
+            <div class="row pop-head"><b>Notifications</b><span class="spacer"></span>
+              <button class="btn sm ghost" (click)="readAll()">Mark all read</button><a class="btn sm ghost" routerLink="/notifications">All</a></div>
+            @for (n of notifications(); track n.id) {
+              <button class="note" [class.unread]="!n.read_at" (click)="openNotification(n)">
+                <span class="nicon" [class]="n.severity"><app-icon [name]="icon(n.type)" [size]="15"/></span>
+                <span class="ntext"><b>{{ n.title }}</b><span>{{ n.body }}</span><small>{{ ago(n.created_at) }}</small></span>
+              </button>
+            } @empty { <p class="muted" style="padding:16px">You're all caught up.</p> }
+          </div>
+        }
+      </div>
+      @if (auth.can('ai.use')) {
+        <a routerLink="/ai" class="btn ai ask-btn"><app-icon name="ai" [size]="16"/> Ask AI</a>
+      }
+    </header>
+    <main id="content"><router-outlet/></main>
+  </div>
+</div>
+
+<!-- Mobile: bottom navigation, AI always one tap away -->
+<nav class="tabbar glass" aria-label="Mobile navigation">
+  @for (t of mobileTabs().slice(0, 2); track t.path) {
+    <a [routerLink]="t.path" routerLinkActive="on"><app-icon [name]="t.icon" [size]="20"/><span>{{ t.label === 'Command Centre' ? 'Home' : t.label }}</span></a>
+  }
+  <a routerLink="/ai" routerLinkActive="on" class="ai-tab" aria-label="AI Analyst"><span class="orb"><app-icon name="ai" [size]="22"/></span></a>
+  @for (t of mobileTabs().slice(2, 4); track t.path) {
+    <a [routerLink]="t.path" routerLinkActive="on"><app-icon [name]="t.icon" [size]="20"/><span>{{ t.label }}</span></a>
+  }
+  <button (click)="moreOpen.set(true)"><app-icon name="menu" [size]="20"/><span>More</span></button>
+</nav>
+@if (moreOpen()) {
+  <div class="sheet-scrim" (click)="moreOpen.set(false)"></div>
+  <div class="sheet glass" role="dialog" aria-label="More">
+    <div class="grab"></div>
+    <div class="sheet-grid">
+      @for (n of nav(); track n.path) { <a [routerLink]="n.path"><app-icon [name]="n.icon" [size]="20"/>{{ n.label }}</a> }
+      <a routerLink="/notifications"><app-icon name="bell" [size]="20"/>Alerts & notifications</a>
+      <a routerLink="/settings"><app-icon name="user" [size]="20"/>Profile & settings</a>
+    </div>
+  </div>
+}
+
+@if (searchOpen()) {
+  <div class="sheet-scrim" (click)="searchOpen.set(false)"></div>
+  <div class="cmd panel fade-in" role="dialog" aria-label="Search">
+    <form class="cmd-input" (submit)="$event.preventDefault(); submitSearch()">
+      <app-icon name="search"/>
+      <input #searchInput [ngModel]="query()" (ngModelChange)="onSearch($event)" name="q" placeholder="Search dashboards, reports, metrics — or ask a question" autocomplete="off" autofocus>
+      <kbd>esc</kbd>
+    </form>
+    @if (query().length > 1 && auth.can('ai.use')) {
+      <button class="cmd-row ai" (click)="ask(query())"><span class="nicon ai"><app-icon name="ai" [size]="15"/></span>
+        <span><b>Ask the AI analyst</b><small>“{{ query() }}”</small></span><app-icon name="arrowRight" [size]="15"/></button>
+    }
+    @for (r of results(); track r.type + r.id) {
+      <a class="cmd-row" [href]="r.link" (click)="$event.preventDefault(); searchOpen.set(false); router_navigate(r.link)">
+        <span class="type">{{ r.type }}</span><span><b>{{ r.title }}</b><small>{{ r.subtitle }}</small></span></a>
+    }
+    @if (query().length < 2) {
+      <div class="hints">
+        <span class="eyebrow">Try</span>
+        @for (h of ['Show me this month\'s performance', 'Why did SLA fall?', 'Compare China and India applications', 'Create a monthly CEO report']; track h) {
+          <button class="chip" (click)="ask(h)">{{ h }}</button>
+        }
+      </div>
+    }
+  </div>
+}

@@ -1,0 +1,66 @@
+<div class="page">
+  <header class="page-head">
+    <div><div class="eyebrow signal">Explore</div><h1>Ask with clicks</h1>
+      <p class="lede">Pick governed metrics, slice by any dimension, and drill down. No SQL, no joins — the semantic layer handles both, under your permissions.</p></div>
+  </header>
+
+  <div class="workspace">
+    <aside class="builder panel">
+      <label class="field">Subject area
+        <select class="select" [ngModel]="modelKey()" (ngModelChange)="setModel($event)">
+          @for (m of catalog(); track m.key) { <option [value]="m.key">{{ m.name }}</option> }
+        </select></label>
+      @if (model(); as m) {
+        <div class="sec"><div class="eyebrow">Metrics</div>
+          <div class="chips">@for (x of m.metrics; track x.key) { <button class="chip" [class.on]="metrics().includes(x.key)" (click)="toggleMetric(x.key)" [title]="x.description ?? ''">{{ x.label }}</button> }</div></div>
+        <div class="sec"><div class="eyebrow">Break down by</div>
+          <div class="chips"><button class="chip" [class.on]="!dimension()" (click)="setDim(null)">Nothing</button>
+            @for (d of dims(); track d.key) { <button class="chip" [class.on]="dimension() === d.key" (click)="setDim(d.key)">{{ d.label }}</button> }</div></div>
+        <div class="sec"><div class="eyebrow">Over time</div>
+          <div class="seg">@for (g of [null, 'day', 'week', 'month', 'quarter']; track g) { <button [class.on]="grain() === g" (click)="setGrain(g)">{{ g ? g : 'Total' }}</button> }</div></div>
+        <div class="sec"><div class="eyebrow">Filters</div>
+          @for (f of filters(); track $index; let i = $index) {
+            <div class="filter"><b>{{ dimLabel(f.dimension) }}</b> is {{ f.value.join(', ') }}<button class="btn icon sm ghost" (click)="removeFilter(i)" aria-label="Remove filter"><app-icon name="close" [size]="13"/></button></div>
+          }
+          <div class="row">
+            <select class="select" [ngModel]="filterDim()" (ngModelChange)="filterDim.set($event); loadMembers($event)" aria-label="Filter dimension">
+              <option value="">Add filter…</option>@for (d of dims(); track d.key) { <option [value]="d.key">{{ d.label }}</option> }</select>
+            @if (filterDim() && members()[filterDim()]) {
+              <select class="select" #val (change)="addFilter(filterDim(), val.value); val.value = ''" aria-label="Filter value">
+                <option value="">value…</option>@for (v of members()[filterDim()]; track v) { <option [value]="v">{{ v }}</option> }</select>
+            }
+          </div>
+        </div>
+      }
+    </aside>
+
+    <section class="canvas panel">
+      <div class="toolbar">
+        <div class="seg">@for (r of ranges; track r.key) { <button [class.on]="range() === r.key" (click)="setRange(r.key)">{{ r.label }}</button> }</div>
+        <span class="spacer"></span>
+        <select class="select viz" [ngModel]="viz()" (ngModelChange)="viz.set($event)" aria-label="Visualisation">
+          @for (v of vizTypes; track v.key) { <option [value]="v.key">{{ v.key === 'auto' ? 'Recommended: ' + recommended() : v.label }}</option> }</select>
+      </div>
+      @if (drillTrail().length) {
+        <div class="trail"><span class="muted">Drill path:</span> @for (t of drillTrail(); track $index) { <span class="chip on">{{ dimLabel(t.dimension) }} = {{ t.value }}</span> }</div>
+      }
+      @if (viz() === 'auto') { <p class="reason muted"><app-icon name="info" [size]="13"/> {{ reason() }} @if (dimension() && !grain()) { Click a category to drill down. }</p> }
+      @if (error()) { <app-error [message]="error()!" (retry)="run()"/> }
+      @else if (spec() && result()) {
+        <div class="chart-wrap" [class.dim]="loading()"><app-chart [spec]="spec()!" [height]="420" (select)="drill($event.category)"/></div>
+        <div class="meta row wrap">
+          <span class="muted">{{ result().meta.row_count }} rows · {{ result().meta.duration_ms }} ms{{ result().meta.cached ? ' · cached' : '' }}{{ result().meta.truncated ? ' · truncated' : '' }}</span>
+          <span class="mono muted">#{{ result().meta.query_hash.slice(0, 12) }}</span>
+          <span class="spacer"></span>
+          @if (auth.can('query.explain')) { <button class="btn sm ghost" (click)="showSql()"><app-icon name="evidence" [size]="14"/> SQL</button> }
+          @if (dashboards().length) {
+            <select class="select sm-select" #dsel (change)="saveTo(dsel.value); dsel.value = ''" [disabled]="saving()" aria-label="Save to dashboard">
+              <option value="">{{ saved() ? '✓ Saved — add to another…' : 'Save to dashboard…' }}</option>
+              @for (d of dashboards(); track d.id) { <option [value]="d.id">{{ d.title }}</option> }</select>
+          }
+        </div>
+        @if (sql()) { <pre class="mono sql">{{ sql() }}</pre> }
+      } @else { <app-working title="Running governed query" [steps]="['Compiling semantic query', 'Applying your data access', 'Aggregating']"/> }
+    </section>
+  </div>
+</div>

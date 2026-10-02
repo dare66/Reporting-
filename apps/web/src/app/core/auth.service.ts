@@ -1,0 +1,103 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { API } from './api.service';
+
+export interface User {
+  id: string; name: string; first_name: string; email: string; title?: string;
+  roles: { key: string; name: string }[]; permissions: string[]; experience: 'executive' | 'analyst' | 'engineer' | 'admin';
+  organisation: { id: string; name: string; currency: string; timezone: string; branding: any };
+  data_scope?: Record<string, string[]> | null; preferences: Record<string, any>; mfa_enabled: boolean; department?: string; team?: string;
+}
+
+const REFRESH_KEY = 'aixbi.refresh';
+
+/**
+ * Access token lives in memory only; the rotating refresh token is persisted
+ * so a reload restores the session. Refresh tokens are single-use server-side
+ * (reuse revokes the whole family).
+ */
+@Injectable({ providedIn: 'root' })
+export class Auth {
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  readonly user = signal<User | null>(null);
+  readonly accessToken = signal<string | null>(null);
+  readonly isAuthenticated = computed(() => !!this.user());
+  private refreshing: Promise<boolean> | null = null;
+
+  can(permission: string): boolean {
+    const p = this.user()?.permissions ?? [];
+    return p.includes('*') || p.includes(permission);
+  }
+  canAny(...permissions: string[]): boolean { return permissions.some(p => this.can(p)); }
+  get isExecutive(): boolean { return this.user()?.experience === 'executive'; }
+
+  async login(email: string, password: string): Promise<{ mfa_token?: string }> {
+    const res: any = await firstValueFrom(this.http.post(`${API}/auth/login`, { email, password }));
+    if (res.mfa_required) return { mfa_token: res.mfa_token };
+    this.accept(res);
+    return {};
+  }
+
+  async verifyMfa(mfa_token: string, code: string): Promise<void> {
+    this.accept(await firstValueFrom(this.http.post(`${API}/auth/mfa/verify`, { mfa_token, code })));
+  }
+
+  /** Restores the session from a stored refresh token (called on app start). */
+  async restore(): Promise<boolean> {
+    if (!this.storedRefresh()) return false;
+    return this.refresh();
+  }
+
+  refresh(): Promise<boolean> {
+    this.refreshing ??= (async () => {
+      const token = this.storedRefresh();
+      if (!token) return false;
+      try {
+        const res: any = await firstValueFrom(this.http.post(`${API}/auth/refresh`, { refresh_token: token }));
+        this.storeRefresh(res.refresh_token);
+        this.accessToken.set(res.access_token);
+        if (!this.user()) this.user.set((await firstValueFrom(this.http.get<any>(`${API}/me`))).data);
+        return true;
+      } catch {
+        this.clear();
+        return false;
+      } finally {
+        this.refreshing = null;
+      }
+    })();
+    return this.refreshing;
+  }
+
+  async logout(): Promise<void> {
+    const token = this.storedRefresh();
+    try { if (token) await firstValueFrom(this.http.post(`${API}/auth/logout`, { refresh_token: token })); } catch { /* best effort */ }
+    this.clear();
+    this.router.navigateByUrl('/');
+  }
+
+  async reloadProfile(): Promise<void> {
+    this.user.set((await firstValueFrom(this.http.get<any>(`${API}/me`))).data);
+  }
+
+  private accept(res: any): void {
+    this.accessToken.set(res.access_token);
+    this.storeRefresh(res.refresh_token);
+    this.user.set(res.user);
+  }
+
+  private clear(): void {
+    this.accessToken.set(null);
+    this.user.set(null);
+    try { localStorage.removeItem(REFRESH_KEY); } catch { /* storage unavailable */ }
+  }
+
+  private storedRefresh(): string | null {
+    try { return localStorage.getItem(REFRESH_KEY); } catch { return null; }
+  }
+  private storeRefresh(token: string): void {
+    try { localStorage.setItem(REFRESH_KEY, token); } catch { /* storage unavailable: session lasts for this tab */ }
+  }
+}

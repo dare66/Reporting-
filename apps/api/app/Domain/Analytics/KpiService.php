@@ -40,7 +40,12 @@ class KpiService
             $q = new SemanticQuery(metrics: $metrics, filters: $applicable, timeRange: $current);
             $cur = $this->queries->runOn($catalog, $q, $user);
             $prev = $this->queries->runOn($catalog, $q->withTimeRange($previous), $user);
-            $sparkRange = new TimeRange($grain === 'month' ? $current->from->subMonths(11)->startOfMonth() : $current->from, $current->to, 'spark');
+            // Sparklines give context beyond the selected period: ~12 buckets, ending with the current one.
+            $sparkRange = new TimeRange(match ($grain) {
+                'month' => $current->from->subMonths(11)->startOfMonth(),
+                'week' => $current->to->subWeeks(12)->startOfWeek(),
+                default => $current->from,
+            }, $current->to, 'spark');
             $spark = $this->queries->runOn($catalog, new SemanticQuery(metrics: $metrics, filters: $applicable, grain: $grain, timeRange: $sparkRange), $user);
 
             foreach ($metrics as $key) {
@@ -105,8 +110,9 @@ class KpiService
     {
         $days = $range->from->diffInDays($range->to);
 
+        // Daily buckets are dominated by weekday seasonality; weekly is the honest short-range shape.
         return match (true) {
-            $days <= 45 => 'day',
+            $days <= 10 => 'day',
             $days <= 200 => 'week',
             default => 'month',
         };

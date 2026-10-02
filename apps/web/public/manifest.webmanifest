@@ -1,0 +1,2 @@
+{ "name": "AIXBI Enterprise Intelligence", "short_name": "AIXBI", "start_url": "/home", "display": "standalone",
+  "background_color": "#06080c", "theme_color": "#06080c", "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }] }
