@@ -26,7 +26,9 @@ class SemanticModelGenerator
 
         foreach ($dataset->fields as $f) {
             $p = $f->profile ?? [];
-            $idLike = $f->name === 'id' || str_ends_with($f->name, '_id') || ($p['distinct'] ?? 0) >= $rows * 0.95;
+            // Near-unique integers/strings are identifiers; near-unique decimals are just continuous values.
+            $idLike = $f->name === 'id' || str_ends_with($f->name, '_id')
+                || (in_array($f->data_type, ['integer', 'string'], true) && $rows > 20 && ($p['distinct'] ?? 0) >= $rows * 0.95);
             if (in_array($f->data_type, ['date', 'timestamp'], true)) {
                 $dims[] = ['key' => $f->name, 'label' => $f->label, 'field' => $f->name, 'type' => 'time', 'root_cause' => false];
                 $time ??= $f->name;

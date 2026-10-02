@@ -66,7 +66,7 @@ class AiController extends Controller
             ]);
             $conversation->messages()->create(['role' => 'user', 'content' => $data['question'], 'run_id' => $run->id]);
             $conversation->messages()->create(['role' => 'assistant', 'content' => $data['answer'], 'blocks' => $data['blocks'] ?? [], 'run_id' => $run->id]);
-            $conversation->update(['context' => $data['context'] ?? $conversation->context]);
+            $conversation->update(['context' => $data['context'] ?? $conversation->context ?? []]);
             $conversation->touch();
 
             return [$conversation, $run];

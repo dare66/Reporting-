@@ -14,6 +14,11 @@ class AiRun extends Model
 
     protected $guarded = ['id'];
 
+    public function conversation(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(AiConversation::class, 'conversation_id');
+    }
+
     protected function casts(): array
     {
         return [

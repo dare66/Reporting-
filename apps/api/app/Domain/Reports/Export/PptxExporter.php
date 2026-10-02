@@ -133,8 +133,8 @@ class PptxExporter implements Exporter
             $h = new Series('Actual', array_merge($all, $hist));
             $f = new Series('Forecast', array_merge($all, $fc));
             foreach ([[$h, $this->theme['series'][0]], [$f, $this->theme['accent']]] as [$series, $col]) {
-                $series->getOutline()->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FF'.$col));
-                $series->getOutline()->setWidth(28575);
+                $this->outline($series)->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FF'.$col));
+                $this->outline($series)->setWidth(28575);
                 $series->getMarker()->setSymbol('none');
                 $series->setShowValue(false);
                 $type->addSeries($series);
@@ -150,13 +150,22 @@ class PptxExporter implements Exporter
             if ($type instanceof Area) {
                 $series->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FF'.$this->theme['series'][0]));
             } else {
-                $series->getOutline()->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FF'.$this->theme['series'][0]));
-                $series->getOutline()->setWidth(28575);
+                $this->outline($series)->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FF'.$this->theme['series'][0]));
+                $this->outline($series)->setWidth(28575);
                 $series->getMarker()->setSymbol('none');
             }
             $type->addSeries($series);
         }
         $chart->getPlotArea()->setType($type);
+    }
+
+    private function outline(Series $series): \PhpOffice\PhpPresentation\Style\Outline
+    {
+        if ($series->getOutline() === null) {
+            $series->setOutline(new \PhpOffice\PhpPresentation\Style\Outline);
+        }
+
+        return $series->getOutline();
     }
 
     private function rootCauseSlide(string $title, array $c): void

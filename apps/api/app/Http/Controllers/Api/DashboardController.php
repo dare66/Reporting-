@@ -55,7 +55,7 @@ class DashboardController extends Controller
                 'theme' => $data['theme'] ?? 'dark-intelligence', 'visibility' => $data['visibility'] ?? 'private',
                 'sections' => $data['sections'] ?? [], 'filters' => $data['filters'] ?? [],
             ]);
-            foreach ($data['widgets'] ?? [] as $i => $w) {
+            foreach ($request->input('widgets', []) as $i => $w) {
                 $d->widgets()->create($this->widgetAttributes($w, $i));
             }
 

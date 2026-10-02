@@ -164,7 +164,8 @@ class ReportBuilder
     {
         $horizon = ($bp['horizon'] ?? 6) >= 12 ? '12m' : '6m';
         $f = $this->forecasts->forecast($bp['metric'], $horizon, $user);
-        $last = end($f->points) ?: null;
+        $points = $f->points;
+        $last = end($points) ?: null;
         if ($last) {
             $this->facts[] = ['type' => 'forecast', 'label' => $f->diagnostics['label'], 'format' => $f->diagnostics['format'], 'period' => $last['period'], 'value' => $last['value'], 'lower' => $last['lower'], 'upper' => $last['upper']];
         }
