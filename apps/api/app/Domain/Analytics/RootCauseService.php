@@ -3,6 +3,7 @@
 namespace App\Domain\Analytics;
 
 use App\Domain\Query\Expression\Node;
+use App\Domain\Query\QueryResult;
 use App\Domain\Query\QueryService;
 use App\Domain\Query\QueryValidationException;
 use App\Domain\Query\SemanticQuery;
@@ -20,6 +21,16 @@ use App\Models\User;
  * components (avg measures are decomposed into sum ÷ count), so impacts are exact
  * for additive metrics and a first-order attribution for ratios. Every number
  * returned is derived from queries listed in `evidence`.
+ *
+ * @phpstan-import-type Evidence from QueryResult
+ *
+ * @phpstan-type Components array<string, array{measure: string, role: string}>
+ * @phpstan-type MemberImpact array{member: string, current_value: ?float, previous_value: ?float, current_volume: float, previous_volume: float, impact: float, impact_share: ?float, volume_share: float, excess_impact: float}
+ * @phpstan-type Driver array{dimension: string, dimension_label: string, member: string, current_value: ?float, previous_value: ?float, current_volume: float, previous_volume: float, impact: float, impact_share: ?float, volume_share: float, excess_impact: float}
+ * @phpstan-type DimensionBreakdown array{key: string, label: string, explained_share: float, member_count: int, members: list<MemberImpact>}
+ * @phpstan-type Onset array{date: string, before_mean: float, after_mean: float, shift_sigma: ?float, significant: bool, series: list<array{date: string, value: float}>}
+ * @phpstan-type Period array{value: ?float, period: array<string, mixed>}
+ * @phpstan-type Explanation array{ref: string, metric: string, label: string, format: string, higher_is_better: bool, current: Period, previous: Period, change: ?float, change_pct: ?float, direction: string, sentiment: string, drivers: list<Driver>, dimensions: list<DimensionBreakdown>, onset: Onset|null, method: string, evidence: list<Evidence>}
  */
 class RootCauseService
 {
@@ -27,7 +38,12 @@ class RootCauseService
 
     public function __construct(private readonly QueryService $queries, private readonly CatalogRepository $catalogs) {}
 
-    /** @param array<int, array<string, mixed>> $filters */
+    /**
+     * @param  string|array<string, mixed>  $range  preset key or explicit {from, to}
+     * @param  list<array{dimension: string, op: string, value?: mixed}>  $filters
+     * @param  list<string>|null  $dimensions  candidates to test; defaults to the model's root-cause candidates
+     * @return Explanation
+     */
     public function explain(string $ref, string|array $range, User $user, array $filters = [], ?array $dimensions = null, string $compare = 'previous_period'): array
     {
         $r = MetricRef::parse($ref);
@@ -94,8 +110,8 @@ class RootCauseService
                     'member' => $member,
                     'current_value' => $this->evaluate($ast, $cur, $components),
                     'previous_value' => $this->evaluate($ast, $prev, $components),
-                    'current_volume' => $cur[$volumeKey] ?? 0,
-                    'previous_volume' => $prev[$volumeKey] ?? 0,
+                    'current_volume' => $cur[$volumeKey] ?? 0.0,
+                    'previous_volume' => $prev[$volumeKey] ?? 0.0,
                     'impact' => round($impact, 8),
                     'impact_share' => ($totalChange !== null && abs($totalChange) > 1e-12) ? round($impact / $totalChange, 4) : null,
                 ];
@@ -187,7 +203,11 @@ class RootCauseService
         return [$augmented, $components];
     }
 
-    /** @return array<string, float> */
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  Components  $components
+     * @return array<string, float>
+     */
     private function componentValues(array $row, array $components): array
     {
         $out = [];
@@ -198,6 +218,10 @@ class RootCauseService
         return $out;
     }
 
+    /**
+     * @param  array<string, float>  $componentValues
+     * @param  Components  $components
+     */
     private function evaluate(Node $ast, array $componentValues, array $components): ?float
     {
         $measureValues = [];
@@ -219,6 +243,11 @@ class RootCauseService
     /**
      * Finds when the shift began: the split of the daily series (comparison +
      * current window) that maximises the weighted difference in means.
+     *
+     * @param  Components  $components
+     * @param  list<array{dimension: string, op: string, value?: mixed}>  $filters
+     * @param  list<Evidence>  $evidence  appended to
+     * @return Onset|null
      */
     private function onset(Catalog $catalog, Node $ast, array $components, TimeRange $current, TimeRange $previous, array $filters, User $user, array &$evidence): ?array
     {
@@ -230,7 +259,7 @@ class RootCauseService
         foreach ($res->rows as $row) {
             $v = $this->evaluate($ast, $this->componentValues($row, $components), $components);
             if ($v !== null) {
-                $series[] = ['date' => $row['period'], 'value' => $v];
+                $series[] = ['date' => (string) $row['period'], 'value' => $v];
             }
         }
         $n = count($series);

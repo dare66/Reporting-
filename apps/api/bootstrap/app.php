@@ -42,6 +42,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $error('not_found', 'We couldn\'t find what you were looking for. It may have been removed or you may not have access.', 404);
             }
         });
-        $exceptions->render(fn (\InvalidArgumentException $e, Request $request) => $request->is('api/*') ? $error('invalid_request', $e->getMessage(), 422) : null);
-        $exceptions->render(fn (\RuntimeException $e, Request $request) => $request->is('api/*') && ! config('app.debug') ? $error('unavailable', $e->getMessage(), 503) : null);
+        $exceptions->render(fn (InvalidArgumentException $e, Request $request) => $request->is('api/*') ? $error('invalid_request', $e->getMessage(), 422) : null);
+        $exceptions->render(fn (RuntimeException $e, Request $request) => $request->is('api/*') && ! config('app.debug') ? $error('unavailable', $e->getMessage(), 503) : null);
     })->create();

@@ -15,11 +15,13 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 use Throwable;
 
 class AdminController extends Controller
@@ -44,7 +46,7 @@ class AdminController extends Controller
             'department_id' => 'nullable|uuid', 'team_id' => 'nullable|uuid',
         ]);
         $roles = $this->roleIds($data['roles'], $request);
-        $user = User::create(collect($data)->except('roles')->all() + ['email' => strtolower($data['email'])]);
+        $user = User::create(Arr::except($data, ['roles']) + ['email' => strtolower($data['email'])]);
         $user->roles()->sync($roles);
         $this->audit->record('admin.user_created', ['resource_type' => 'user', 'resource_id' => $user->id], ['roles' => $data['roles']]);
 
@@ -60,14 +62,14 @@ class AdminController extends Controller
             'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($user->id)],
         ]);
         abort_if($user->id === $request->user()->id && ($data['status'] ?? 'active') !== 'active', 422, 'You cannot suspend your own account.');
-        $user->update(collect($data)->except('roles')->all());
+        $user->update(Arr::except($data, ['roles']));
         if (isset($data['roles'])) {
             $user->roles()->sync($this->roleIds($data['roles'], $request));
         }
         if (($data['status'] ?? null) === 'suspended') {
             DB::table('refresh_tokens')->where('user_id', $user->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
         }
-        $this->audit->record('admin.user_updated', ['resource_type' => 'user', 'resource_id' => $id], array_keys($data));
+        $this->audit->record('admin.user_updated', ['resource_type' => 'user', 'resource_id' => $id], ['fields' => array_keys($data)]);
 
         return response()->json(['data' => new UserResource($user->fresh()->load('roles'))]);
     }
@@ -82,9 +84,9 @@ class AdminController extends Controller
         $data = $request->validate(['key' => 'required|regex:/^[a-z_]+$/', 'name' => 'required|string', 'description' => 'nullable|string',
             'experience' => 'required|in:executive,analyst,engineer,admin', 'permissions' => 'required|array', 'permissions.*' => 'exists:permissions,key']);
         abort_if(in_array('*', $data['permissions'], true), 422, 'Custom roles cannot hold the wildcard permission.');
-        $role = Role::create(collect($data)->except('permissions')->all() + ['organisation_id' => $request->user()->organisation_id, 'is_system' => false]);
+        $role = Role::create(Arr::except($data, ['permissions']) + ['organisation_id' => $request->user()->organisation_id, 'is_system' => false]);
         $role->permissions()->sync(Permission::whereIn('key', $data['permissions'])->pluck('id'));
-        $this->audit->record('admin.role_created', ['resource_type' => 'role', 'resource_id' => $role->id], $data['permissions']);
+        $this->audit->record('admin.role_created', ['resource_type' => 'role', 'resource_id' => $role->id], ['permissions' => $data['permissions']]);
 
         return response()->json(['data' => $role->load('permissions')], 201);
     }
@@ -154,20 +156,20 @@ class AdminController extends Controller
             }),
             'ai_service' => $probe(function () {
                 $r = Http::timeout(3)->get(config('aixbi.ai.url').'/health');
-                throw_if($r->failed(), new \RuntimeException('HTTP '.$r->status()));
+                throw_if($r->failed(), new RuntimeException('HTTP '.$r->status()));
 
                 return 'planner: '.($r->json('planner') ?? 'unknown');
             }),
             'report_workers' => $probe(function () {
                 $failed = ReportExport::where('status', 'failed')->where('created_at', '>=', now()->subDay())->count();
                 $queued = ReportExport::whereIn('status', ['queued', 'running'])->where('created_at', '<', now()->subMinutes(10))->count();
-                throw_if($queued > 0, new \RuntimeException("{$queued} exports waiting over 10 minutes"));
+                throw_if($queued > 0, new RuntimeException("{$queued} exports waiting over 10 minutes"));
 
                 return 'queue '.config('queue.default').", {$failed} failures in 24h";
             }),
             'data_pipelines' => $probe(function () {
                 $err = DataSource::where('status', 'error')->count();
-                throw_if($err > 0, new \RuntimeException("{$err} data sources failing"));
+                throw_if($err > 0, new RuntimeException("{$err} data sources failing"));
 
                 return IngestionRun::where('started_at', '>=', now()->subDay())->count().' runs in 24h';
             }),
@@ -176,7 +178,9 @@ class AdminController extends Controller
 
                 return 'writable';
             }),
-            'kafka' => ['status' => env('KAFKA_BROKERS') ? 'unknown' : 'not_configured', 'latency_ms' => null, 'detail' => env('KAFKA_BROKERS') ? 'configured; streaming consumer ships in Phase 10' : 'No brokers configured for this environment'],
+            'kafka' => config('aixbi.streaming.kafka_brokers')
+                ? ['status' => 'unknown', 'latency_ms' => null, 'detail' => 'Brokers configured; the streaming consumer is not deployed yet']
+                : ['status' => 'not_configured', 'latency_ms' => null, 'detail' => 'No brokers configured for this environment'],
         ];
 
         return response()->json(['data' => [
@@ -192,6 +196,10 @@ class AdminController extends Controller
         ]]);
     }
 
+    /**
+     * @param  list<string>  $keys
+     * @return list<string>
+     */
     private function roleIds(array $keys, Request $request): array
     {
         $roles = Role::visible()->whereIn('key', $keys)->get();

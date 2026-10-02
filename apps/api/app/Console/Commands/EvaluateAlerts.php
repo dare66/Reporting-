@@ -6,6 +6,7 @@ use App\Domain\Alerts\AlertEvaluator;
 use App\Models\AlertRule;
 use App\Support\Tenancy\TenantScopeBypass;
 use Illuminate\Console\Command;
+use Throwable;
 
 class EvaluateAlerts extends Command
 {
@@ -21,7 +22,7 @@ class EvaluateAlerts extends Command
             try {
                 $r = $evaluator->evaluate($rule);
                 $this->line("{$rule->name}: {$r['state']} ({$r['value']})".($r['fired'] ? ' — notified' : ''));
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 report($e);
                 $this->error("{$rule->name}: {$e->getMessage()}");
             }

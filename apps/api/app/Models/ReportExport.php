@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ReportExport extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'report_exports';
 

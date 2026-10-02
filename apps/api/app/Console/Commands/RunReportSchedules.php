@@ -2,11 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Notifications\Notifier;
 use App\Domain\Reports\ReportBuilder;
 use App\Domain\Reports\ReportExportService;
 use App\Domain\Reports\ReportVersioning;
 use App\Domain\Reports\ScheduleCalculator;
-use App\Domain\Notifications\Notifier;
 use App\Models\ReportExport;
 use App\Models\ScheduledReport;
 use App\Models\User;
@@ -15,7 +15,6 @@ use App\Support\Tenancy\TenantScopeBypass;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 
 class RunReportSchedules extends Command
 {

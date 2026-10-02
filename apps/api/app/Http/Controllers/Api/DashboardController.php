@@ -144,6 +144,10 @@ class DashboardController extends Controller
         });
     }
 
+    /**
+     * @param  array<string, mixed>  $w  validated widget payload
+     * @return array<string, mixed>
+     */
     private function widgetAttributes(array $w, int $index): array
     {
         return [
@@ -154,6 +158,7 @@ class DashboardController extends Controller
         ];
     }
 
+    /** @return Builder<Dashboard> */
     private function visible(Request $request): Builder
     {
         return Dashboard::query()->where(fn ($q) => $q->where('visibility', 'organisation')->orWhere('owner_id', $request->user()->id));

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AlertRule extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'alert_rules';
 
@@ -29,11 +29,13 @@ class AlertRule extends Model
         ];
     }
 
+    /** @return HasMany<Alert, $this> */
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class)->latest('fired_at');
     }
 
+    /** @return BelongsTo<SemanticModel, $this> */
     public function semanticModel(): BelongsTo
     {
         return $this->belongsTo(SemanticModel::class);

@@ -116,7 +116,7 @@ class DemoTenantSeeder extends Seeder
     {
         $sql = strtr(file_get_contents(__DIR__.'/sql/analytics_demo.sql'), [
             '{{END_DATE}}' => now()->toDateString(),
-            '{{SCALE}}' => (string) (float) env('DEMO_SCALE', 1),
+            '{{SCALE}}' => (string) config('aixbi.demo.scale'),
             '{{READER_PASSWORD}}' => str_replace("'", "''", (string) config('database.connections.analytics.password')),
         ]);
         DB::unprepared($sql);

@@ -21,4 +21,15 @@ return [
         'token' => env('AI_SERVICE_TOKEN'),
         'timeout' => (int) env('AI_SERVICE_TIMEOUT', 120),
     ],
+
+    'streaming' => [
+        'kafka_brokers' => env('KAFKA_BROKERS'),
+    ],
+
+    'demo' => [
+        // Seed the demo tenant outside local/testing (e.g. a hosted demo environment).
+        'seed' => (bool) env('SEED_DEMO', false),
+        // Synthetic dataset size multiplier (1 ≈ 290k applications).
+        'scale' => (float) env('DEMO_SCALE', 1),
+    ],
 ];

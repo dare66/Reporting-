@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class IngestionRun extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'ingestion_runs';
 

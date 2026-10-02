@@ -15,6 +15,7 @@ final class QueryExecutor
 {
     public function __construct(private readonly AuditLogger $audit) {}
 
+    /** @param  array<string, mixed>  $semanticQuery  echoed into the result for evidence */
     public function execute(CompiledQuery $compiled, SecurityContext $security, array $semanticQuery = [], bool $useCache = true): QueryResult
     {
         $cacheKey = 'q:'.$security->organisationId.':'.hash('sha256', $compiled->hash().$security->fingerprint());
@@ -65,6 +66,11 @@ final class QueryExecutor
         });
     }
 
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<array<string, mixed>>  $columns
+     * @return array<string, mixed>
+     */
     private function normaliseRow(array $row, array $columns): array
     {
         foreach ($columns as $c) {
@@ -91,6 +97,7 @@ final class QueryExecutor
         ], ['cached' => $cached]);
     }
 
+    /** @return array{rows: list<array<string, mixed>>, duration_ms: int, truncated: bool, executed_at: string}|null */
     private function cacheGet(string $key): ?array
     {
         try {
@@ -100,6 +107,7 @@ final class QueryExecutor
         }
     }
 
+    /** @param  array{rows: list<array<string, mixed>>, duration_ms: int, truncated: bool, executed_at: string}  $value */
     private function cachePut(string $key, array $value, int $ttl): void
     {
         try {

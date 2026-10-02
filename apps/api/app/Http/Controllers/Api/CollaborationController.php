@@ -9,6 +9,7 @@ use App\Models\Comment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
 class CollaborationController extends Controller
 {
@@ -28,10 +29,18 @@ class CollaborationController extends Controller
             'parent_id' => 'nullable|uuid', 'link' => 'nullable|string|max:300']);
         preg_match_all('/@([\p{L}][\p{L}&\-]*)/u', $data['body'], $m);
         $handles = array_unique($m[1]);
-        $mentioned = User::with('department')->get()->filter(fn ($u) => collect($handles)->contains(fn ($h) => strcasecmp(explode(' ', $u->name)[0], $h) === 0
-            || ($u->department && stripos($u->department->name, $h) === 0)))->where('id', '!=', $request->user()->id);
+        $matches = function (User $u) use ($handles): bool {
+            foreach ($handles as $h) {
+                if (strcasecmp(explode(' ', $u->name)[0], $h) === 0 || ($u->department && stripos($u->department->name, $h) === 0)) {
+                    return true;
+                }
+            }
 
-        $comment = Comment::create(collect($data)->except('link')->all() + ['user_id' => $request->user()->id, 'mentions' => $mentioned->pluck('id')->values()]);
+            return false;
+        };
+        $mentioned = User::with('department')->get()->filter($matches)->where('id', '!=', $request->user()->id);
+
+        $comment = Comment::create(Arr::except($data, ['link']) + ['user_id' => $request->user()->id, 'mentions' => $mentioned->pluck('id')->values()]);
         if ($mentioned->isNotEmpty()) {
             $notifier->toUsers($mentioned->pluck('id')->all(), $request->user()->organisation_id, [
                 'type' => 'mention', 'title' => $request->user()->name.' mentioned you', 'body' => mb_strimwidth($data['body'], 0, 200, '…'),

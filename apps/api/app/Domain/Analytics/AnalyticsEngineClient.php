@@ -12,18 +12,28 @@ use RuntimeException;
  */
 class AnalyticsEngineClient
 {
-    /** @param array<int, array{period: string, value: float|null}> $series */
+    /**
+     * @param  list<array{period: string, value: float|null}>  $series
+     * @return array<string, mixed> decoded engine response (points, intervals, method, backtest)
+     */
     public function forecast(array $series, string $grain, int $horizon): array
     {
         return $this->post('/v1/analytics/forecast', compact('series', 'grain', 'horizon'));
     }
 
-    /** @param array<int, array{period: string, value: float|null}> $series */
+    /**
+     * @param  list<array{period: string, value: float|null}>  $series
+     * @return array<string, mixed> decoded engine response (anomalies, method)
+     */
     public function anomalies(array $series, string $grain, float $threshold = 3.0): array
     {
         return $this->post('/v1/analytics/anomalies', compact('series', 'grain', 'threshold'));
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function post(string $path, array $payload): array
     {
         try {

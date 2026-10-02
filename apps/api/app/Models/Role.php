@@ -22,12 +22,18 @@ class Role extends Model
         return ['is_system' => 'boolean'];
     }
 
+    /** @return BelongsToMany<Permission, $this> */
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class, 'role_permissions');
     }
 
-    /** Roles visible to the current tenant: system roles plus its own. */
+    /**
+     * Roles visible to the current tenant: system roles plus its own.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
     public function scopeVisible(Builder $query): Builder
     {
         $org = app(TenantContext::class)->organisationId();

@@ -7,6 +7,7 @@ use App\Domain\Query\TimeRange;
 use App\Domain\Reports\ReportBuilder;
 use App\Domain\Reports\ReportExportService;
 use App\Domain\Reports\ReportVersioning;
+use App\Domain\Reports\ScheduleCalculator;
 use App\Http\Controllers\Controller;
 use App\Jobs\ExportReportJob;
 use App\Models\Report;
@@ -18,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
@@ -91,9 +93,9 @@ class ReportController extends Controller
 
         $report = Report::create([
             'owner_id' => $request->user()->id, 'template_id' => $template?->id,
-            'title' => $data['title'] ?? ($template?->name ?? 'Management Report').' — '.$period->label,
-            'subtitle' => $data['subtitle'] ?? $template?->description, 'type' => $data['type'] ?? $template?->audience ?? 'management',
-            'theme' => $data['theme'] ?? $template?->theme ?? 'executive', 'status' => 'draft',
+            'title' => $data['title'] ?? ($template->name ?? 'Management Report').' — '.$period->label,
+            'subtitle' => $data['subtitle'] ?? $template?->description, 'type' => $data['type'] ?? $template->audience ?? 'management',
+            'theme' => $data['theme'] ?? $template->theme ?? 'executive', 'status' => 'draft',
             'parameters' => ['range' => $range, 'range_label' => $period->label, 'period' => $period->toArray()],
         ]);
         $builder->build($report, $blueprints, $request->user());
@@ -179,7 +181,11 @@ class ReportController extends Controller
     {
         $report = $this->editable($request, $id);
         $order = $request->validate(['order' => 'required|array', 'order.*' => 'uuid'])['order'];
-        DB::transaction(fn () => collect($order)->each(fn ($sid, $i) => $report->sections()->where('id', $sid)->update(['position' => $i])));
+        DB::transaction(function () use ($order, $report) {
+            foreach (array_values($order) as $position => $sectionId) {
+                $report->sections()->where('id', $sectionId)->update(['position' => $position]);
+            }
+        });
 
         return response()->json(['data' => $report->fresh('sections')->sections]);
     }
@@ -282,11 +288,11 @@ class ReportController extends Controller
     public function schedule(Request $request, string $id): JsonResponse
     {
         $report = $this->editable($request, $id);
-        $data = $request->validate(['frequency' => 'required|in:daily,weekly,monthly,quarterly', 'time_of_day' => 'nullable|date_format:H:i',
+        $data = $request->validate(['frequency' => ['required', Rule::in(ScheduleCalculator::FREQUENCIES)], 'time_of_day' => 'nullable|date_format:H:i',
             'formats' => 'array', 'formats.*' => 'in:'.implode(',', ReportExportService::FORMATS), 'channels' => 'array', 'channels.*' => 'in:email,push,in_app',
             'recipients' => 'array', 'recipients.*' => 'uuid']);
         $schedule = ScheduledReport::create($data + ['report_id' => $report->id, 'created_by' => $request->user()->id,
-            'next_run_at' => \App\Domain\Reports\ScheduleCalculator::next($data['frequency'], $data['time_of_day'] ?? '08:00')]);
+            'next_run_at' => ScheduleCalculator::next($data['frequency'], $data['time_of_day'] ?? '08:00')]);
 
         return response()->json(['data' => $schedule], 201);
     }
@@ -299,7 +305,11 @@ class ReportController extends Controller
         return response()->json(null, 204);
     }
 
-    /** Drafts are private to their owner; publishers (editorial role) see every report. */
+    /**
+     * Drafts are private to their owner; publishers (editorial role) see every report.
+     *
+     * @return Builder<Report>
+     */
     private function visible(Request $request): Builder
     {
         $user = $request->user();

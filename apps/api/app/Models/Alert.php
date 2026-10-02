@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Alert extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'alerts';
 
@@ -25,6 +25,7 @@ class Alert extends Model
         ];
     }
 
+    /** @return BelongsTo<AlertRule, $this> */
     public function rule(): BelongsTo
     {
         return $this->belongsTo(AlertRule::class, 'alert_rule_id');

@@ -20,6 +20,7 @@ class ForecastService
         private readonly AnalyticsEngineClient $engine,
     ) {}
 
+    /** @param  list<array{dimension: string, op: string, value?: mixed}>  $filters */
     public function forecast(string $ref, string $horizonKey, User $user, array $filters = []): Forecast
     {
         [$grain, $horizon] = self::HORIZONS[$horizonKey] ?? self::HORIZONS['6m'];

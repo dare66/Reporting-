@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DataSource extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'data_sources';
 
@@ -25,11 +25,13 @@ class DataSource extends Model
 
     protected $hidden = ['config'];
 
+    /** @return HasMany<IngestionRun, $this> */
     public function runs(): HasMany
     {
         return $this->hasMany(IngestionRun::class)->latest('started_at');
     }
 
+    /** @return HasMany<Dataset, $this> */
     public function datasets(): HasMany
     {
         return $this->hasMany(Dataset::class);

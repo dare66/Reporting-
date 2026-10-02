@@ -23,6 +23,7 @@ class Dimension extends Model
         ];
     }
 
+    /** @return BelongsTo<Dataset, $this> */
     public function dataset(): BelongsTo
     {
         return $this->belongsTo(Dataset::class);

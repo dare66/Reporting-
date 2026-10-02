@@ -2,6 +2,8 @@
 
 namespace App\Domain\Query\Expression;
 
+use LogicException;
+
 final class BinaryNode implements Node
 {
     public function __construct(public readonly string $op, public readonly Node $left, public readonly Node $right) {}
@@ -32,6 +34,7 @@ final class BinaryNode implements Node
             '-' => $l - $r,
             '*' => $l * $r,
             '/' => $r == 0.0 ? null : $l / $r,
+            default => throw new LogicException("Unknown operator {$this->op}"),
         };
     }
 

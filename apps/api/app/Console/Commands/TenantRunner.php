@@ -6,6 +6,7 @@ use App\Models\Organisation;
 use App\Models\User;
 use App\Support\Tenancy\TenantContext;
 use App\Support\Tenancy\TenantScopeBypass;
+use Throwable;
 
 /**
  * Runs organisation-wide background work as that organisation's administrator
@@ -25,7 +26,7 @@ trait TenantRunner
             app(\App\Domain\Semantic\CatalogRepository::class)->forget();
             try {
                 $fn($org, $admin);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 report($e);
                 $this->error("{$org->name}: {$e->getMessage()}");
             } finally {

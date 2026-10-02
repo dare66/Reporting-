@@ -11,7 +11,7 @@ final class NumberNode implements Node
         return rtrim(rtrim(number_format($this->value, 10, '.', ''), '0'), '.') ?: '0';
     }
 
-    public function evaluate(array $values): ?float
+    public function evaluate(array $values): float
     {
         return $this->value;
     }

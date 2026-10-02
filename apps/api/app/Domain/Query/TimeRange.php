@@ -18,7 +18,7 @@ final class TimeRange
 
     /**
      * @param  array{0: string, 1: int}|null  $step  calendar step used to derive the comparable prior period,
-     *                                             e.g. ['month', 1] for month-to-date; null = shift by length in days
+     *                                               e.g. ['month', 1] for month-to-date; null = shift by length in days
      */
     public function __construct(
         public readonly CarbonImmutable $from,

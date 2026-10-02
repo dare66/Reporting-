@@ -42,7 +42,11 @@ class ReportVersioning
         return $report->fresh('sections');
     }
 
-    /** Section-level diff with KPI value changes called out. */
+    /**
+     * Section-level diff with KPI value changes called out.
+     *
+     * @return array{from: int, to: int, title_changed: bool, changes: list<array<string, mixed>>}
+     */
     public function compare(Report $report, int $a, int $b): array
     {
         $va = $report->versions()->where('version', $a)->firstOrFail()->snapshot;
@@ -66,9 +70,7 @@ class ReportVersioning
             }
             $entry = ['section' => $x['title'], 'change' => 'modified'];
             if ($x['type'] === 'kpis') {
-                $before = collect($x['content']['cards'] ?? [])->keyBy('ref');
-                $entry['kpis'] = collect($y['content']['cards'] ?? [])->map(fn ($c) => ['label' => $c['label'], 'format' => $c['format'], 'from' => $before[$c['ref']]['value'] ?? null, 'to' => $c['value']])
-                    ->filter(fn ($c) => $c['from'] !== $c['to'])->values()->all();
+                $entry['kpis'] = $this->kpiChanges((array) ($x['content']['cards'] ?? []), (array) ($y['content']['cards'] ?? []));
             }
             if ($x['type'] === 'summary') {
                 $entry['text'] = ['from' => $x['content']['paragraphs'] ?? [], 'to' => $y['content']['paragraphs'] ?? []];
@@ -77,5 +79,29 @@ class ReportVersioning
         }
 
         return ['from' => $a, 'to' => $b, 'title_changed' => $va['title'] !== $vb['title'], 'changes' => $changes];
+    }
+
+    /**
+     * KPI cards whose value moved between two versions of a KPI section.
+     *
+     * @param  array<mixed>  $before  cards: {ref, label, format, value}
+     * @param  array<mixed>  $after
+     * @return list<array{label: string, format: string, from: float|null, to: float|null}>
+     */
+    private function kpiChanges(array $before, array $after): array
+    {
+        $previous = [];
+        foreach ($before as $card) {
+            $previous[$card['ref']] = $card['value'] ?? null;
+        }
+        $changes = [];
+        foreach ($after as $card) {
+            $from = $previous[$card['ref']] ?? null;
+            if ($from !== $card['value']) {
+                $changes[] = ['label' => $card['label'], 'format' => $card['format'], 'from' => $from, 'to' => $card['value']];
+            }
+        }
+
+        return $changes;
     }
 }

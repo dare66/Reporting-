@@ -9,11 +9,13 @@ interface Dialect
 
     public function quote(string $identifier): string;
 
-    /** @param 'day'|'week'|'month'|'quarter'|'year' $grain */
+    /**
+     * @param  string  $grain  day|week|month|quarter|year; anything else throws
+     */
     public function timeBucket(string $grain, string $expression): string;
 
     /**
-     * @param  'count'|'count_distinct'|'sum'|'avg'|'min'|'max'  $aggregation
+     * @param  string  $aggregation  count|count_distinct|sum|avg|min|max; anything else throws
      * @param  string|null  $filterSql  boolean SQL restricting the rows aggregated
      */
     public function aggregate(string $aggregation, ?string $expression, ?string $filterSql): string;

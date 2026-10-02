@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Dashboard extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'dashboards';
 
@@ -25,11 +25,13 @@ class Dashboard extends Model
         ];
     }
 
+    /** @return HasMany<DashboardWidget, $this> */
     public function widgets(): HasMany
     {
         return $this->hasMany(DashboardWidget::class)->orderBy('priority');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');

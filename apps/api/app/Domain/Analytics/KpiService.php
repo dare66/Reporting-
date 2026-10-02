@@ -18,6 +18,7 @@ class KpiService
 
     /**
      * @param  array<string>  $refs
+     * @param  string|array<string, mixed>  $range  preset key or explicit {from, to}
      * @param  array<int, array<string, mixed>>  $filters  applied to every model that has the dimension
      * @return array<int, array<string, mixed>>
      */

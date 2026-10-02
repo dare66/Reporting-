@@ -69,10 +69,16 @@ import { ConnectorMark } from './connector-mark';
     </div>
 
     @if (connector(); as c) {
-      <div class="scrim" (click)="connector.set(null)"></div>
+      <div class="scrim" (click)="closeConnector()"></div>
       <form class="modal panel fade-in" (submit)="$event.preventDefault(); createSource()">
         <div class="row"><app-connector-mark [key]="c.key"/><h3>Connect {{ c.name }}</h3></div>
         @if (['csv', 'excel', 'json'].includes(c.key)) { <p class="muted">Use the upload area above for files.</p> }
+        @else if (ingest(); as i) {
+          <p>Send JSON records to this URL. It contains a secret token and <b>will not be shown again</b>.</p>
+          <div class="row"><input class="input grow mono" [value]="i.method + ' ' + i.url" readonly aria-label="Webhook URL" (focus)="$any($event.target).select()"><button type="button" class="btn" (click)="copyIngestUrl(i.url)">{{ copied() ? 'Copied' : 'Copy' }}</button></div>
+          <p class="muted small">Body: one object or an array of objects. Records are appended to the dataset “{{ form.name }}”.</p>
+          <div class="row"><span class="spacer"></span><button type="button" class="btn signal" (click)="closeConnector()">Done</button></div>
+        }
         @else {
           <label class="field">Name<input class="input" [(ngModel)]="form.name" name="name" required></label>
           @for (f of c.config_schema; track f.key) {
@@ -80,7 +86,7 @@ import { ConnectorMark } from './connector-mark';
           }
           <p class="muted small">Credentials are encrypted at rest (AES-256) and never shown again. Connections run read-only.</p>
           @if (formError()) { <p class="neg small">{{ formError() }}</p> }
-          <div class="row"><span class="spacer"></span><button type="button" class="btn ghost" (click)="connector.set(null)">Cancel</button><button class="btn signal">Connect &amp; test</button></div>
+          <div class="row"><span class="spacer"></span><button type="button" class="btn ghost" (click)="closeConnector()">Cancel</button><button class="btn signal">Connect &amp; test</button></div>
         }
       </form>
     }
@@ -112,6 +118,8 @@ export class DataPage implements OnInit {
   readonly testResult = signal<Record<string, any>>({});
   readonly connector = signal<any | null>(null);
   readonly formError = signal<string | null>(null);
+  readonly ingest = signal<{ url: string; method: string } | null>(null);
+  readonly copied = signal(false);
   form: any = { name: '', config: {} };
   ago = ago; compact = compact;
 
@@ -136,14 +144,20 @@ export class DataPage implements OnInit {
     this.testResult.update(t => ({ ...t, [s.id]: r }));
     this.load();
   }
-  pickConnector(c: any) { this.form = { name: c.name + ' source', config: {} }; this.formError.set(null); this.connector.set(c); }
+  pickConnector(c: any) { this.form = { name: c.name + ' source', config: {} }; this.formError.set(null); this.ingest.set(null); this.connector.set(c); }
+  closeConnector() { this.connector.set(null); this.ingest.set(null); this.copied.set(false); }
   async createSource() {
     try {
-      const s = (await this.api.post('/data-sources', { connector_key: this.connector().key, name: this.form.name, config: this.form.config })).data;
-      const t = (await this.api.post(`/data-sources/${s.id}/test`)).data;
+      const res = await this.api.post('/data-sources', { connector_key: this.connector().key, name: this.form.name, config: this.form.config });
+      if (res.ingest) { this.ingest.set(res.ingest); this.load(); return; }
+      const t = (await this.api.post(`/data-sources/${res.data.id}/test`)).data;
       if (!t.ok) { this.formError.set(t.message); return; }
-      this.connector.set(null);
+      this.closeConnector();
       this.load();
     } catch (e) { this.formError.set(errorMessage(e)); }
+  }
+  async copyIngestUrl(url: string) {
+    await navigator.clipboard.writeText(url);
+    this.copied.set(true);
   }
 }

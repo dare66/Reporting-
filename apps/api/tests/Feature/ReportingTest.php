@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\AppNotification;
 use App\Models\AlertRule;
+use App\Models\AppNotification;
 use Illuminate\Support\Facades\Http;
 use Tests\SeededTestCase;
 

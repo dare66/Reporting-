@@ -2,7 +2,11 @@
 
 namespace App\Domain\Reports\Export;
 
-/** Report themes shared by every renderer so PDF, PPTX and HTML look like one product. */
+/**
+ * Report themes shared by every renderer so PDF, PPTX and HTML look like one product.
+ *
+ * @phpstan-type Palette array{ink: string, paper: string, accent: string, text: string, muted: string, positive: string, negative: string, series: list<string>}
+ */
 final class Theme
 {
     public const THEMES = [
@@ -13,6 +17,7 @@ final class Theme
         'government' => ['ink' => '14213D', 'paper' => 'FFFFFF', 'accent' => 'B08D57', 'text' => '14213D', 'muted' => '5C677D', 'positive' => '2A7F62', 'negative' => 'A4243B', 'series' => ['14213D', 'B08D57', '2A7F62', '5C80BC', 'A4243B', '7D8CA3']],
     ];
 
+    /** @return Palette */
     public static function get(?string $name): array
     {
         return self::THEMES[$name] ?? self::THEMES['executive'];

@@ -11,8 +11,8 @@ use App\Models\Anomaly;
 use App\Models\AppNotification;
 use App\Models\Bookmark;
 use App\Models\Dashboard;
-use App\Models\DataSource;
 use App\Models\Dataset;
+use App\Models\DataSource;
 use App\Models\Insight;
 use App\Models\Report;
 use Illuminate\Http\JsonResponse;
@@ -77,7 +77,12 @@ class HomeController extends Controller
         ]]);
     }
 
-    /** @return array<int, array<string, mixed>> ranked: critical issues, warnings, then wins */
+    /**
+     * Ranked: critical issues, warnings, then wins.
+     *
+     * @param  list<array<string, mixed>>  $pulse  KPI cards
+     * @return list<array<string, mixed>>
+     */
     private function attention(array $pulse): array
     {
         $items = [];
@@ -121,10 +126,19 @@ class HomeController extends Controller
             parse_str((string) parse_url($i['action']['link'], PHP_URL_QUERY), $q);
             $key = ($q['metric'] ?? $i['title']).'|'.$i['severity'];
 
-            return ! isset($seen[$key]) && ($seen[$key] = true);
+            if (isset($seen[$key])) {
+                return false;
+            }
+            $seen[$key] = true;
+
+            return true;
         }));
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $pulse
+     * @param  list<array<string, mixed>>  $attention
+     */
     private function summary(array $pulse, array $attention): string
     {
         if ($pulse === []) {

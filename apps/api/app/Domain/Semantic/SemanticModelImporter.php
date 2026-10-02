@@ -3,8 +3,8 @@
 namespace App\Domain\Semantic;
 
 use App\Domain\Query\Expression\ExpressionParser;
-use App\Models\Dataset;
 use App\Models\DataLineage;
+use App\Models\Dataset;
 use App\Models\SemanticModel;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;

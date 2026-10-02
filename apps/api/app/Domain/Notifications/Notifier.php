@@ -11,12 +11,17 @@ use Throwable;
 /**
  * Fans a notification out to in-app, push and email channels.
  * In-app rows are the source of truth; push/email are best-effort deliveries.
+ *
+ * @phpstan-type Payload array{type: string, title: string, body: string, severity?: string, link?: ?string, data?: array<string, mixed>, channels?: list<string>}
  */
 class Notifier
 {
     public function __construct(private readonly PushGateway $push) {}
 
-    /** @param array<string> $userIds */
+    /**
+     * @param  array<string>  $userIds
+     * @param  Payload  $payload
+     */
     public function toUsers(array $userIds, string $organisationId, array $payload): int
     {
         $users = TenantScopeBypass::run(fn () => User::whereIn('id', $userIds)->where('organisation_id', $organisationId)->where('status', 'active')->get());
@@ -27,6 +32,7 @@ class Notifier
         return $users->count();
     }
 
+    /** @param  Payload  $payload */
     public function toPermission(string $permission, string $organisationId, array $payload): int
     {
         $users = TenantScopeBypass::run(fn () => User::with('roles')->where('organisation_id', $organisationId)->where('status', 'active')->get())
@@ -38,6 +44,7 @@ class Notifier
         return $users->count();
     }
 
+    /** @param  Payload  $payload */
     private function deliver(User $user, array $payload): void
     {
         $channels = $payload['channels'] ?? ['in_app'];

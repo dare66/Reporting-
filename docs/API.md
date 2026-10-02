@@ -45,7 +45,7 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 `GET/POST/PATCH/DELETE /alert-rules`, `POST /alert-rules/{id}/evaluate`, `GET /alerts`, `POST /alerts/{id}/acknowledge`, `GET /notifications`, `GET /notifications/stream` (SSE), `POST /notifications/{id}/read`, `POST /notifications/read-all`.
 
 ## Data platform
-`GET /connectors`, `GET/POST/DELETE /data-sources`, `POST /data-sources/{id}/test|sync`, `GET /data-sources/{id}/runs`, `POST /data/upload` (CSV/Excel/JSON), `POST /ingest/webhook/{id}/{token}`, `GET /datasets[/{id}]`, `GET /datasets/{id}/preview` (masked), `POST /datasets/{id}/profile`, `GET /datasets/{id}/semantic-proposal`, `POST /datasets/{id}/semantic-model`.
+`GET /connectors`, `GET/POST/DELETE /data-sources`, `POST /data-sources/{id}/test|sync`, `GET /data-sources/{id}/runs`, `POST /data/upload` (CSV/Excel/JSON), `POST /ingest/webhook/{id}/{token}` (one record or an array; the URL is returned once, as `ingest.url`, when the webhook source is created), `GET /datasets[/{id}]`, `GET /datasets/{id}/preview` (masked), `POST /datasets/{id}/profile`, `GET /datasets/{id}/semantic-proposal`, `POST /datasets/{id}/semantic-model`.
 
 ## AI persistence (used by the AI service as the user)
 `GET/POST /ai/conversations`, `GET/DELETE /ai/conversations/{id}`, `POST /ai/runs`, `POST /ai/runs/{id}/feedback`.

@@ -71,6 +71,7 @@ class AlertController extends Controller
         return response()->json(['data' => $alert]);
     }
 
+    /** @return array<string, mixed> */
     private function validated(Request $request): array
     {
         return $request->validate([

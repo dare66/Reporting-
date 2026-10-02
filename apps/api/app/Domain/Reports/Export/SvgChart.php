@@ -4,9 +4,18 @@ namespace App\Domain\Reports\Export;
 
 use App\Domain\Analytics\Format;
 
-/** Minimal, dependency-free SVG charts for print renderers (PDF). */
+/**
+ * Minimal, dependency-free SVG charts for print renderers (PDF).
+ *
+ * @phpstan-import-type Palette from Theme
+ */
 final class SvgChart
 {
+    /**
+     * @param  list<array{period: string, value: float|null}>  $series
+     * @param  Palette  $theme
+     * @param  list<array{period: string, value: float|null, lower: float|null, upper: float|null}>|null  $band  forecast points with their interval
+     */
     public static function line(array $series, string $format, array $theme, int $w = 680, int $h = 220, bool $area = true, ?array $band = null): string
     {
         $vals = array_map(fn ($p) => $p['value'], $series);
@@ -30,7 +39,7 @@ final class SvgChart
             $v = $min + ($max - $min) * $g / 4;
             $gy = round($y($v), 1);
             $svg .= "<line x1='{$pl}' y1='{$gy}' x2='".($w - $pr)."' y2='{$gy}' stroke='#E4E6EB' stroke-width='1'/>";
-            $svg .= "<text x='".($pl - 6)."' y='".($gy + 3)."' text-anchor='end' fill='#{$theme['muted']}'>".htmlspecialchars(Format::value($v, $format))."</text>";
+            $svg .= "<text x='".($pl - 6)."' y='".($gy + 3)."' text-anchor='end' fill='#{$theme['muted']}'>".htmlspecialchars(Format::value($v, $format)).'</text>';
         }
         $pts = [];
         foreach ($series as $i => $p) {
@@ -69,6 +78,10 @@ final class SvgChart
         return $svg.'</svg>';
     }
 
+    /**
+     * @param  list<array{member: string, value: float|null}>  $rows
+     * @param  Palette  $theme
+     */
     public static function bars(array $rows, string $format, array $theme, int $w = 680, int $rowH = 22): string
     {
         if (! $rows) {

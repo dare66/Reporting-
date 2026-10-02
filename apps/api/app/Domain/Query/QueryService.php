@@ -6,6 +6,8 @@ use App\Domain\Query\Dialect\Dialect;
 use App\Domain\Semantic\Catalog;
 use App\Domain\Semantic\CatalogRepository;
 use App\Models\User;
+use Carbon\CarbonImmutable;
+use InvalidArgumentException;
 
 /** Single entry point for semantic queries from controllers, AI agents and jobs. */
 final class QueryService
@@ -36,7 +38,7 @@ final class QueryService
     /** Start of the time bucket that contains today — that bucket is incomplete. */
     public static function currentBucketStart(string $grain): string
     {
-        $now = \Carbon\CarbonImmutable::now();
+        $now = CarbonImmutable::now();
 
         return match ($grain) {
             'day' => $now->toDateString(),
@@ -44,6 +46,7 @@ final class QueryService
             'month' => $now->startOfMonth()->toDateString(),
             'quarter' => $now->startOfQuarter()->toDateString(),
             'year' => $now->startOfYear()->toDateString(),
+            default => throw new InvalidArgumentException("Unsupported grain {$grain}"),
         };
     }
 

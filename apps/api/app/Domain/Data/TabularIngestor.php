@@ -7,6 +7,7 @@ use App\Models\DataSource;
 use App\Models\IngestionRun;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -23,6 +24,7 @@ class TabularIngestor
     /**
      * @param  array<int, array<string, mixed>>  $rows  records keyed by column name
      * @param  'full'|'append'  $mode
+     * @return array{run: IngestionRun, dataset: Dataset}
      */
     public function ingest(DataSource $source, string $name, array $rows, string $mode = 'full'): array
     {
@@ -33,7 +35,7 @@ class TabularIngestor
 
         try {
             if ($rows === []) {
-                throw new \InvalidArgumentException('The source returned no records.');
+                throw new InvalidArgumentException('The source returned no records.');
             }
             $columns = $this->inferColumns($rows, $log, $warnings);
             $table = $this->tableName($source->organisation_id, $name);
@@ -66,7 +68,11 @@ class TabularIngestor
         }
     }
 
-    /** @return array<string, string> sanitized column => SQL type */
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  list<array{level: string, message: string}>  $log  appended to
+     * @return array<string, string> sanitized column => SQL type
+     */
     private function inferColumns(array $rows, array &$log, int &$warnings): array
     {
         $sample = array_slice($rows, 0, 2000);
@@ -100,6 +106,11 @@ class TabularIngestor
         return $columns;
     }
 
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, string>  $columns  sanitized column => SQL type
+     * @return array<string, mixed>
+     */
     private function coerce(array $row, array $columns): array
     {
         $out = [];
@@ -134,6 +145,7 @@ class TabularIngestor
         return 'ds_'.substr(str_replace('-', '', $orgId), 0, 8).'_'.substr($this->sanitize($name), 0, 40);
     }
 
+    /** @param  array<mixed>  $values */
     private function all(array $values, callable $fn): bool
     {
         foreach ($values as $v) {

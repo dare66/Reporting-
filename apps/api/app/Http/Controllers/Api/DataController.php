@@ -40,11 +40,15 @@ class DataController extends Controller
             'sync_mode' => 'in:full,incremental,cdc', 'schedule' => 'nullable|string|max:60']);
         $connector = DataConnector::where('key', $data['connector_key'])->first();
         abort_if($connector->status !== 'available', 422, "{$connector->name} is on the roadmap and cannot be connected yet.");
+        $isWebhook = $data['connector_key'] === 'webhook';
         $source = DataSource::create($data + ['created_by' => $request->user()->id, 'status' => 'pending',
-            'config' => ($data['config'] ?? []) + ($data['connector_key'] === 'webhook' ? ['token' => Str::random(40)] : [])]);
+            'config' => ($data['config'] ?? []) + ($isWebhook ? ['token' => Str::random(40)] : [])]);
         $this->audit->record('data_source.created', ['resource_type' => 'data_source', 'resource_id' => $source->id], ['connector' => $source->connector_key]);
 
-        return response()->json(['data' => $source], 201);
+        // Like an API key, the webhook URL embeds a secret and is revealed only once.
+        $ingest = $isWebhook ? ['url' => url("/api/v1/ingest/webhook/{$source->id}/{$source->config['token']}"), 'method' => 'POST'] : null;
+
+        return response()->json(['data' => $source, 'ingest' => $ingest], 201);
     }
 
     public function deleteSource(string $id): JsonResponse
@@ -80,7 +84,9 @@ class DataController extends Controller
         $data = $request->validate(['file' => 'required|file|max:51200|mimes:csv,txt,xlsx,xls,json', 'name' => 'nullable|string|max:60']);
         $file = $data['file'];
         $ext = strtolower($file->getClientOriginalExtension());
-        $connector = match ($ext) { 'xlsx', 'xls' => 'excel', 'json' => 'json', default => 'csv' };
+        $connector = match ($ext) {
+            'xlsx', 'xls' => 'excel', 'json' => 'json', default => 'csv'
+        };
         $name = $data['name'] ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
         $source = DataSource::create(['connector_key' => $connector, 'name' => Str::headline($name).' (upload)', 'status' => 'syncing',
             'config' => ['filename' => $file->getClientOriginalName()], 'created_by' => $request->user()->id]);
@@ -96,8 +102,10 @@ class DataController extends Controller
         $source = DataSource::withoutGlobalScopes()->where('connector_key', 'webhook')->findOrFail($id);
         abort_unless(hash_equals((string) ($source->config['token'] ?? ''), $token), 403, 'Invalid webhook token.');
         app(\App\Support\Tenancy\TenantContext::class)->setOrganisation($source->organisation_id);
-        $records = $request->json()->all();
-        $records = array_is_list($records) ? $records : [$records];
+        // A body may carry one record or a list of records.
+        $payload = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        abort_unless(is_array($payload) && $payload !== [], 422, 'Send a JSON object or an array of objects.');
+        $records = array_is_list($payload) ? $payload : [$payload];
         $result = $this->ingestor->ingest($source, $source->config['dataset'] ?? $source->name, $records, 'append');
 
         return response()->json(['accepted' => count($records), 'run_id' => $result['run']->id], 202);

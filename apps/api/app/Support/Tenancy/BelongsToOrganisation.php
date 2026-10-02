@@ -37,6 +37,7 @@ trait BelongsToOrganisation
         });
     }
 
+    /** @return BelongsTo<Organisation, $this> */
     public function organisation(): BelongsTo
     {
         return $this->belongsTo(Organisation::class);

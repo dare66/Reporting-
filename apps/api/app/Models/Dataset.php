@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Dataset extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'datasets';
 
@@ -24,11 +24,13 @@ class Dataset extends Model
         ];
     }
 
+    /** @return HasMany<DatasetField, $this> */
     public function fields(): HasMany
     {
         return $this->hasMany(DatasetField::class);
     }
 
+    /** @return BelongsTo<DataSource, $this> */
     public function dataSource(): BelongsTo
     {
         return $this->belongsTo(DataSource::class);

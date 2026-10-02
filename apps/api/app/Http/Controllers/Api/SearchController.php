@@ -7,10 +7,10 @@ use App\Models\AiConversation;
 use App\Models\Dashboard;
 use App\Models\Dataset;
 use App\Models\Insight;
-use App\Models\Metric;
 use App\Models\Report;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Global search across dashboards, reports, datasets, metrics (incl. synonyms),
@@ -40,7 +40,7 @@ class SearchController extends Controller
                 $results[] = ['type' => 'report', 'id' => $r->id, 'title' => $r->title, 'subtitle' => ucfirst($r->status), 'link' => "/reports/{$r->id}"];
             }
         }
-        $metrics = Metric::query()->join('semantic_models', 'semantic_models.id', '=', 'metrics.semantic_model_id')
+        $metrics = DB::table('metrics')->join('semantic_models', 'semantic_models.id', '=', 'metrics.semantic_model_id')
             ->where('semantic_models.organisation_id', $user->organisation_id)
             ->where(fn ($w) => $w->where('metrics.label', 'ilike', $like)->orWhere('metrics.description', 'ilike', $like)->orWhereRaw('metrics.synonyms::text ILIKE ?', [$like]))
             ->limit(6)->get(['metrics.key', 'metrics.label', 'metrics.description', 'semantic_models.key as model_key', 'semantic_models.name as model_name']);

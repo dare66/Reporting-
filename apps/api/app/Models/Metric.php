@@ -24,6 +24,7 @@ class Metric extends Model
         ];
     }
 
+    /** @return BelongsTo<SemanticModel, $this> */
     public function semanticModel(): BelongsTo
     {
         return $this->belongsTo(SemanticModel::class);

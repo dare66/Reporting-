@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Visualisation extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'visualisations';
 

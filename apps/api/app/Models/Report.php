@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Report extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'reports';
 
@@ -24,16 +24,19 @@ class Report extends Model
         ];
     }
 
+    /** @return HasMany<ReportSection, $this> */
     public function sections(): HasMany
     {
         return $this->hasMany(ReportSection::class)->orderBy('position');
     }
 
+    /** @return HasMany<ReportVersion, $this> */
     public function versions(): HasMany
     {
         return $this->hasMany(ReportVersion::class)->orderByDesc('version');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');

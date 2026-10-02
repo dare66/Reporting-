@@ -32,6 +32,7 @@ class AuditLogger
         }
     }
 
+    /** @param  array<string, mixed>  $attributes  extra audit columns (resource_type, resource_id, …) */
     public function deny(string $action, string $reason, array $attributes = []): void
     {
         $this->record($action, array_merge($attributes, ['decision' => 'deny', 'result' => 'failure']), ['reason' => $reason]);

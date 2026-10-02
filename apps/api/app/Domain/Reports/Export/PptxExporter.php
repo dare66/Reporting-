@@ -7,6 +7,7 @@ use App\Models\Report;
 use PhpOffice\PhpPresentation\DocumentLayout;
 use PhpOffice\PhpPresentation\IOFactory;
 use PhpOffice\PhpPresentation\PhpPresentation;
+use PhpOffice\PhpPresentation\Shape\Chart;
 use PhpOffice\PhpPresentation\Shape\Chart\Series;
 use PhpOffice\PhpPresentation\Shape\Chart\Type\Area;
 use PhpOffice\PhpPresentation\Shape\Chart\Type\Bar;
@@ -17,13 +18,17 @@ use PhpOffice\PhpPresentation\Slide\Background\Color as BackgroundColor;
 use PhpOffice\PhpPresentation\Style\Alignment;
 use PhpOffice\PhpPresentation\Style\Color;
 use PhpOffice\PhpPresentation\Style\Fill;
+use PhpOffice\PhpPresentation\Style\Outline;
 
 /**
  * 16:9 executive deck with native (editable) PowerPoint charts.
  * Layout grid: 960×540 px canvas, 48 px margins, accent rule on every slide.
+ *
+ * @phpstan-import-type Palette from Theme
  */
 class PptxExporter implements Exporter
 {
+    /** @var Palette */
     private array $theme;
 
     private PhpPresentation $deck;
@@ -72,6 +77,7 @@ class PptxExporter implements Exporter
         $this->text($s, 'Generated '.now()->format('j F Y').' · v'.max(1, $report->current_version).' · Every figure is traceable to a governed query', 48, 470, 820, 20, 10, '8B93A3');
     }
 
+    /** @param  list<array<string, mixed>>  $cards */
     private function kpiSlide(string $title, array $cards): void
     {
         $s = $this->slide();
@@ -86,8 +92,12 @@ class PptxExporter implements Exporter
             $box->getFill()->setFillType(Fill::FILL_SOLID)->setStartColor(new Color('FF'.'F2F3F6'));
             $this->text($s, strtoupper($k['label']), $x + 16, $y + 14, $w - 32, 18, 10, $this->theme['muted'], true);
             $this->text($s, Format::value($k['value'], $k['format']), $x + 16, $y + 40, $w - 32, 50, 30, $this->theme['ink'], true);
-            $color = match ($k['sentiment']) { 'positive' => $this->theme['positive'], 'negative' => $this->theme['negative'], default => $this->theme['muted'] };
-            $arrow = match ($k['direction']) { 'up' => '▲ ', 'down' => '▼ ', default => '' };
+            $color = match ($k['sentiment']) {
+                'positive' => $this->theme['positive'], 'negative' => $this->theme['negative'], default => $this->theme['muted']
+            };
+            $arrow = match ($k['direction']) {
+                'up' => '▲ ', 'down' => '▼ ', default => ''
+            };
             $this->text($s, $arrow.Format::change($k['change'], $k['change_pct'], $k['format']).' vs previous', $x + 16, $y + 98, $w - 32, 20, 11, $color, true);
             if ($k['target'] !== null) {
                 $this->text($s, 'Target '.Format::value($k['target'], $k['format']).' · '.($k['target_status'] === 'met' ? 'met' : 'missed'), $x + 16, $y + 120, $w - 32, 18, 9, $this->theme['muted']);
@@ -95,6 +105,7 @@ class PptxExporter implements Exporter
         }
     }
 
+    /** @param  array<string, mixed>  $c  section content */
     private function chartSlide(string $title, array $c, string $kind): void
     {
         $s = $this->slide();
@@ -103,15 +114,19 @@ class PptxExporter implements Exporter
             $this->text($s, $c['caption'], 48, 100, 864, 24, 12, $this->theme['muted']);
         }
 
-        $chart = $s->createChartShape()->setOffsetX(48)->setOffsetY(130)->setWidth(864)->setHeight(370);
+        $chart = new Chart;
+        $chart->setOffsetX(48)->setOffsetY(130)->setWidth(864)->setHeight(370);
+        $s->addShape($chart);
         $chart->getTitle()->setVisible(false);
         $chart->getLegend()->setVisible($kind === 'forecast');
         $label = fn ($p) => date(strlen((string) $p) >= 10 ? 'M y' : 'M', strtotime((string) $p));
+        // PowerPoint stores chart values as text in the embedded workbook cache.
+        $num = fn ($v): ?string => $v === null ? null : (string) round((float) $v, 4);
 
         if ($kind === 'bar') {
             $data = [];
             foreach (array_reverse($c['rows'] ?? []) as $r) {
-                $data[(string) $r['member']] = round((float) $r['value'], 4);
+                $data[(string) $r['member']] = $num($r['value']);
             }
             $type = new Bar;
             $type->setBarDirection(Bar::DIRECTION_HORIZONTAL);
@@ -124,10 +139,10 @@ class PptxExporter implements Exporter
             $hist = [];
             $fc = [];
             foreach ($c['history'] ?? [] as $p) {
-                $hist[$label($p['period'])] = round((float) $p['value'], 4);
+                $hist[$label($p['period'])] = $num($p['value']);
             }
             foreach ($c['points'] ?? [] as $p) {
-                $fc[$label($p['period'])] = round((float) $p['value'], 4);
+                $fc[$label($p['period'])] = $num($p['value']);
             }
             $all = array_fill_keys(array_keys($hist + $fc), null);
             $h = new Series('Actual', array_merge($all, $hist));
@@ -142,7 +157,7 @@ class PptxExporter implements Exporter
         } else {
             $data = [];
             foreach ($c['series'] ?? [] as $p) {
-                $data[$label($p['period'])] = $p['value'] === null ? null : round((float) $p['value'], 4);
+                $data[$label($p['period'])] = $num($p['value']);
             }
             $type = ($c['chart'] ?? 'line') === 'area' ? new Area : new Line;
             $series = new Series($c['label'] ?? 'Value', $data);
@@ -159,15 +174,16 @@ class PptxExporter implements Exporter
         $chart->getPlotArea()->setType($type);
     }
 
-    private function outline(Series $series): \PhpOffice\PhpPresentation\Style\Outline
+    private function outline(Series $series): Outline
     {
         if ($series->getOutline() === null) {
-            $series->setOutline(new \PhpOffice\PhpPresentation\Style\Outline);
+            $series->setOutline(new Outline);
         }
 
         return $series->getOutline();
     }
 
+    /** @param  array<string, mixed>  $c  section content */
     private function rootCauseSlide(string $title, array $c): void
     {
         $s = $this->slide();
@@ -191,6 +207,7 @@ class PptxExporter implements Exporter
         $this->text($s, 'Method: leave-one-out counterfactual attribution over governed semantic queries.', 48, 492, 864, 18, 9, $this->theme['muted']);
     }
 
+    /** @param  list<string>  $lines */
     private function bulletSlide(string $title, array $lines): void
     {
         $s = $this->slide();

@@ -29,12 +29,13 @@ class UploadIngestionTest extends TestCase
     protected function tearDown(): void
     {
         TenantScopeBypass::run(function () {
-            foreach (Dataset::where('name', 'like', 'ds_%sales_orders')->get() as $d) {
+            $datasets = Dataset::where('name', 'like', 'ds_%sales_orders')->orWhere('name', 'like', 'ds_%webhook_orders')->get();
+            foreach ($datasets as $d) {
                 DB::statement('DROP TABLE IF EXISTS analytics."'.$d->physical_table.'"');
                 SemanticModel::where('base_dataset_id', $d->id)->delete();
                 $d->delete();
             }
-            DataSource::where('name', 'Sales Orders (upload)')->delete();
+            DataSource::whereIn('name', ['Sales Orders (upload)', 'Webhook Orders'])->delete();
         });
         parent::tearDown();
     }
@@ -59,5 +60,18 @@ class UploadIngestionTest extends TestCase
         $rows = $this->as('engineer@northstar.demo')->postJson('/api/v1/query', ['model' => $model['key'], 'metrics' => ['total_amount'], 'dimensions' => ['region']])->assertOk()->json('rows');
         $this->assertCount(3, $rows);
         $this->assertEqualsWithDelta(array_sum(array_map(fn ($i) => 100 + $i * 3.5, range(1, 60))), array_sum(array_column($rows, 'total_amount')), 0.01);
+    }
+
+    public function test_webhook_accepts_a_record_or_a_list_and_rejects_bad_tokens(): void
+    {
+        $created = $this->as('engineer@northstar.demo')->postJson('/api/v1/data-sources', ['connector_key' => 'webhook', 'name' => 'Webhook Orders'])
+            ->assertCreated()->assertJsonMissingPath('data.config');
+        $url = parse_url($created->json('ingest.url'), PHP_URL_PATH);
+        $sourceId = $created->json('data.id');
+
+        $this->postJson($url, ['order_id' => 1, 'amount' => 12.5])->assertStatus(202)->assertJson(['accepted' => 1]);
+        $this->postJson($url, [['order_id' => 2, 'amount' => 3], ['order_id' => 3, 'amount' => 4]])->assertStatus(202)->assertJson(['accepted' => 2]);
+        $this->postJson($url, [])->assertStatus(422);
+        $this->postJson("/api/v1/ingest/webhook/{$sourceId}/wrong-token", ['order_id' => 4])->assertForbidden();
     }
 }

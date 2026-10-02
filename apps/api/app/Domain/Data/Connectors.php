@@ -7,15 +7,21 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use PDO;
-use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\IReader;
+use PhpOffice\PhpSpreadsheet\Reader\Xls;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use Throwable;
 
 /**
  * Connector drivers: each turns a source into rows. Adding a connector means
  * adding a method here (or a class) and a catalogue row — nothing else changes.
+ *
+ * @phpstan-type Record array<string, mixed>
+ * @phpstan-type ConnectionTest array{ok: bool, message: string, tables?: list<string>}
  */
 class Connectors
 {
-    /** @return array<int, array<string, mixed>> */
+    /** @return list<Record> */
     public function readFile(UploadedFile $file): array
     {
         $ext = strtolower($file->getClientOriginalExtension());
@@ -23,12 +29,13 @@ class Connectors
         return match ($ext) {
             'csv', 'txt' => $this->csv($file->getRealPath()),
             'json' => $this->json(file_get_contents($file->getRealPath()), null),
-            'xlsx', 'xls' => $this->excel($file->getRealPath()),
+            'xlsx' => $this->excel(new Xlsx, $file->getRealPath()),
+            'xls' => $this->excel(new Xls, $file->getRealPath()),
             default => throw new InvalidArgumentException("Unsupported file type .{$ext}. Use CSV, Excel or JSON."),
         };
     }
 
-    /** @return array{ok: bool, message: string, tables?: array<string>} */
+    /** @return ConnectionTest */
     public function test(DataSource $source): array
     {
         return match ($source->connector_key) {
@@ -39,7 +46,7 @@ class Connectors
         };
     }
 
-    /** @return array<int, array<string, mixed>> */
+    /** @return list<Record> */
     public function pull(DataSource $source, ?string $table = null, int $limit = 200000): array
     {
         return match ($source->connector_key) {
@@ -63,6 +70,7 @@ class Connectors
         return $pdo;
     }
 
+    /** @return ConnectionTest */
     private function testDatabase(DataSource $source): array
     {
         try {
@@ -72,11 +80,12 @@ class Connectors
             $stmt->execute([$schema]);
 
             return ['ok' => true, 'message' => 'Connected successfully.', 'tables' => $stmt->fetchAll(PDO::FETCH_COLUMN)];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return ['ok' => false, 'message' => 'Connection failed: '.preg_replace('/password=\S+/', 'password=***', $e->getMessage())];
         }
     }
 
+    /** @return list<Record> */
     private function pullTable(DataSource $source, string $table, int $limit): array
     {
         if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table)) {
@@ -90,17 +99,19 @@ class Connectors
         return $pdo->query("SELECT * FROM {$ref} LIMIT ".(int) $limit)->fetchAll();
     }
 
+    /** @return ConnectionTest */
     private function testApi(DataSource $source): array
     {
         try {
             $count = count($this->pullApi($source));
 
             return ['ok' => true, 'message' => "Reached the API and found {$count} records."];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return ['ok' => false, 'message' => $e->getMessage()];
         }
     }
 
+    /** @return list<Record> */
     private function pullApi(DataSource $source): array
     {
         $c = $source->config ?? [];
@@ -116,6 +127,7 @@ class Connectors
         return $this->json($res->body(), $c['records_path'] ?? null);
     }
 
+    /** @return list<Record> */
     private function csv(string $path): array
     {
         $fh = fopen($path, 'r');
@@ -136,6 +148,7 @@ class Connectors
         return $rows;
     }
 
+    /** @return list<Record> */
     private function json(string $body, ?string $path): array
     {
         $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -149,11 +162,33 @@ class Connectors
         return array_map(fn ($r) => is_array($r) ? array_filter($r, fn ($v) => ! is_array($v)) : ['value' => $r], $data);
     }
 
-    private function excel(string $path): array
+    /**
+     * Uploaded workbooks are untrusted: the reader is chosen from the validated
+     * extension (never sniffed), only cell values are read, and formulas are
+     * not recalculated, so external references and WEBSERVICE() never execute.
+     *
+     * @return list<Record>
+     */
+    private function excel(IReader $reader, string $path): array
     {
-        $sheet = IOFactory::load($path)->getActiveSheet()->toArray(null, true, false, false);
-        $header = array_shift($sheet);
+        $reader->setReadDataOnly(true);
+        $reader->setReadEmptyCells(false);
+        $rows = [];
+        foreach ($reader->load($path)->getActiveSheet()->getRowIterator() as $row) {
+            $cells = $row->getCellIterator();
+            $cells->setIterateOnlyExistingCells(false);
+            $rows[] = array_map(
+                fn ($cell) => $cell->isFormula() ? $cell->getOldCalculatedValue() : $cell->getValue(),
+                iterator_to_array($cells, false),
+            );
+        }
+        $header = array_map('strval', array_shift($rows) ?? []);
+        $width = count($header);
+        $rows = array_filter($rows, fn ($r) => array_filter($r, fn ($v) => $v !== null && $v !== '') !== []);
 
-        return array_map(fn ($r) => array_combine($header, $r), array_filter($sheet, fn ($r) => array_filter($r, fn ($v) => $v !== null)));
+        return array_values(array_map(
+            fn ($r) => array_combine($header, array_pad(array_slice($r, 0, $width), $width, null)),
+            $rows,
+        ));
     }
 }

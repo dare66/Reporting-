@@ -31,16 +31,19 @@ class User extends Authenticatable
         ];
     }
 
+    /** @return BelongsToMany<Role, $this> */
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles');
     }
 
+    /** @return BelongsTo<Department, $this> */
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
+    /** @return BelongsTo<Team, $this> */
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
@@ -81,7 +84,7 @@ class User extends Authenticatable
         $order = ['admin' => 4, 'engineer' => 3, 'analyst' => 2, 'executive' => 1];
         $best = $this->roles->sortByDesc(fn ($r) => $order[$r->experience] ?? 0)->first();
 
-        return $best?->experience ?? 'executive';
+        return $best->experience ?? 'executive';
     }
 
     /** ABAC attribute lookup, e.g. attribute('country_codes'). */

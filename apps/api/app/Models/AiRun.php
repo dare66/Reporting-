@@ -5,16 +5,18 @@ namespace App\Models;
 use App\Support\Tenancy\BelongsToOrganisation;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiRun extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'ai_runs';
 
     protected $guarded = ['id'];
 
-    public function conversation(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    /** @return BelongsTo<AiConversation, $this> */
+    public function conversation(): BelongsTo
     {
         return $this->belongsTo(AiConversation::class, 'conversation_id');
     }

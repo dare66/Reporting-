@@ -5,6 +5,7 @@ namespace App\Domain\Semantic;
 use App\Domain\Query\Expression\ExpressionParser;
 use App\Domain\Query\Expression\Node;
 use App\Domain\Query\QueryValidationException;
+use App\Models\Dataset;
 use App\Models\SemanticModel;
 
 /**
@@ -12,6 +13,11 @@ use App\Models\SemanticModel;
  *
  * Built either from the metadata database or from a portable array
  * (the same shape is used for import/export and unit tests).
+ *
+ * @phpstan-type DatasetDef array{id: string, name: string, label: string, schema: string, table: string, fields: array<string, string>}
+ * @phpstan-type DimensionDef array{key: string, label: string, dataset_id: string, field: string, type: string, is_sensitive: bool, synonyms: list<string>, description: ?string, root_cause_candidate: bool}
+ * @phpstan-type MeasureDef array{key: string, label: string, aggregation: string, field: ?string, filters: list<array<string, mixed>>, description: ?string}
+ * @phpstan-type MetricDef array{key: string, label: string, expression: string, format: string, higher_is_better: bool, target: ?float, synonyms: list<string>, is_kpi: bool, description: ?string, owner: ?string}
  */
 final class Catalog
 {
@@ -19,10 +25,10 @@ final class Catalog
     private array $parsedMetrics = [];
 
     /**
-     * @param  array<string, array{id: string, name: string, label: string, schema: string, table: string, fields: array<string, string>}>  $datasets  keyed by dataset id
-     * @param  array<string, array<string, mixed>>  $dimensions  keyed by key
-     * @param  array<string, array<string, mixed>>  $measures  keyed by key
-     * @param  array<string, array<string, mixed>>  $metrics  keyed by key
+     * @param  array<string, DatasetDef>  $datasets  keyed by dataset id
+     * @param  array<string, DimensionDef>  $dimensions  keyed by key
+     * @param  array<string, MeasureDef>  $measures  keyed by key
+     * @param  array<string, MetricDef>  $metrics  keyed by key
      * @param  array<int, array{from_dataset_id: string, from_field: string, to_dataset_id: string, to_field: string}>  $relationships
      * @param  array<int, array{dimension_key: string, user_attribute: string, exempt_roles: array<string>}>  $policies
      * @param  array<int, array{key: string, label: string, levels: array<string>}>  $hierarchies
@@ -64,7 +70,7 @@ final class Catalog
         foreach ($model->relationships as $r) {
             foreach ([$r->from_dataset_id, $r->to_dataset_id] as $dsId) {
                 if (! isset($datasets[$dsId])) {
-                    $addDataset(\App\Models\Dataset::with('fields')->find($dsId));
+                    $addDataset(Dataset::with('fields')->find($dsId));
                 }
             }
         }
@@ -99,16 +105,19 @@ final class Catalog
         );
     }
 
+    /** @return DimensionDef */
     public function dimension(string $key): array
     {
         return $this->dimensions[$key] ?? throw new QueryValidationException("Unknown dimension '{$key}'.");
     }
 
+    /** @return MetricDef */
     public function metric(string $key): array
     {
         return $this->metrics[$key] ?? throw new QueryValidationException("Unknown metric '{$key}'.");
     }
 
+    /** @return MeasureDef */
     public function measure(string $key): array
     {
         return $this->measures[$key] ?? throw new QueryValidationException("Unknown measure '{$key}'.");
@@ -120,6 +129,7 @@ final class Catalog
             ->parse($this->metric($key)['expression']);
     }
 
+    /** @return DatasetDef */
     public function baseDataset(): array
     {
         return $this->datasets[$this->baseDatasetId];

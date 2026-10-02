@@ -10,6 +10,7 @@ use App\Domain\Semantic\CatalogRepository;
 use App\Models\Anomaly;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Throwable;
 
 /**
  * Scans KPI daily series for anomalies, persists them (idempotently) and turns
@@ -31,7 +32,10 @@ class AnomalyService
         private readonly Notifier $notifier,
     ) {}
 
-    /** @return array<int, Anomaly> newly detected anomalies */
+    /**
+     * @param  list<string>|null  $refs  metric refs to scan; defaults to every KPI
+     * @return list<Anomaly> newly detected anomalies
+     */
     public function scan(User $user, ?array $refs = null, int $lookbackDays = 120, int $reportDays = 30): array
     {
         $now = CarbonImmutable::now()->startOfDay();
@@ -92,7 +96,7 @@ class AnomalyService
             if ($d = $rc['drivers'][0] ?? null) {
                 $driver = " Main driver: {$d['dimension_label']} = {$d['member']}.";
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
         }
         $sd = number_format(abs($top->score), 1);
         $this->notifier->toPermission('dashboards.view', $user->organisation_id, [

@@ -2,8 +2,8 @@
 
 namespace App\Domain\Reports;
 
-use App\Domain\Analytics\Format;
 use App\Domain\Analytics\ForecastService;
+use App\Domain\Analytics\Format;
 use App\Domain\Analytics\KpiService;
 use App\Domain\Analytics\MetricRef;
 use App\Domain\Analytics\RootCauseService;
@@ -22,6 +22,14 @@ use Throwable;
  * Builds report sections from blueprints. Each section's content is computed
  * from governed queries and stores its evidence; the executive summary and
  * risks are written last from the facts gathered by the other sections.
+ *
+ * Blueprint: what a section computes ({type, title, metrics?, metric?, …}).
+ * SectionContent: the computed payload rendered by the web app and exporters.
+ * Range: a preset key or an explicit {from, to}.
+ *
+ * @phpstan-type Blueprint array<string, mixed>
+ * @phpstan-type SectionContent array<string, mixed>
+ * @phpstan-type Range string|array<string, mixed>
  */
 class ReportBuilder
 {
@@ -78,6 +86,11 @@ class ReportBuilder
         return $section;
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @param  Range  $range
+     * @return SectionContent
+     */
     private function section(array $bp, string|array $range, User $user): array
     {
         return match ($bp['type']) {
@@ -92,6 +105,11 @@ class ReportBuilder
         };
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @param  Range  $range
+     * @return SectionContent
+     */
     private function kpiSection(array $bp, string|array $range, User $user): array
     {
         $cards = $this->kpis->cards($bp['metrics'], $range, $user);
@@ -104,6 +122,10 @@ class ReportBuilder
             'evidence' => array_map(fn ($c) => ['ref' => $c['ref'], 'query_hash' => $c['evidence']['current']['query_hash']], $cards)];
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @return SectionContent
+     */
     private function chartSection(array $bp, User $user): array
     {
         $ref = MetricRef::parse($bp['metric']);
@@ -117,6 +139,11 @@ class ReportBuilder
             'caption' => $this->trendCaption($metric, $series), 'evidence' => [$res->evidence()]];
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @param  Range  $range
+     * @return SectionContent
+     */
     private function breakdownSection(array $bp, string|array $range, User $user): array
     {
         $ref = MetricRef::parse($bp['metric']);
@@ -133,6 +160,10 @@ class ReportBuilder
             'dimension_label' => $catalog->dimension($bp['dimension'])['label'], 'chart' => 'bar', 'rows' => $rows, 'evidence' => [$res->evidence()]];
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @return SectionContent
+     */
     private function anomalySection(array $bp): array
     {
         $items = Anomaly::whereIn('metric_key', $bp['metrics'] ?? [])->where('period', '>=', now()->subDays(45))
@@ -146,6 +177,11 @@ class ReportBuilder
         return ['items' => $items, 'empty_message' => $items ? null : 'No statistically significant anomalies were detected in the last 45 days.'];
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @param  Range  $range
+     * @return SectionContent
+     */
     private function rootCauseSection(array $bp, string|array $range, User $user): array
     {
         $rc = $this->rootCause->explain($bp['metric'], $range, $user);
@@ -160,6 +196,10 @@ class ReportBuilder
                 'evidence' => array_map(fn ($e) => ['query_hash' => $e['query_hash']], $rc['evidence'])];
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @return SectionContent
+     */
     private function forecastSection(array $bp, User $user): array
     {
         $horizon = ($bp['horizon'] ?? 6) >= 12 ? '12m' : '6m';
@@ -175,6 +215,10 @@ class ReportBuilder
             'diagnostics' => array_diff_key($f->diagnostics, ['evidence' => 1])];
     }
 
+    /**
+     * @param  Range  $range
+     * @return SectionContent
+     */
     private function summary(Report $report, string|array $range): array
     {
         $period = TimeRange::resolve($range)->toArray();
@@ -206,6 +250,7 @@ class ReportBuilder
         return ['paragraphs' => $paragraphs, 'period' => $period, 'generated_from' => count($this->facts).' computed facts', 'facts' => $this->facts];
     }
 
+    /** @return SectionContent */
     private function risks(): array
     {
         $items = [];
@@ -226,6 +271,10 @@ class ReportBuilder
         return ['items' => array_slice($items, 0, 8), 'empty_message' => $items ? null : 'No material risks were identified from the analysed indicators.'];
     }
 
+    /**
+     * @param  array<string, mixed>  $metric  catalog metric definition
+     * @param  list<array{period: string, value: float|null}>  $series
+     */
     private function trendCaption(array $metric, array $series): ?string
     {
         $vals = array_values(array_filter(array_column($series, 'value'), fn ($v) => $v !== null));
@@ -241,6 +290,10 @@ class ReportBuilder
             .' across complete periods, peaking at '.Format::value($max, $metric['format']).($peakAt ? ' in '.date('M Y', strtotime($peakAt)) : '').'.';
     }
 
+    /**
+     * @param  Blueprint  $bp
+     * @return SectionContent
+     */
     private function safely(array $bp, callable $fn): array
     {
         try {

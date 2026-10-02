@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiAgent;
 use App\Models\AiFeedback;
 use App\Models\AiModel;
-use App\Models\AiAgent;
 use App\Models\AiRun;
 use App\Models\AuditLog;
 use App\Models\Dataset;
@@ -40,7 +40,7 @@ class GovernanceController extends Controller
         $byDay = (clone $runs)->selectRaw("date_trunc('day', created_at)::date AS day, count(*) AS runs, sum(tokens_in) AS tokens_in, sum(tokens_out) AS tokens_out, sum(cost_usd) AS cost, avg(latency_ms) AS latency")
             ->groupBy('day')->orderBy('day')->get();
         $total = (clone $runs)->count();
-        $grounded = (clone $runs)->whereRaw("jsonb_array_length(evidence) > 0")->count();
+        $grounded = (clone $runs)->whereRaw('jsonb_array_length(evidence) > 0')->count();
         $fb = AiFeedback::whereIn('run_id', (clone $runs)->select('id'));
 
         return response()->json(['data' => [

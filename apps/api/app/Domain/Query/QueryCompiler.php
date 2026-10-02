@@ -14,6 +14,10 @@ use App\Domain\Semantic\Catalog;
  *  - row-level security predicates are always ANDed into WHERE;
  *  - sensitive dimensions require the data.sensitive permission;
  *  - output is a single read-only SELECT with a hard LIMIT.
+ *
+ * @phpstan-import-type DatasetDef from Catalog
+ * @phpstan-import-type DimensionDef from Catalog
+ * @phpstan-import-type MeasureDef from Catalog
  */
 final class QueryCompiler
 {
@@ -146,7 +150,10 @@ final class QueryCompiler
         };
     }
 
-    /** @return array{0: string, 1: array<int, mixed>} */
+    /**
+     * @param  array<mixed>  $values  any array; keys are discarded
+     * @return array{0: string, 1: array<int, mixed>}
+     */
     private function inPredicate(string $col, string $op, array $values): array
     {
         if ($values === []) {
@@ -170,7 +177,10 @@ final class QueryCompiler
         return ["{$col} BETWEEN ? AND ?", array_values($value)];
     }
 
-    /** @return array{0: string, 1: array<int, mixed>} */
+    /**
+     * @param  MeasureDef  $measure
+     * @return array{0: string, 1: array<int, mixed>}
+     */
     private function measureSql(Catalog $catalog, array $measure): array
     {
         $base = $catalog->baseDataset();
@@ -196,6 +206,7 @@ final class QueryCompiler
         return [$this->dialect->aggregate($measure['aggregation'], $expr, $filterSql), $bindings];
     }
 
+    /** @param  DimensionDef  $dim */
     private function dimensionColumn(Catalog $catalog, array $dim, SecurityContext $security, bool $enforceSensitivity = true): string
     {
         if ($enforceSensitivity && $dim['is_sensitive'] && ! $security->canSeeSensitive) {
@@ -207,6 +218,7 @@ final class QueryCompiler
         return $this->aliasFor($catalog, $dim['dataset_id']).'.'.$this->dialect->quote($dim['field']);
     }
 
+    /** @return DimensionDef */
     private function timeDimension(Catalog $catalog): array
     {
         if ($catalog->timeDimension === null) {
@@ -266,6 +278,7 @@ final class QueryCompiler
         return null;
     }
 
+    /** @param  list<array{key: string, label: string, role: string, type: string, format?: string}>  $columns */
     private function orderBy(SemanticQuery $query, array $columns): string
     {
         $keys = array_column($columns, 'key');
@@ -275,7 +288,7 @@ final class QueryCompiler
             if (! in_array($s['key'], $keys, true)) {
                 throw new QueryValidationException("Cannot sort by '{$s['key']}' — it is not in the query.");
             }
-            $parts[] = $this->dialect->quote($s['key']).' '.strtoupper($s['dir'] ?? 'asc').' NULLS LAST';
+            $parts[] = $this->dialect->quote($s['key']).' '.strtoupper($s['dir']).' NULLS LAST';
             $used[$s['key']] = true;
         }
         // Grouping columns break ties so results are deterministic.
@@ -288,11 +301,13 @@ final class QueryCompiler
         return $parts ? ' ORDER BY '.implode(', ', $parts) : '';
     }
 
+    /** @param  DatasetDef  $dataset */
     private function table(array $dataset): string
     {
         return $this->dialect->quote($dataset['schema']).'.'.$this->dialect->quote($dataset['table']);
     }
 
+    /** @param  DatasetDef  $dataset */
     private function assertField(array $dataset, string $field): void
     {
         if (! array_key_exists($field, $dataset['fields'])) {

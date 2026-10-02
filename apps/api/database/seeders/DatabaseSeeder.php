@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
     {
         TenantScopeBypass::run(function () {
             $this->call(PlatformSeeder::class);
-            if (! app()->environment('production') || env('SEED_DEMO', false)) {
+            if (! app()->environment('production') || config('aixbi.demo.seed')) {
                 $this->call(DemoTenantSeeder::class);
             }
         });

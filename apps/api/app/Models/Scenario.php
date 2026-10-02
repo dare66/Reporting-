@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Scenario extends Model
 {
-    use HasUuids, BelongsToOrganisation;
+    use BelongsToOrganisation, HasUuids;
 
     protected $table = 'scenarios';
 

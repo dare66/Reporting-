@@ -97,6 +97,7 @@ class SemanticModelController extends Controller
         ]]);
     }
 
+    /** @return array<string, mixed> */
     private function present(Catalog $c, Request $request): array
     {
         $canSensitive = $request->user()->hasPermission('data.sensitive');

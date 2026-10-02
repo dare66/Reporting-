@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
  */
 class SemanticModelGenerator
 {
+    /** @return array<string, mixed> portable semantic model with a `reason` on each choice */
     public function propose(Dataset $dataset): array
     {
         $dataset->loadMissing('fields');

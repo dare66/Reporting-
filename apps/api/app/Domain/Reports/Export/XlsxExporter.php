@@ -69,7 +69,10 @@ class XlsxExporter implements Exporter
         (new Xlsx($book))->save($path);
     }
 
-    /** @return array{header: array<int, array<string>>, data: array<int, array<mixed>>, formats: array<string, string>}|null */
+    /**
+     * @param  array<string, mixed>  $c  section content
+     * @return array{header: array<int, array<string>>, data: array<int, array<mixed>>, formats: array<string, string>}|null
+     */
     private function rows(string $type, array $c): ?array
     {
         $fmt = fn (?string $f) => match ($f) {

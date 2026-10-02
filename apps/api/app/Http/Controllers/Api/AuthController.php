@@ -28,7 +28,7 @@ class AuthController extends Controller
         $user = TenantScopeBypass::run(fn () => User::with('roles')->where('email', strtolower($data['email']))->first());
 
         // Constant work whether or not the user exists, to avoid account enumeration.
-        $valid = Hash::check($data['password'], $user?->password ?? self::DUMMY_HASH);
+        $valid = Hash::check($data['password'], $user->password ?? self::DUMMY_HASH);
         if (! $user || ! $valid || $user->status !== 'active') {
             $this->audit->record('auth.login', ['decision' => 'deny', 'result' => 'failure'], ['email' => $data['email']], $user?->id, $user?->organisation_id);
 

@@ -97,7 +97,11 @@ class JwtService
         return $claims;
     }
 
-    /** Rotates a refresh token: the presented token is revoked and a new pair issued. */
+    /**
+     * Rotates a refresh token: the presented token is revoked and a new pair issued.
+     *
+     * @return array{access_token: string, refresh_token: string, expires_in: int, token_type: string}|null
+     */
     public function refresh(string $refreshToken, ?string $device, ?string $ip): ?array
     {
         $record = RefreshToken::where('token_hash', hash('sha256', $refreshToken))->first();

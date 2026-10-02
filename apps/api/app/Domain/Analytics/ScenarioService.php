@@ -5,7 +5,6 @@ namespace App\Domain\Analytics;
 use App\Domain\Query\QueryService;
 use App\Domain\Query\SemanticQuery;
 use App\Domain\Query\TimeRange;
-use App\Domain\Semantic\CatalogRepository;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 
@@ -15,12 +14,18 @@ use Carbon\CarbonImmutable;
  * The SLA response is not assumed: it is fitted by least squares on the last
  * 52 weeks of observed (utilisation → SLA) pairs, and the fit statistics are
  * returned so users can judge how far to trust the projection.
+ *
+ * @phpstan-type Baseline array{period: array<string, mixed>, applications: float, decisions: float, capacity: float, officers: float, utilisation: ?float, sla_compliance: mixed, avg_processing_days: mixed, revenue: float, revenue_per_application: float}
+ * @phpstan-type SlaFit array{intercept: float, slope: float, r_squared: ?float, observations: int, utilisation_range?: array{0: float, 1: float}, method: string}
  */
 class ScenarioService
 {
-    public function __construct(private readonly QueryService $queries, private readonly CatalogRepository $catalogs) {}
+    public function __construct(private readonly QueryService $queries) {}
 
-    /** @param array{demand_change_pct?: float, officer_change_pct?: float, productivity_change_pct?: float} $assumptions */
+    /**
+     * @param  array{demand_change_pct?: float, officer_change_pct?: float, productivity_change_pct?: float}  $assumptions
+     * @return array{assumptions: array<string, float>, baseline: Baseline, projected: array<string, int|float|null>, sla_target: float, model: SlaFit, extrapolated: bool, caveats: list<string>}
+     */
     public function simulate(array $assumptions, User $user): array
     {
         $demand = (float) ($assumptions['demand_change_pct'] ?? 0) / 100;
@@ -80,6 +85,7 @@ class ScenarioService
         ];
     }
 
+    /** @return Baseline */
     private function baseline(User $user): array
     {
         $range = TimeRange::resolve('last_30_days');
@@ -100,11 +106,15 @@ class ScenarioService
             'sla_compliance' => $d['sla_compliance'],
             'avg_processing_days' => $d['avg_processing_days'],
             'revenue' => (float) $r['revenue'],
-            'revenue_per_application' => $apps > 0 ? (float) $r['revenue'] / $apps : 0,
+            'revenue_per_application' => $apps > 0 ? (float) $r['revenue'] / $apps : 0.0,
         ];
     }
 
-    /** OLS of weekly SLA (by decision week) on utilisation two weeks earlier (typical processing lag). */
+    /**
+     * OLS of weekly SLA (by decision week) on utilisation two weeks earlier (typical processing lag).
+     *
+     * @return SlaFit
+     */
     private function fitSlaModel(User $user): array
     {
         $end = CarbonImmutable::now()->startOfWeek();

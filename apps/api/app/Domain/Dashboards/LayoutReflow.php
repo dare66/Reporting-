@@ -6,14 +6,17 @@ namespace App\Domain\Dashboards;
  * Derives tablet (8-col) and mobile (4-col) layouts from the desktop 12-col
  * layout. Widgets are re-flowed — never shrunk: order follows widget priority
  * (what matters most comes first), KPIs pair up, everything else goes full width.
+ *
+ * @phpstan-type Widget array{id: string, type: string, section: ?string, priority: int, position: array{x: int, y: int, w: int, h: int}}
+ * @phpstan-type Placement array{id: string, x: int, y: int, w: int, h: int, section: ?string}
  */
 class LayoutReflow
 {
     public const COLUMNS = ['desktop' => 12, 'tablet' => 8, 'mobile' => 4];
 
     /**
-     * @param  array<int, array{id: string, type: string, section: ?string, priority: int, position: array{x:int,y:int,w:int,h:int}}>  $widgets
-     * @return array<string, array<int, array{id: string, x: int, y: int, w: int, h: int, section: ?string}>>
+     * @param  list<Widget>  $widgets
+     * @return array{desktop: list<Placement>, tablet: list<Placement>, mobile: list<Placement>}
      */
     public function layouts(array $widgets): array
     {
@@ -24,6 +27,10 @@ class LayoutReflow
         ];
     }
 
+    /**
+     * @param  list<Widget>  $widgets
+     * @return list<Placement>
+     */
     private function pack(array $widgets, int $cols): array
     {
         usort($widgets, fn ($a, $b) => [$a['priority'], $a['position']['y'], $a['position']['x']] <=> [$b['priority'], $b['position']['y'], $b['position']['x']]);
@@ -52,6 +59,7 @@ class LayoutReflow
         return $out;
     }
 
+    /** @param  Widget  $w */
     private function width(array $w, int $cols): int
     {
         if ($w['type'] === 'kpi') {
@@ -60,6 +68,7 @@ class LayoutReflow
         if ($cols === 4) {
             return 4;
         }
+
         // Tablet: half width only for widgets that were at most a third of desktop.
         return $w['position']['w'] <= 4 ? intdiv($cols, 2) : $cols;
     }

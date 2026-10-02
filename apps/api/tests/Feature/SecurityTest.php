@@ -7,6 +7,7 @@ use App\Models\Organisation;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\Tenancy\TenantScopeBypass;
+use DB;
 use Tests\SeededTestCase;
 
 /** Tenant isolation, RBAC, row-level and column-level security. */
@@ -85,6 +86,6 @@ class SecurityTest extends SeededTestCase
     public function test_analytical_role_cannot_write(): void
     {
         $this->expectException(\Illuminate\Database\QueryException::class);
-        \DB::connection('analytics')->statement('DELETE FROM analytics.countries');
+        DB::connection('analytics')->statement('DELETE FROM analytics.countries');
     }
 }
