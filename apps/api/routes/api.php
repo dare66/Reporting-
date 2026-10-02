@@ -20,10 +20,10 @@ use Illuminate\Support\Facades\Route;
 
 // Prefix: /api/v1 (bootstrap/app.php)
 
-Route::middleware('throttle:auth')->prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('mfa/verify', [AuthController::class, 'verifyMfa']);
-    Route::post('refresh', [AuthController::class, 'refresh']);
+Route::prefix('auth')->group(function () {
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('mfa/verify', [AuthController::class, 'verifyMfa'])->middleware('throttle:mfa');
+    Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
 });
 Route::post('ingest/webhook/{id}/{token}', [DataController::class, 'webhook'])->middleware('throttle:api');
 

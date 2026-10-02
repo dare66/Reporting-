@@ -42,6 +42,23 @@ class AuthTest extends SeededTestCase
         $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $first['refresh_token']])->assertStatus(401);
     }
 
+    public function test_page_reloads_can_restore_sessions_repeatedly(): void
+    {
+        // Each reload rotates the refresh token; many reloads from one address must not be throttled.
+        $token = $this->postJson('/api/v1/auth/login', ['email' => 'analyst@northstar.demo', 'password' => 'Demo@2026!'])->json('refresh_token');
+        foreach (range(1, 20) as $_) {
+            $token = $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $token])->assertOk()->json('refresh_token');
+        }
+    }
+
+    public function test_password_guessing_is_rate_limited(): void
+    {
+        foreach (range(1, 10) as $_) {
+            $this->postJson('/api/v1/auth/login', ['email' => 'viewer@northstar.demo', 'password' => 'wrong'])->assertStatus(401);
+        }
+        $this->postJson('/api/v1/auth/login', ['email' => 'viewer@northstar.demo', 'password' => 'wrong'])->assertStatus(429);
+    }
+
     public function test_mfa_enrolment_and_challenge(): void
     {
         $secret = $this->as('coo@northstar.demo')->postJson('/api/v1/me/mfa/setup')->assertOk()->json('secret');

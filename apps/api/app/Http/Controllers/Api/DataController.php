@@ -41,8 +41,11 @@ class DataController extends Controller
         $connector = DataConnector::where('key', $data['connector_key'])->first();
         abort_if($connector->status !== 'available', 422, "{$connector->name} is on the roadmap and cannot be connected yet.");
         $isWebhook = $data['connector_key'] === 'webhook';
-        $source = DataSource::create($data + ['created_by' => $request->user()->id, 'status' => 'pending',
-            'config' => ($data['config'] ?? []) + ($isWebhook ? ['token' => Str::random(40)] : [])]);
+        $config = $data['config'] ?? [];
+        if ($isWebhook) {
+            $config['token'] = Str::random(40); // server-generated; never taken from the request
+        }
+        $source = DataSource::create(['config' => $config, 'created_by' => $request->user()->id, 'status' => 'pending'] + $data);
         $this->audit->record('data_source.created', ['resource_type' => 'data_source', 'resource_id' => $source->id], ['connector' => $source->connector_key]);
 
         // Like an API key, the webhook URL embeds a secret and is revealed only once.

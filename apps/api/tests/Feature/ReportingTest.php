@@ -88,4 +88,15 @@ class ReportingTest extends SeededTestCase
         $this->assertStringContainsString('Processing SLA', $note->body);
         $this->assertStringContainsString('/investigate?metric=decisions.sla_compliance', $note->link);
     }
+
+    public function test_alert_rules_carry_their_metric_format(): void
+    {
+        $this->as('coo@northstar.demo')->postJson('/api/v1/alert-rules', [
+            'name' => 'Revenue under RM 1M', 'model' => 'revenue', 'metric_key' => 'revenue', 'operator' => 'lt', 'threshold' => 1000000,
+            'window' => 'last_30_days', 'channels' => ['in_app'],
+        ])->assertCreated();
+
+        $rules = collect($this->as('coo@northstar.demo')->getJson('/api/v1/alert-rules')->assertOk()->json('data'))->keyBy('name');
+        $this->assertSame(['label' => 'Revenue', 'format' => 'currency'], $rules['Revenue under RM 1M']['metric']);
+    }
 }

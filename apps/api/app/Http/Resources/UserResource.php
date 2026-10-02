@@ -30,7 +30,8 @@ class UserResource extends JsonResource
                 'currency' => $this->organisation->currency, 'timezone' => $this->organisation->timezone, 'branding' => $this->organisation->branding,
             ]),
             'data_scope' => $this->getAttribute('attributes') ?: null,
-            'preferences' => $this->preferences ?? [],
+            // An object even when empty, so clients receive {} rather than [].
+            'preferences' => (object) ($this->preferences ?? []),
             'mfa_enabled' => $this->mfa_enabled,
             'last_login_at' => $this->last_login_at?->toIso8601String(),
         ];

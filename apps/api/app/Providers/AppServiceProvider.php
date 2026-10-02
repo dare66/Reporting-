@@ -29,7 +29,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(240)->by($request->user()?->id ?: $request->ip()));
-        RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip().'|'.strtolower((string) $request->input('email'))));
+        // Credential guessing: per account and address.
+        RateLimiter::for('login', fn (Request $request) => Limit::perMinute(10)->by($request->ip().'|'.strtolower((string) $request->input('email'))));
+        // Code guessing: per MFA challenge.
+        RateLimiter::for('mfa', fn (Request $request) => Limit::perMinute(10)->by($request->ip().'|'.hash('sha256', (string) $request->input('mfa_token'))));
+        // Session restore happens on every page load. Refresh tokens are single-use with reuse detection,
+        // so the limit is per token, with a ceiling per address (offices share one IP behind NAT).
+        RateLimiter::for('refresh', fn (Request $request) => [
+            Limit::perMinute(30)->by('token|'.hash('sha256', (string) $request->input('refresh_token'))),
+            Limit::perMinute(600)->by('ip|'.$request->ip()),
+        ]);
         RateLimiter::for('ai', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
     }
 }

@@ -17,7 +17,7 @@ class Organisation extends Model
     {
         return [
             'branding' => 'array',
-            'settings' => 'array',
+            'settings' => 'object', // always a JSON object, also when empty
         ];
     }
 }

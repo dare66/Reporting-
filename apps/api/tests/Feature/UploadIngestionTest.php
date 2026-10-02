@@ -64,9 +64,11 @@ class UploadIngestionTest extends TestCase
 
     public function test_webhook_accepts_a_record_or_a_list_and_rejects_bad_tokens(): void
     {
-        $created = $this->as('engineer@northstar.demo')->postJson('/api/v1/data-sources', ['connector_key' => 'webhook', 'name' => 'Webhook Orders'])
+        // The web app always sends a (possibly empty) config object.
+        $created = $this->as('engineer@northstar.demo')->postJson('/api/v1/data-sources', ['connector_key' => 'webhook', 'name' => 'Webhook Orders', 'config' => ['token' => 'chosen-by-client']])
             ->assertCreated()->assertJsonMissingPath('data.config');
         $url = parse_url($created->json('ingest.url'), PHP_URL_PATH);
+        $this->assertStringNotContainsString('chosen-by-client', $url);
         $sourceId = $created->json('data.id');
 
         $this->postJson($url, ['order_id' => 1, 'amount' => 12.5])->assertStatus(202)->assertJson(['accepted' => 1]);

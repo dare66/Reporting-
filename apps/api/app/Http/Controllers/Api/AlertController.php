@@ -8,6 +8,7 @@ use App\Domain\Semantic\CatalogRepository;
 use App\Http\Controllers\Controller;
 use App\Models\Alert;
 use App\Models\AlertRule;
+use App\Models\Metric;
 use App\Models\SemanticModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,9 +17,19 @@ class AlertController extends Controller
 {
     public function __construct(private readonly AuditLogger $audit) {}
 
+    /** Rules with their metric's label and display format, so values render in the metric's own units. */
     public function rules(): JsonResponse
     {
-        return response()->json(['data' => AlertRule::with('semanticModel:id,key,name')->withCount('alerts')->orderBy('name')->get()]);
+        $rules = AlertRule::with('semanticModel:id,key,name')->withCount('alerts')->orderBy('name')->get();
+        $metrics = Metric::whereIn('semantic_model_id', $rules->pluck('semantic_model_id')->unique())
+            ->get(['semantic_model_id', 'key', 'label', 'format'])
+            ->keyBy(fn (Metric $m) => $m->semantic_model_id.'.'.$m->key);
+        foreach ($rules as $rule) {
+            $metric = $metrics->get($rule->semantic_model_id.'.'.$rule->metric_key);
+            $rule->setAttribute('metric', $metric ? ['label' => $metric->label, 'format' => $metric->format] : null);
+        }
+
+        return response()->json(['data' => $rules]);
     }
 
     public function store(Request $request, CatalogRepository $catalogs): JsonResponse
