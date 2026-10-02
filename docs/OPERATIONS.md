@@ -22,10 +22,12 @@ php artisan schedule:work             # alerts, anomaly scans, insights, report 
 
 | Suite | Command |
 |---|---|
-| API (PostgreSQL) | `cd apps/api && php artisan test` |
-| AI service | `cd services/ai && python -m pytest -q` |
-| Web | `cd apps/web && npx ng test --watch=false` |
-| E2E smoke (running stack) | `node tests/e2e/smoke.mjs` |
+| API: style, static analysis, tests | `cd apps/api && composer check` |
+| AI service | `cd services/ai && ruff format --check . && ruff check . && mypy && python -m pytest -q` |
+| Web: format, lint, build, tests | `cd apps/web && npm run check` |
+| E2E (running stack) | `cd tests/e2e && npm test` (smoke journey + route sweep) |
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for the conventions behind these gates.
 
 ## Security checklist
 

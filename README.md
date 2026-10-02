@@ -83,10 +83,12 @@ The seeded data contains a real SLA squeeze at three strained institutions and a
 
 | Suite | Command | Status |
 |---|---|---|
-| API (PostgreSQL) | `cd apps/api && php artisan test` | 60 passing |
-| AI service | `cd services/ai && python -m pytest -q` | 25 passing |
-| Web unit | `cd apps/web && npx ng test --watch=false` | 7 passing |
-| E2E smoke | `cd tests/e2e && npm i && node smoke.mjs` (stack running) | 7 steps passing |
+| API (PostgreSQL) | `cd apps/api && composer check` | Pint ✓ · Larastan level 6 ✓ · 66 tests passing |
+| AI service | `cd services/ai && ruff check . && mypy && pytest -q` | ruff ✓ · mypy --strict ✓ · 25 tests passing |
+| Web | `cd apps/web && npm run check` | Prettier ✓ · ESLint ✓ · strict build ✓ · 7 tests passing |
+| E2E (stack running) | `cd tests/e2e && npm i && npm test` | smoke journey (7 steps) + all routes × 2 personas |
+
+Code standards and the gates behind them are described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
