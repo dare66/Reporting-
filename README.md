@@ -21,6 +21,8 @@ An AI-native BI platform. You ask a business question; a governed AI analyst pla
   - What-if scenarios.
 - **Reports:** computed documents with versions and diffs. Exports to PDF, PPTX, Excel, CSV and HTML. Schedules and distribution.
 - **Dashboards:** responsive reflow, drag and resize editing, a 3D globe, maps and ECharts.
+- **Widget Studio:** a Sisense-class widget designer with 14 chart families and their subtypes; category, value and break-by wells; quick functions (% of total, running total, year to date, period change, moving average, rank) compiled to governed SQL windows; measure, ranking and text filters; a full design panel; and a live, governed preview. The research and design behind it are in [docs/research/bi-landscape.md](docs/research/bi-landscape.md) and [docs/design/widget-studio.md](docs/design/widget-studio.md).
+- **Dashboard filters:** member (include or exclude), text, numeric and top/bottom-N ranking filters. They read as plain sentences, can be paused or saved as defaults, and member pickers are limited by row-level security.
 - **Alerts and push intelligence:** threshold and anomaly alerts, delivered as in-app notifications over SSE.
 - **Data platform:** connectors, file upload ingestion, profiling and generated semantic models.
 - **Security:**
@@ -83,10 +85,10 @@ The seeded data contains a real SLA squeeze at three strained institutions and a
 
 | Suite | Command | Status |
 |---|---|---|
-| API (PostgreSQL) | `cd apps/api && composer check` | Pint ✓ · Larastan level 6 ✓ · 66 tests passing |
+| API (PostgreSQL) | `cd apps/api && composer check` | Pint ✓ · Larastan level 6 ✓ · 95 tests passing |
 | AI service | `cd services/ai && ruff check . && mypy && pytest -q` | ruff ✓ · mypy --strict ✓ · 25 tests passing |
-| Web | `cd apps/web && npm run check` | Prettier ✓ · ESLint ✓ · strict build ✓ · 7 tests passing |
-| E2E (stack running) | `cd tests/e2e && npm i && npm test` | smoke journey (7 steps) + all routes × 2 personas |
+| Web | `cd apps/web && npm run check` | Prettier ✓ · ESLint ✓ · strict build ✓ · 30 tests passing |
+| E2E (stack running) | `cd tests/e2e && npm i && npm test` | smoke journey (7 steps) + all routes × 2 personas + Widget Studio journey |
 
 Code standards and the gates behind them are described in [CONTRIBUTING.md](CONTRIBUTING.md).
 

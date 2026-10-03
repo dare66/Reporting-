@@ -8,6 +8,7 @@ use App\Domain\Dashboards\LayoutReflow;
 use App\Domain\Query\QueryService;
 use App\Domain\Query\QueryValidationException;
 use App\Domain\Query\SemanticQuery;
+use App\Domain\Semantic\Catalog;
 use App\Domain\Semantic\CatalogRepository;
 use App\Http\Controllers\Controller;
 use App\Models\Bookmark;
@@ -59,6 +60,7 @@ class DashboardController extends Controller
         return response()->json(['data' => $dashboard->toArray() + [
             'layouts' => $reflow->layouts($dashboard->widgets->map(fn ($w) => $w->only(['id', 'type', 'section', 'priority', 'position']))->all()),
             'filter_dimensions' => $this->filterDimensions($dashboard, $catalogs, $request->user()->hasPermission('data.sensitive')),
+            'filter_metrics' => $this->filterMetrics($dashboard, $catalogs),
             'can_edit' => $this->canEdit($request, $dashboard),
         ]]);
     }
@@ -189,7 +191,7 @@ class DashboardController extends Controller
         }
 
         $catalog = $catalogs->get($q['model']);
-        $scoped = array_values(array_filter($dashboardFilters, fn ($f) => isset($catalog->dimensions[$f['dimension']])));
+        $scoped = array_values(array_filter($dashboardFilters, fn ($f) => self::appliesTo($f, $catalog)));
         $filters = [...SemanticQuery::normaliseFilters($q['filters'] ?? []), ...$scoped];
 
         return response()->json($widget->type === 'kpi'
@@ -262,6 +264,45 @@ class DashboardController extends Controller
         usort($dimensions, fn ($a, $b) => count($b['models']) <=> count($a['models']) ?: strcmp($a['label'], $b['label']));
 
         return $dimensions;
+    }
+
+    /**
+     * Metrics the dashboard's widgets show, offered for ranking filters ("top 10 by …").
+     *
+     * @return list<array{key: string, label: string, models: list<string>}>
+     */
+    private function filterMetrics(Dashboard $dashboard, CatalogRepository $catalogs): array
+    {
+        $metrics = [];
+        foreach ($dashboard->widgets as $w) {
+            $model = $w->query['model'] ?? null;
+            foreach ($model ? (array) ($w->query['metrics'] ?? []) : [] as $key) {
+                $catalog = $catalogs->get($model);
+                if (! isset($catalog->metrics[$key])) {
+                    continue;
+                }
+                $metrics[$key] ??= ['key' => $key, 'label' => $catalog->metrics[$key]['label'], 'models' => []];
+                $metrics[$key]['models'] = array_values(array_unique([...$metrics[$key]['models'], $catalog->key]));
+            }
+        }
+
+        return array_values($metrics);
+    }
+
+    /**
+     * A dashboard filter reaches a widget when the widget's model has its dimension
+     * (and, for a ranking filter, the metric it ranks by).
+     *
+     * @param  array{dimension: string, op: string, value?: mixed}  $filter
+     */
+    private static function appliesTo(array $filter, Catalog $catalog): bool
+    {
+        if (! isset($catalog->dimensions[$filter['dimension']])) {
+            return false;
+        }
+
+        return ! in_array($filter['op'], SemanticQuery::RANKING_OPERATORS, true)
+            || (is_array($filter['value'] ?? null) && isset($catalog->metrics[$filter['value']['metric'] ?? '']));
     }
 
     /** @return Builder<Dashboard> */

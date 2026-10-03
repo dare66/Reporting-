@@ -1,1 +1,14 @@
-{"name": "aixbi-e2e", "private": true, "type": "module", "scripts": {"smoke": "node smoke.mjs", "routes": "node routes.mjs", "test": "node smoke.mjs && node routes.mjs"}, "dependencies": {"playwright": "^1.56.0"}}
+{
+  "name": "aixbi-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs",
+    "routes": "node routes.mjs",
+    "studio": "node studio.mjs",
+    "test": "node smoke.mjs && node routes.mjs && node studio.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.56.0"
+  }
+}

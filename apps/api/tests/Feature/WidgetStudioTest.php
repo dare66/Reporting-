@@ -20,6 +20,11 @@ class WidgetStudioTest extends SeededTestCase
         return TenantScopeBypass::run(fn () => Dashboard::where('title', 'Executive Overview')->firstOrFail());
     }
 
+    private function sourceMarkets(Dashboard $dashboard): string
+    {
+        return TenantScopeBypass::run(fn () => DashboardWidget::where('dashboard_id', $dashboard->id)->where('title', 'Source markets')->value('id'));
+    }
+
     /** @param array<string, mixed> $query */
     private function runQuery(string $email, array $query): array
     {
@@ -135,6 +140,11 @@ class WidgetStudioTest extends SeededTestCase
         $this->assertSame($data($revenue, []), $data($revenue, $onlyFirst), 'revenue has no stage dimension, so the filter does not apply');
         $this->assertSame($stages, array_column($data($funnel, [['disabled' => true] + $onlyFirst[0]]), 'stage'), 'paused filters are ignored');
 
+        // A ranking filter also needs its metric: "top country by applications" cannot rank revenue widgets.
+        $topCountry = [['dimension' => 'country', 'op' => 'top', 'value' => ['n' => 1, 'metric' => 'total_applications']]];
+        $this->assertCount(1, $this->as('ceo@northstar.demo')->postJson("/api/v1/dashboards/{$dashboard->id}/widgets/{$this->sourceMarkets($dashboard)}/data", ['filters' => $topCountry])->assertOk()->json('data.rows'));
+        $this->assertSame($data($revenue, []), $data($revenue, $topCountry));
+
         $this->as('viewer@northstar.demo')->postJson("/api/v1/dashboards/{$dashboard->id}/widgets/{$funnel->id}/data", ['filters' => [['dimension' => 'stage', 'op' => 'drop']]])
             ->assertStatus(422);
     }
@@ -148,6 +158,9 @@ class WidgetStudioTest extends SeededTestCase
         $this->assertSame(['applications'], $dims['stage']['models']);
         $this->assertArrayNotHasKey('applicant_ref', $dims->all(), 'sensitive dimensions are not offered without data.sensitive');
         $this->assertArrayNotHasKey('submitted_on', $dims->all(), 'time is filtered by the date range, not a dimension filter');
+
+        $metrics = collect($this->as('viewer@northstar.demo')->getJson("/api/v1/dashboards/{$dashboard->id}")->json('data.filter_metrics'))->keyBy('key');
+        $this->assertSame(['key' => 'total_applications', 'label' => 'Applications', 'models' => ['applications']], $metrics['total_applications']);
 
         $url = "/api/v1/dashboards/{$dashboard->id}/filter-members?dimension=payment_type";
         $this->assertNotEmpty($this->as('ceo@northstar.demo')->getJson($url)->assertOk()->json('data'));

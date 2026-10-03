@@ -1,3 +1,5 @@
+import type { NumberFormat } from './models';
+
 /** Executive formatting — identical rules to the API and AI service. */
 let currency = 'RM';
 export const setCurrencySymbol = (code: string) =>
@@ -24,6 +26,37 @@ export function fmt(v: number | null | undefined, format = 'number'): string {
     default:
       return compact(v);
   }
+}
+
+const SCALE = { K: 1e3, M: 1e6, B: 1e9 } as const;
+
+/**
+ * Formats a value with a widget's number-format override (Widget Studio).
+ * Without an override, or with everything on 'auto', it is exactly fmt().
+ */
+export function fmtWith(v: number | null | undefined, format = 'number', nf?: NumberFormat): string {
+  if (!nf || (nf.style === 'auto' && nf.decimals === 'auto' && nf.abbreviate === 'auto')) return fmt(v, format);
+  if (v === null || v === undefined || Number.isNaN(v)) return '—';
+  const style = nf.style === 'auto' ? (format === 'percent' || format === 'currency' ? format : 'number') : nf.style;
+  if (style === 'percent') return (v * 100).toFixed(nf.decimals === 'auto' ? 1 : nf.decimals) + '%';
+
+  let body: string;
+  if (nf.abbreviate === 'auto') {
+    body = nf.decimals === 'auto' ? compact(v) : abbreviated(v, nf.decimals);
+  } else {
+    const unit = nf.abbreviate === 'none' ? '' : nf.abbreviate;
+    const scaled = unit ? v / SCALE[unit] : v;
+    const decimals = nf.decimals === 'auto' ? (unit ? 1 : 0) : nf.decimals;
+    body = scaled.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + unit;
+  }
+  return style === 'currency' ? `${currency} ${body}` : body;
+}
+
+/** compact() with a fixed number of decimals. */
+function abbreviated(v: number, decimals: number): string {
+  const a = Math.abs(v);
+  const [scaled, unit] = a >= 1e9 ? [v / 1e9, 'B'] : a >= 1e6 ? [v / 1e6, 'M'] : a >= 1e4 ? [v / 1e3, 'K'] : [v, ''];
+  return scaled.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + unit;
 }
 
 export function fmtChange(

@@ -37,6 +37,24 @@ const P: Record<string, string> = {
   cube: '<path d="M12 2.8 20 7.2v9.6L12 21.2 4 16.8V7.2z"/><path d="M4 7.2 12 11.6l8-4.4M12 11.6v9.6"/>',
   table: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/>',
   chart: '<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/>',
+  // Chart families (Widget Studio type picker)
+  column:
+    '<path d="M3.5 20.5h17"/><rect x="5" y="11" width="3.5" height="9.5" rx="1"/><rect x="10.25" y="5" width="3.5" height="15.5" rx="1"/><rect x="15.5" y="8.5" width="3.5" height="12" rx="1"/>',
+  barh: '<path d="M3.5 3.5v17"/><rect x="3.5" y="5" width="9.5" height="3.5" rx="1"/><rect x="3.5" y="10.25" width="15.5" height="3.5" rx="1"/><rect x="3.5" y="15.5" width="12" height="3.5" rx="1"/>',
+  line: '<path d="M3.5 20.5h17"/><path d="m4 15 4.5-5 4 3 7.5-8"/>',
+  area: '<path d="M3.5 20.5h17"/><path d="M4 20v-5l4.5-5 4 3L20 5v15z" fill="currentColor" fill-opacity=".18"/>',
+  pie: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5V12l6 6"/>',
+  donut: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 3.5V8M15 15l3 3"/>',
+  funnel: '<path d="M3.5 4.5h17l-6 7.5v6.5l-5 2v-8.5z"/>',
+  treemap: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M12 3.5v17M12 11h8.5M16 11v9.5"/>',
+  scatter:
+    '<path d="M3.5 3.5v17h17"/><circle cx="8.5" cy="14.5" r="1.4"/><circle cx="12.5" cy="9.5" r="1.4"/><circle cx="16.5" cy="12" r="1.4"/><circle cx="17.5" cy="6" r="1.4"/>',
+  heatmap:
+    '<rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 9.2h17M3.5 14.8h17M9.2 3.5v17M14.8 3.5v17"/><rect x="9.2" y="9.2" width="5.6" height="5.6" fill="currentColor" fill-opacity=".35" stroke="none"/>',
+  gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 17 4-5"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/>',
+  pivot:
+    '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8.5 4.5v15M13.5 9.5v10M3.5 14.5h17"/>',
+  kpi: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M7 14.5h4M7 10h7"/><path d="m15 15 2-2 1.5 1.5"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   share:
     '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/>',
@@ -48,6 +66,7 @@ const P: Record<string, string> = {
   drag: '<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
   trash: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  pause: '<path d="M9 6v12M15 6v12"/>',
   play: '<path d="M7 5v14l11-7z"/>',
   layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
   flow: '<circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6h3a4 4 0 0 1 4 4v0a2 2 0 0 0 2 2h1M7 18h3a4 4 0 0 0 4-4"/>',

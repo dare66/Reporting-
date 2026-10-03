@@ -4,7 +4,6 @@ namespace App\Domain\Analytics;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 /**
  * Client for the Python analytics engine (statistical forecasting and
@@ -43,10 +42,10 @@ class AnalyticsEngineClient
                 ->acceptJson()
                 ->post($path, $payload);
         } catch (ConnectionException) {
-            throw new RuntimeException('The analytics engine is unavailable. Forecasts and anomaly scans will resume when it is back.');
+            throw new AnalyticsEngineException('The analytics engine is unavailable. Forecasts and anomaly scans will resume when it is back.');
         }
         if ($response->failed()) {
-            throw new RuntimeException('The analytics engine rejected the request: '.($response->json('detail') ?? $response->status()));
+            throw new AnalyticsEngineException('The analytics engine rejected the request: '.($response->json('detail') ?? $response->status()));
         }
 
         return $response->json();

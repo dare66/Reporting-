@@ -18,7 +18,8 @@ module.exports = tseslint.config(
       '@angular-eslint/component-selector': ['error', { type: 'element', prefix: 'app', style: 'kebab-case' }],
       '@angular-eslint/prefer-on-push-component-change-detection': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // Rest siblings are the idiomatic way to omit keys from an object.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
       'eqeqeq': ['error', 'always', { null: 'ignore' }],
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },

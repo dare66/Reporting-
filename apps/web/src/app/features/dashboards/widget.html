@@ -39,28 +39,12 @@
     }
     @case ('table') {
       @if (result(); as res) {
-        <div class="tbl">
-          <table class="table">
-            <thead>
-              <tr>
-                @for (c of res.columns; track c.key) {
-                  <th [class.r]="c.role === 'metric'">{{ c.label }}</th>
-                }
-              </tr>
-            </thead>
-            <tbody>
-              @for (r of res.rows; track $index) {
-                <tr>
-                  @for (c of res.columns; track c.key) {
-                    <td [class.r]="c.role === 'metric'">
-                      {{ c.role === 'metric' ? cell(r[c.key], c.format) : r[c.key] }}
-                    </td>
-                  }
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <div class="tbl"><app-result-table [result]="res" [viz]="w.viz" /></div>
+      }
+    }
+    @case ('pivot') {
+      @if (result(); as res) {
+        <div class="tbl"><app-pivot-table [result]="res" [viz]="w.viz" /></div>
       }
     }
     @case ('globe') {
@@ -93,7 +77,7 @@
     }
     @default {
       @if (chartSpec(); as spec) {
-        <app-chart [spec]="spec" [height]="height() - 50" />
+        <app-chart [spec]="spec" [height]="height() - 80" />
       }
     }
   }

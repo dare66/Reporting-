@@ -1,4 +1,4 @@
-import { compact, fmt, fmtChange } from './format';
+import { compact, fmt, fmtChange, fmtWith } from './format';
 
 describe('executive formatting', () => {
   it('compacts large numbers the same way as the API', () => {
@@ -16,5 +16,16 @@ describe('executive formatting', () => {
     expect(fmtChange(-0.0496, -0.0546, 'percent')).toBe('−5.0 pts');
     expect(fmtChange(-1683, -0.067, 'currency')).toBe('−6.7%');
     expect(fmtChange(null, null)).toBe('—');
+  });
+
+  it('applies a widget number format, and is fmt() when everything is auto', () => {
+    const auto = { style: 'auto', decimals: 'auto', abbreviate: 'auto' } as const;
+    expect(fmtWith(8_420_000, 'currency', auto)).toBe(fmt(8_420_000, 'currency'));
+    expect(fmtWith(8_420_000, 'number', { ...auto, abbreviate: 'M', decimals: 1 })).toBe('8.4M');
+    expect(fmtWith(1234.5, 'number', { ...auto, abbreviate: 'none', decimals: 2 })).toBe('1,234.50');
+    expect(fmtWith(0.85891, 'percent', { ...auto, decimals: 2 })).toBe('85.89%');
+    expect(fmtWith(15_913, 'number', { ...auto, decimals: 2 })).toBe('15.91K');
+    expect(fmtWith(2500, 'number', { ...auto, style: 'currency', abbreviate: 'K' })).toBe('RM 2.5K');
+    expect(fmtWith(null, 'number', { ...auto, decimals: 2 })).toBe('—');
   });
 });

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Analytics\AnalyticsEngineException;
 use App\Domain\Query\QueryDeniedException;
 use App\Domain\Query\QueryExecutionException;
 use App\Domain\Query\QueryValidationException;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (QueryValidationException $e) => $error('invalid_query', $e->getMessage(), 422));
         $exceptions->render(fn (QueryDeniedException $e) => $error('forbidden', $e->getMessage(), 403));
         $exceptions->render(fn (QueryExecutionException $e) => $error('query_failed', $e->getMessage(), 503));
+        $exceptions->render(fn (AnalyticsEngineException $e) => $error('engine_unavailable', $e->getMessage(), 503));
         $exceptions->render(fn (ValidationException $e) => $error('validation_failed', 'Some fields need attention.', 422, ['fields' => $e->errors()]));
         $exceptions->render(function (NotFoundHttpException $e, Request $request) use ($error) {
             if ($e->getPrevious() instanceof ModelNotFoundException || $request->is('api/*')) {

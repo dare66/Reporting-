@@ -1,23 +1,25 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api.service';
-import { cell, fmt, fmtDate } from '../../core/format';
+import { fmt, fmtDate } from '../../core/format';
 import {
   Anomaly,
+  DashboardFilter,
   Envelope,
   Forecast,
   Insight,
   JsonObject,
   KpiCard,
-  QueryFilter,
   QueryResult,
   Widget,
 } from '../../core/models';
 import { Chart } from '../../shared/chart';
-import { ChartSpec, specFromForecast, specFromQuery } from '../../shared/chart-spec';
+import { ChartSpec, specFromForecast, specFromGauge, specFromQuery } from '../../shared/chart-spec';
 import { Globe } from '../../shared/globe';
 import { Icon } from '../../shared/icon';
 import { Kpi } from '../../shared/kpi';
+import { PivotTable } from '../../shared/pivot-table';
+import { ResultTable } from '../../shared/result-table';
 
 /** What a widget renders, by source. The API's widget-data endpoint returns the first four. */
 type WidgetData =
@@ -32,7 +34,7 @@ type WidgetData =
 @Component({
   selector: 'app-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Kpi, Chart, Globe, Icon, RouterLink],
+  imports: [Kpi, Chart, Globe, Icon, RouterLink, ResultTable, PivotTable],
   templateUrl: './widget.html',
   styleUrl: './widget.scss',
 })
@@ -41,13 +43,12 @@ export class DashboardWidget implements OnInit {
   readonly widget = input.required<Widget>();
   readonly dashboardId = input.required<string>();
   readonly height = input(300);
-  readonly filters = input<QueryFilter[]>([]);
+  readonly filters = input<DashboardFilter[]>([]);
   readonly data = signal<WidgetData | null>(null);
   readonly error = signal<string | null>(null);
   readonly three = signal(true);
   Math = Math;
   f = fmt;
-  cell = cell;
   date = (d: string) => fmtDate(d);
 
   readonly kpis = computed(() => {
@@ -72,7 +73,8 @@ export class DashboardWidget implements OnInit {
   });
   readonly chartSpec = computed(() => {
     const r = this.result();
-    return r ? specFromQuery(r, this.widget().viz) : null;
+    if (!r) return null;
+    return this.widget().type === 'gauge' ? specFromGauge(r, this.widget().viz) : specFromQuery(r, this.widget().viz);
   });
   readonly mapSpec = computed(() => {
     const r = this.result();

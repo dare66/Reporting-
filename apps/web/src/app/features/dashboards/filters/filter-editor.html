@@ -1,0 +1,119 @@
+<div class="fe">
+  <div class="seg" role="tablist" aria-label="Filter type">
+    @for (f of families(); track f.key) {
+      <button
+        role="tab"
+        [class.on]="family() === f.key"
+        [attr.aria-selected]="family() === f.key"
+        (click)="family.set(f.key)"
+      >
+        {{ f.label }}
+      </button>
+    }
+  </div>
+
+  @switch (family()) {
+    @case ('members') {
+      <div class="seg mini" aria-label="Include or exclude">
+        <button [class.on]="!exclude()" [attr.aria-pressed]="!exclude()" (click)="exclude.set(false)">Include</button>
+        <button [class.on]="exclude()" [attr.aria-pressed]="exclude()" (click)="exclude.set(true)">Exclude</button>
+      </div>
+      <input
+        class="input"
+        type="search"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        [placeholder]="'Search ' + target().label.toLowerCase() + '…'"
+        [attr.aria-label]="'Search ' + target().label"
+      />
+      <div class="row small">
+        <span class="muted">{{ selected().size }} selected</span><span class="spacer"></span>
+        <button class="btn sm ghost" (click)="selectShown()" [disabled]="!members().length">Select shown</button>
+        <button class="btn sm ghost" (click)="clear()" [disabled]="!selected().size">Clear</button>
+      </div>
+      <div class="members" role="group" [attr.aria-label]="target().label + ' members'" [class.busy]="loading()">
+        @for (m of hiddenSelected(); track m) {
+          <label class="member"><input type="checkbox" checked (change)="toggle(m)" /> {{ m }}</label>
+        }
+        @for (m of members(); track m) {
+          <label class="member"
+            ><input type="checkbox" [checked]="selected().has(m)" (change)="toggle(m)" /> {{ m }}</label
+          >
+        } @empty {
+          @if (loadError(); as e) {
+            <p class="muted small">{{ e }}</p>
+          } @else if (!loading()) {
+            <p class="muted small">No values you can see match.</p>
+          }
+        }
+      </div>
+    }
+    @case ('text') {
+      <div class="pair">
+        <select class="select" [ngModel]="textOp()" (ngModelChange)="textOp.set($event)" aria-label="Condition">
+          @for (o of textOps; track o.op) {
+            <option [value]="o.op">{{ o.label }}</option>
+          }
+        </select>
+        <input
+          class="input"
+          [ngModel]="text()"
+          (ngModelChange)="text.set($event)"
+          aria-label="Text"
+          (keydown.enter)="submit()"
+        />
+      </div>
+    }
+    @case ('numeric') {
+      <select class="select" [ngModel]="numericOp()" (ngModelChange)="numericOp.set($event)" aria-label="Condition">
+        @for (o of numericOps; track o.op) {
+          <option [value]="o.op">{{ o.label }}</option>
+        }
+      </select>
+      <div class="pair">
+        <input class="input" type="number" [ngModel]="from()" (ngModelChange)="from.set($event)" aria-label="Value" />
+        @if (twoValues()) {
+          <input
+            class="input"
+            type="number"
+            [ngModel]="to()"
+            (ngModelChange)="to.set($event)"
+            aria-label="Upper value"
+          />
+        }
+      </div>
+    }
+    @case ('ranking') {
+      <div class="pair">
+        <div class="seg mini" aria-label="Direction">
+          <button [class.on]="direction() === 'top'" (click)="direction.set('top')">Top</button>
+          <button [class.on]="direction() === 'bottom'" (click)="direction.set('bottom')">Bottom</button>
+        </div>
+        <input
+          class="input n"
+          type="number"
+          min="1"
+          max="1000"
+          [ngModel]="n()"
+          (ngModelChange)="n.set($event)"
+          aria-label="How many"
+        />
+      </div>
+      <label class="field"
+        >by
+        <select class="select" [ngModel]="metric()" (ngModelChange)="metric.set($event)">
+          @for (m of metrics(); track m.key) {
+            <option [value]="m.key">{{ m.label }}</option>
+          }
+        </select>
+      </label>
+      <p class="muted small">Ranked within your data access and the other filters.</p>
+    }
+  }
+
+  <div class="row actions">
+    <span class="spacer"></span>
+    <button class="btn ghost sm" (click)="dismiss.emit()">Cancel</button>
+    <button class="btn signal sm" (click)="submit()" [disabled]="!result()">Apply</button>
+  </div>
+</div>

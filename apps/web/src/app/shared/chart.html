@@ -53,3 +53,9 @@
     <app-icon [name]="showTable() ? 'chart' : 'table'" [size]="14" />{{ showTable() ? 'Chart' : 'Table' }}
   </button>
 }
+@if (spec().omitted; as omitted) {
+  <p class="omitted muted small">
+    Showing the {{ spec().series.length }} largest series; {{ omitted }} more are not drawn because the palette
+    distinguishes eight. Narrow the break-by with a filter to see them.
+  </p>
+}

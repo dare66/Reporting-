@@ -1,4 +1,3 @@
-import { CdkTrapFocus } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,21 +13,14 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api.service';
 import { Auth } from '../../core/auth.service';
 import { ago } from '../../core/format';
-import {
-  CatalogModel,
-  Comment,
-  Dashboard,
-  Envelope,
-  GridPosition,
-  QueryFilter,
-  QueryResult,
-  SemanticQuery,
-  Widget,
-} from '../../core/models';
+import { CatalogModel, Comment, Dashboard, DashboardFilter, Envelope, GridPosition, Widget } from '../../core/models';
 import { Icon } from '../../shared/icon';
 import { ErrorState, Working } from '../../shared/states';
+import { FilterBar } from './filters/filter-bar';
+import { MemberLoader } from './filters/filter-editor';
+import { WidgetStudio } from './studio/widget-studio';
+import { isStudioWidget } from './studio/studio-model';
 import { DashboardWidget } from './widget';
-import { Scrim } from '../../shared/scrim';
 
 type Pos = GridPosition;
 type Breakpoint = 'desktop' | 'tablet' | 'mobile';
@@ -40,13 +32,18 @@ type PlacedWidget = Widget & { pos: Pos };
 const ROW = 64;
 const COLUMNS: Record<Breakpoint, number> = { desktop: 12, tablet: 8, mobile: 4 };
 
-/** Payload for creating a widget. */
+/** Payload for duplicating a widget. */
 type NewWidget = Pick<Widget, 'type' | 'query' | 'viz' | 'position'> & { title: string; section?: string | null };
+
+/** Widget Studio session: a widget being edited, or null for a new one. */
+interface StudioSession {
+  widget: Widget | null;
+}
 
 @Component({
   selector: 'app-dashboard-view',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CdkTrapFocus, Scrim, DashboardWidget, Icon, FormsModule, RouterLink, Working, ErrorState],
+  imports: [DashboardWidget, Icon, FormsModule, RouterLink, Working, ErrorState, FilterBar, WidgetStudio],
   templateUrl: './dashboard-view.html',
   styleUrl: './dashboard-view.scss',
 })
@@ -62,14 +59,14 @@ export class DashboardView implements OnInit {
   readonly positions = signal<Record<string, Pos>>({});
   readonly breakpoint = signal<Breakpoint>(this.bp());
   readonly section = signal<string | null>(null);
-  readonly filterCountry = signal('');
-  readonly countries = signal<string[]>([]);
+  /** The viewer's current filters; start from the dashboard's saved defaults. */
+  readonly filters = signal<DashboardFilter[]>([]);
   readonly version = signal(0);
   readonly comments = signal<Comment[]>([]);
   readonly comment = signal('');
   readonly showComments = signal(false);
   readonly catalog = signal<CatalogModel[]>([]);
-  readonly adding = signal(false);
+  readonly studio = signal<StudioSession | null>(null);
   private undo: Record<string, Pos>[] = [];
   private redo: Record<string, Pos>[] = [];
   private drag: { id: string; mode: 'move' | 'size'; sx: number; sy: number; start: Pos; cell: number } | null = null;
@@ -87,30 +84,21 @@ export class DashboardView implements OnInit {
     return bp === 'desktop' || this.editing() ? items : items.sort((a, b) => a.pos.y - b.pos.y || a.pos.x - b.pos.x);
   });
   readonly sections = computed(() => this.dash()?.sections ?? []);
-  readonly filters = computed<QueryFilter[]>(() =>
-    this.filterCountry() ? [{ dimension: 'country', op: 'in', value: [this.filterCountry()] }] : [],
-  );
+  /** The current filters differ from the saved defaults. */
+  readonly filtersDirty = computed(() => JSON.stringify(this.filters()) !== JSON.stringify(this.dash()?.filters ?? []));
+  readonly nextRow = computed(() => Math.max(0, ...Object.values(this.positions()).map((p) => p.y + p.h)));
+  readonly canStudio = isStudioWidget;
 
   async ngOnInit() {
     await this.load();
     if (this.route.snapshot.queryParamMap.get('edit') && this.dash()?.can_edit) this.startEdit();
-    this.api
-      .post<QueryResult>('/query', {
-        model: 'applications',
-        metrics: ['total_applications'],
-        dimensions: ['country'],
-        time: { range: 'last_12_months' },
-        sort: [{ key: 'total_applications', dir: 'desc' }],
-        limit: 60,
-      })
-      .then((r) => this.countries.set(r.rows.map((x) => String(x['country']))))
-      .catch(() => this.countries.set([])); // the filter simply stays empty
   }
 
   async load() {
     try {
       const d = (await this.api.get<Envelope<Dashboard>>(`/dashboards/${this.id()}`)).data;
       this.dash.set(d);
+      if (!this.filters().length) this.filters.set(d.filters ?? []);
       this.positions.set(Object.fromEntries(d.widgets.map((w) => [w.id, w.position])));
       this.loadComments();
     } catch (e) {
@@ -147,10 +135,32 @@ export class DashboardView implements OnInit {
     return this.breakpoint() !== 'mobile' || !this.section() || w.section === this.section();
   }
 
-  applyFilter(c: string) {
-    this.filterCountry.set(c);
+  // ---- Dashboard filters ----
+  setFilters(filters: DashboardFilter[]) {
+    this.filters.set(filters);
     this.version.update((v) => v + 1);
   }
+  resetFilters() {
+    this.setFilters(this.dash()?.filters ?? []);
+  }
+  async saveDefaultFilters() {
+    try {
+      await this.api.patch(`/dashboards/${this.id()}`, { filters: this.filters() });
+      this.patch(() => ({ filters: this.filters() }));
+    } catch (e) {
+      this.error.set(errorMessage(e));
+    }
+  }
+  /** Member pickers go through the dashboard, so viewers without query rights can filter too. */
+  readonly memberLoader =
+    (dimension: string): MemberLoader =>
+    async (search: string) =>
+      (
+        await this.api.get<Envelope<string[]>>(`/dashboards/${this.id()}/filter-members`, {
+          dimension,
+          ...(search ? { search } : {}),
+        })
+      ).data;
 
   // ---- Edit mode: drag, resize, snap, undo/redo ----
   startEdit() {
@@ -261,55 +271,33 @@ export class DashboardView implements OnInit {
       position: { ...w.pos, y: w.pos.y + w.pos.h },
     });
   }
-  async openAdd() {
-    this.adding.set(true);
-    if (!this.catalog().length) {
-      this.catalog.set((await this.api.get<Envelope<CatalogModel[]>>('/semantic-catalog')).data);
+  // ---- Widget Studio ----
+  async openStudio(widget: Widget | null = null) {
+    try {
+      if (!this.catalog().length) {
+        this.catalog.set((await this.api.get<Envelope<CatalogModel[]>>('/semantic-catalog')).data);
+      }
+      this.studio.set({ widget });
+    } catch (e) {
+      this.error.set(errorMessage(e));
     }
   }
-  async addWidget(type: string, ref: string, dimension: string) {
-    const [model, metric] = ref.split('.');
-    const maxY = Math.max(0, ...Object.values(this.positions()).map((p) => p.y + p.h));
-    const label =
-      this.catalog()
-        .find((m) => m.key === model)
-        ?.metrics.find((x) => x.key === metric)?.label ?? metric;
-    const trend: SemanticQuery = { model, metrics: [metric], time: { grain: 'month', range: 'last_12_months' } };
-    const ranked: SemanticQuery = {
-      model,
-      metrics: [metric],
-      dimensions: [dimension],
-      time: { range: 'last_90_days' },
-      sort: [{ key: metric, dir: 'desc' }],
-      limit: 12,
-    };
-    const body: NewWidget =
-      type === 'kpi'
-        ? {
-            type,
-            title: label,
-            query: { model, metrics: [metric], time: { range: 'last_30_days' } },
-            viz: { compare: 'previous_period' },
-            position: { x: 0, y: maxY, w: 3, h: 2 },
-          }
-        : {
-            type: 'chart',
-            title: dimension ? `${label} by ${dimension.replace(/_/g, ' ')}` : `${label} trend`,
-            query: dimension ? ranked : trend,
-            viz: { type: dimension ? 'bar' : 'area' },
-            position: { x: 0, y: maxY, w: 6, h: 4 },
-          };
-    if (await this.createWidget(body)) this.adding.set(false);
+  studioSaved(saved: Widget) {
+    const exists = this.dash()?.widgets.some((w) => w.id === saved.id);
+    this.patch((d) => ({
+      widgets: exists ? d.widgets.map((w) => (w.id === saved.id ? saved : w)) : [...d.widgets, saved],
+    }));
+    this.positions.update((p) => ({ ...p, [saved.id]: p[saved.id] ?? saved.position }));
+    this.studio.set(null);
+    this.version.update((v) => v + 1);
   }
-  private async createWidget(body: NewWidget): Promise<boolean> {
+  private async createWidget(body: NewWidget) {
     try {
       const created = (await this.api.post<Envelope<Widget>>(`/dashboards/${this.id()}/widgets`, body)).data;
       this.patch((d) => ({ widgets: [...d.widgets, created] }));
       this.positions.update((p) => ({ ...p, [created.id]: created.position }));
-      return true;
     } catch (e) {
       this.error.set(errorMessage(e));
-      return false;
     }
   }
   async rename(title: string) {

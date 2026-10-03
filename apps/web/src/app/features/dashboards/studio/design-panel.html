@@ -1,0 +1,330 @@
+@let v = viz();
+<div class="design">
+  @if (def().subtypes.length) {
+    <section>
+      <h4>Type</h4>
+      <div class="seg" role="radiogroup" aria-label="Subtype">
+        @for (s of def().subtypes; track s.key) {
+          <button
+            role="radio"
+            [attr.aria-checked]="subtype() === s.key"
+            [class.on]="subtype() === s.key"
+            (click)="designChange.emit({ subtype: s.key })"
+          >
+            {{ s.label }}
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (hasLegend()) {
+    <section>
+      <h4>Legend</h4>
+      <div class="line">
+        <label class="check"
+          ><input
+            type="checkbox"
+            [ngModel]="v.legend?.enabled ?? true"
+            (ngModelChange)="setLegend({ enabled: $event })"
+          />
+          Show</label
+        >
+        <div class="seg mini" aria-label="Legend position">
+          @for (p of legendPositions; track p) {
+            <button
+              [class.on]="(v.legend?.position ?? 'top') === p"
+              (click)="setLegend({ enabled: true, position: p })"
+            >
+              {{ p }}
+            </button>
+          }
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (hasLabels()) {
+    <section>
+      <h4>Value labels</h4>
+      <label class="check"
+        ><input type="checkbox" [ngModel]="!!v.labels?.values" (ngModelChange)="setLabels({ values: $event })" /> Show
+        values</label
+      >
+      @if (kind() === 'pie') {
+        <label class="check"
+          ><input type="checkbox" [ngModel]="!!v.labels?.percent" (ngModelChange)="setLabels({ percent: $event })" />
+          Show %</label
+        >
+      }
+    </section>
+  }
+
+  @if (hasAxes()) {
+    <section>
+      <h4>Axes</h4>
+      <label class="check"
+        ><input type="checkbox" [ngModel]="v.axes?.xLabels !== false" (ngModelChange)="setAxes({ xLabels: $event })" />
+        Category labels</label
+      >
+      <label class="check"
+        ><input type="checkbox" [ngModel]="v.axes?.yGrid !== false" (ngModelChange)="setAxes({ yGrid: $event })" />
+        Gridlines</label
+      >
+      <label class="check"
+        ><input type="checkbox" [ngModel]="!!v.axes?.yLog" (ngModelChange)="setAxes({ yLog: $event })" /> Logarithmic
+        scale</label
+      >
+      <div class="pair">
+        <label class="field"
+          >Min<input
+            class="input"
+            type="number"
+            [ngModel]="v.axes?.yMin"
+            (ngModelChange)="setAxes({ yMin: num($event) })"
+            placeholder="auto"
+        /></label>
+        <label class="field"
+          >Max<input
+            class="input"
+            type="number"
+            [ngModel]="v.axes?.yMax"
+            (ngModelChange)="setAxes({ yMax: num($event) })"
+            placeholder="auto"
+        /></label>
+      </div>
+      <label class="field"
+        >Axis title<input class="input" [ngModel]="v.axes?.yTitle ?? ''" (ngModelChange)="setAxes({ yTitle: $event })"
+      /></label>
+    </section>
+  }
+
+  @if (kind() === 'line' || kind() === 'area') {
+    <section>
+      <h4>Lines</h4>
+      <label class="check"
+        ><input type="checkbox" [ngModel]="!!v.markers" (ngModelChange)="set({ markers: $event })" /> Markers</label
+      >
+      <div class="seg mini" aria-label="Line width">
+        @for (w of lineWidths; track w) {
+          <button [class.on]="(v.lineWidth ?? 'regular') === w" (click)="set({ lineWidth: w })">{{ w }}</button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (hasAxes()) {
+    <section>
+      <h4>Reference line</h4>
+      <div class="pair">
+        <label class="field"
+          >Value<input
+            class="input"
+            type="number"
+            [ngModel]="v.reference?.value"
+            (ngModelChange)="setReference(num($event))"
+            placeholder="none"
+        /></label>
+        <label class="field"
+          >Label<input
+            class="input"
+            [ngModel]="v.reference?.label ?? ''"
+            (ngModelChange)="setReference(v.reference?.value ?? null, $event)"
+            [disabled]="!v.reference"
+            placeholder="Target"
+        /></label>
+      </div>
+    </section>
+  }
+
+  @if (isSeries() || kind() === 'scatter') {
+    <section>
+      <h4>Series colours</h4>
+      @for (s of series(); track s.key) {
+        <div class="swatches" role="radiogroup" [attr.aria-label]="'Colour for ' + s.label">
+          <span class="name">{{ s.label }}</span>
+          <button
+            class="sw auto"
+            role="radio"
+            [attr.aria-checked]="!v.colors?.[s.key]"
+            [class.on]="!v.colors?.[s.key]"
+            (click)="setColor(s.key, null)"
+            aria-label="Automatic colour"
+          >
+            A
+          </button>
+          @for (n of slots; track n) {
+            <button
+              class="sw"
+              role="radio"
+              [style.background]="'var(--series-' + n + ')'"
+              [attr.aria-checked]="v.colors?.[s.key] === n"
+              [class.on]="v.colors?.[s.key] === n"
+              [attr.aria-label]="'Palette colour ' + n"
+              (click)="setColor(s.key, n)"
+            ></button>
+          }
+        </div>
+      } @empty {
+        <p class="muted small">Break-by series take the palette in order; colour follows each member.</p>
+      }
+    </section>
+  }
+
+  @if (hasConditional()) {
+    <section>
+      <h4>Conditional colour</h4>
+      @for (r of v.conditional ?? []; track $index; let i = $index) {
+        <div class="rule">
+          <select
+            class="select"
+            [ngModel]="r.op"
+            (ngModelChange)="updateRule(i, { op: $event })"
+            aria-label="Comparison"
+          >
+            @for (o of ruleOps; track o.op) {
+              <option [value]="o.op">{{ o.label }}</option>
+            }
+          </select>
+          <input
+            class="input"
+            type="number"
+            [ngModel]="r.value"
+            (ngModelChange)="updateRule(i, { value: num($event) ?? 0 })"
+            aria-label="Threshold"
+          />
+          <select
+            class="select"
+            [ngModel]="r.status"
+            (ngModelChange)="updateRule(i, { status: $event })"
+            aria-label="Status"
+          >
+            @for (s of statuses; track s.key) {
+              <option [value]="s.key">{{ s.label }}</option>
+            }
+          </select>
+          <button class="btn icon sm ghost" (click)="removeRule(i)" aria-label="Remove rule">✕</button>
+        </div>
+      }
+      <button class="btn sm ghost" (click)="addRule()">+ Rule</button>
+      <p class="muted small">First matching rule wins. Values are compared as stored (percentages as 0–1).</p>
+    </section>
+  }
+
+  @if (kind() === 'gauge') {
+    <section>
+      <h4>Scale</h4>
+      <div class="pair">
+        <label class="field"
+          >Min<input
+            class="input"
+            type="number"
+            [ngModel]="v.gauge?.min"
+            (ngModelChange)="setGauge({ min: num($event) ?? undefined })"
+            placeholder="0"
+        /></label>
+        <label class="field"
+          >Max<input
+            class="input"
+            type="number"
+            [ngModel]="v.gauge?.max"
+            (ngModelChange)="setGauge({ max: num($event) ?? undefined })"
+            placeholder="auto"
+        /></label>
+      </div>
+      <label class="field"
+        >Target<input
+          class="input"
+          type="number"
+          [ngModel]="v.gauge?.target"
+          (ngModelChange)="setGauge({ target: num($event) ?? undefined })"
+          placeholder="none"
+      /></label>
+    </section>
+  }
+
+  @if (kind() === 'kpi') {
+    <section>
+      <h4>Compare with</h4>
+      <div class="seg" aria-label="Comparison">
+        <button
+          [class.on]="(v.compare ?? 'previous_period') === 'previous_period'"
+          (click)="set({ compare: 'previous_period' })"
+        >
+          Previous period
+        </button>
+        <button [class.on]="v.compare === 'previous_year'" (click)="set({ compare: 'previous_year' })">
+          Last year
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (kind() === 'pivot') {
+    <section>
+      <h4>Totals</h4>
+      <label class="check" [class.off]="!additive()"
+        ><input
+          type="checkbox"
+          [ngModel]="!!v.totals && additive()"
+          (ngModelChange)="set({ totals: $event })"
+          [disabled]="!additive()"
+        />
+        Grand total row</label
+      >
+      @if (!additive()) {
+        <p class="muted small">Available when every value can be added up — ratios and averages have no true total.</p>
+      }
+    </section>
+  }
+
+  @if (hasNumber()) {
+    <section>
+      <h4>Number format</h4>
+      <div class="seg mini" aria-label="Number style">
+        @for (s of numberStyles; track s) {
+          <button [class.on]="number().style === s" (click)="setNumber({ style: s })">{{ s }}</button>
+        }
+      </div>
+      <div class="pair">
+        <label class="field"
+          >Decimals
+          <select class="select" [ngModel]="number().decimals" (ngModelChange)="setDecimals($event)">
+            <option value="auto">auto</option>
+            @for (d of decimals; track d) {
+              <option [ngValue]="d">{{ d }}</option>
+            }
+          </select>
+        </label>
+        <label class="field"
+          >Abbreviate
+          <select class="select" [ngModel]="number().abbreviate" (ngModelChange)="setNumber({ abbreviate: $event })">
+            <option value="auto">auto</option>
+            <option value="none">none</option>
+            <option value="K">thousands (K)</option>
+            <option value="M">millions (M)</option>
+            <option value="B">billions (B)</option>
+          </select>
+        </label>
+      </div>
+    </section>
+  }
+
+  @if (hasLimit()) {
+    <section>
+      <h4>Data limit</h4>
+      <label class="field"
+        >Max rows
+        <input
+          class="input"
+          type="number"
+          min="1"
+          max="500"
+          [ngModel]="limit()"
+          (ngModelChange)="designChange.emit({ limit: num($event) })"
+          placeholder="all"
+        />
+      </label>
+    </section>
+  }
+</div>

@@ -1,0 +1,84 @@
+<div class="bar" role="toolbar" aria-label="Dashboard filters">
+  <app-icon name="filter" [size]="15" class="lead" />
+  @for (c of chips(); track c.index) {
+    <span class="fchip" [class.paused]="c.filter.disabled">
+      <button class="label" (click)="edit(c.index)" [attr.aria-label]="'Edit filter: ' + c.text">
+        {{ c.text }}
+        @if (c.filter.disabled) {
+          <span class="tag">paused</span>
+        }
+      </button>
+      <button
+        class="x"
+        (click)="togglePause(c.index)"
+        [attr.aria-label]="(c.filter.disabled ? 'Resume' : 'Pause') + ' filter: ' + c.text"
+        [title]="c.filter.disabled ? 'Resume' : 'Pause'"
+      >
+        <app-icon [name]="c.filter.disabled ? 'play' : 'pause'" [size]="12" />
+      </button>
+      <button class="x" (click)="remove(c.index)" [attr.aria-label]="'Remove filter: ' + c.text" title="Remove">
+        <app-icon name="close" [size]="12" />
+      </button>
+    </span>
+  }
+  <button class="btn sm ghost add" (click)="add()" [attr.aria-expanded]="panel()?.mode === 'pick'">
+    <app-icon name="plus" [size]="14" /> Filter
+  </button>
+  @if (dirty()) {
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn sm ghost" (click)="resetFilters.emit()">Reset</button>
+    @if (canSave()) {
+      <button class="btn sm" (click)="saveDefault.emit()">Save as default</button>
+    }
+  }
+</div>
+
+@if (panel(); as p) {
+  <div class="drop panel fade-in" role="dialog" aria-label="Filter editor" (keydown.escape)="close()">
+    @if (p.mode === 'pick') {
+      <input
+        class="input"
+        type="search"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+        placeholder="Filter by…"
+        aria-label="Find a field to filter by"
+      />
+      <div class="dims">
+        @for (d of choices(); track d.key) {
+          <button class="dim" (click)="pick(d)">
+            <b>{{ d.label }}</b>
+            <span class="muted small">
+              {{
+                d.models.length === totalModels()
+                  ? 'all widgets'
+                  : d.models.length + ' of ' + totalModels() + ' data models'
+              }}
+            </span>
+          </button>
+        } @empty {
+          <p class="muted small">No field matches.</p>
+        }
+      </div>
+    } @else {
+      <div class="row head">
+        <b>{{ p.dimension.label }}</b
+        ><span class="spacer"></span>
+        <label class="pause small"
+          ><input type="checkbox" [ngModel]="paused()" (ngModelChange)="paused.set($event)" /> Paused</label
+        >
+        @if (p.index !== null) {
+          <button class="btn sm ghost" (click)="remove(p.index)"><app-icon name="trash" [size]="13" /> Remove</button>
+        }
+      </div>
+      <app-filter-editor
+        [target]="p.dimension"
+        [initial]="editing()"
+        [metrics]="rankMetrics()"
+        [loadMembers]="memberLoader()(p.dimension.key)"
+        (apply)="applied($event)"
+        (dismiss)="close()"
+      />
+    }
+  </div>
+}

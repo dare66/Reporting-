@@ -24,17 +24,6 @@
       </div>
       <div class="row wrap">
         @if (!editing()) {
-          <select
-            class="select filter"
-            [ngModel]="filterCountry()"
-            (ngModelChange)="applyFilter($event)"
-            aria-label="Country filter"
-          >
-            <option value="">All countries</option>
-            @for (c of countries(); track c) {
-              <option [value]="c">{{ c }}</option>
-            }
-          </select>
           <button class="btn ghost" (click)="showComments.set(!showComments())">
             <app-icon name="comment" [size]="16" /> {{ comments().length }}
           </button>
@@ -48,12 +37,27 @@
         } @else {
           <button class="btn ghost icon" (click)="undoStep()" [disabled]="!canUndo()" aria-label="Undo">↶</button>
           <button class="btn ghost icon" (click)="redoStep()" [disabled]="!canRedo()" aria-label="Redo">↷</button>
-          <button class="btn" (click)="openAdd()"><app-icon name="plus" [size]="16" /> Add widget</button>
+          <button class="btn" (click)="openStudio()"><app-icon name="plus" [size]="16" /> Add widget</button>
           <button class="btn ghost" (click)="cancel()">Cancel</button>
           <button class="btn signal" (click)="save()">Save layout</button>
         }
       </div>
     </header>
+
+    @if (!editing()) {
+      <app-filter-bar
+        class="filters"
+        [filters]="filters()"
+        [dimensions]="d.filter_dimensions"
+        [metrics]="d.filter_metrics"
+        [memberLoader]="memberLoader"
+        [canSave]="d.can_edit"
+        [dirty]="filtersDirty()"
+        (filtersChange)="setFilters($event)"
+        (resetFilters)="resetFilters()"
+        (saveDefault)="saveDefaultFilters()"
+      />
+    }
 
     @if (breakpoint() === 'mobile' && sections().length > 1 && !editing()) {
       <div class="sections" role="tablist">
@@ -83,6 +87,16 @@
               <div class="handle" (pointerdown)="pointerDown($event, w, 'move', grid)">
                 <app-icon name="drag" [size]="14" /> {{ w.title }}
                 <span class="spacer"></span>
+                @if (canStudio(w)) {
+                  <button
+                    class="btn icon sm ghost"
+                    (pointerdown)="$event.stopPropagation()"
+                    (click)="openStudio(w)"
+                    aria-label="Edit in Widget Studio"
+                  >
+                    <app-icon name="edit" [size]="13" />
+                  </button>
+                }
                 <button
                   class="btn icon sm ghost"
                   (pointerdown)="$event.stopPropagation()"
@@ -103,6 +117,15 @@
               <div class="resize" (pointerdown)="pointerDown($event, w, 'size', grid)" aria-label="Resize"></div>
             }
             @if (!editing()) {
+              @if (d.can_edit && canStudio(w)) {
+                <button
+                  class="btn icon sm ghost quick-edit"
+                  (click)="openStudio(w)"
+                  [attr.aria-label]="'Edit ' + (w.title ?? 'widget')"
+                >
+                  <app-icon name="edit" [size]="13" />
+                </button>
+              }
               @for (v of [version()]; track v) {
                 <app-widget [widget]="w" [dashboardId]="d.id" [height]="height(w)" [filters]="filters()" />
               }
@@ -141,50 +164,15 @@
         </form>
       </aside>
     }
-    @if (adding()) {
-      <div class="scrim" appScrim (dismiss)="adding.set(false)"></div>
-      <div
-        class="add panel fade-in"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add widget"
-        cdkTrapFocus
-        [cdkTrapFocusAutoCapture]="true"
-      >
-        <h3>Add widget</h3>
-        <label class="field"
-          >Type<select class="select" #t>
-            <option value="chart">Chart</option>
-            <option value="kpi">KPI</option>
-          </select></label
-        >
-        <label class="field"
-          >Metric<select class="select" #m>
-            @for (mod of catalog(); track mod.key) {
-              <optgroup [label]="mod.name">
-                @for (x of mod.metrics; track x.key) {
-                  <option [value]="x.ref">{{ x.label }}</option>
-                }
-              </optgroup>
-            }
-          </select></label
-        >
-        <label class="field"
-          >Break down by (optional)<select class="select" #dm>
-            <option value="">— over time —</option>
-            @for (
-              k of ['country', 'region', 'institution', 'course', 'field_of_study', 'channel', 'stage', 'payment_type'];
-              track k
-            ) {
-              <option [value]="k">{{ k.replace('_', ' ') }}</option>
-            }
-          </select></label
-        >
-        <div class="row">
-          <span class="spacer"></span><button class="btn ghost" (click)="adding.set(false)">Cancel</button
-          ><button class="btn signal" (click)="addWidget(t.value, m.value, dm.value)">Add</button>
-        </div>
-      </div>
+    @if (studio(); as st) {
+      <app-widget-studio
+        [dashboardId]="d.id"
+        [catalog]="catalog()"
+        [widget]="st.widget"
+        [nextRow]="nextRow()"
+        (saved)="studioSaved($event)"
+        (dismiss)="studio.set(null)"
+      />
     }
   }
 </div>

@@ -177,7 +177,7 @@ action in layout mode.
 | Indicator (KPI) | none | Value 1–4 (with a comparison period) |
 | Gauge | none | Value · Min / Max / Target in design |
 | Table | none | Columns (dimensions) · Values |
-| Pivot | none | Rows · Columns (dimension or time) · Values · grand totals |
+| Pivot | none | Rows · Columns (dimension or time) · Values |
 
 Switching chart type keeps every field that fits the new wells and reports
 the ones it dropped.
@@ -210,7 +210,7 @@ the ones it dropped.
 | Reference line | value + label (for example, a target) |
 | Number format | auto, number, currency or percent; decimals (auto or 0–4); abbreviate (auto, none, K, M, B) |
 | Data limit | max categories (1–500) |
-| Table / Pivot | rows per page; grand totals (pivot) |
+| Pivot | grand-total row (offered only when every value is additive) |
 | Gauge | min, max, target |
 
 Options are stored in `widget.viz` (`VizOptions` in `core/models.ts`), with

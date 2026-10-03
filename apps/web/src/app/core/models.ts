@@ -43,15 +43,70 @@ export interface SemanticQuery {
   measures?: string[];
   dimensions?: string[];
   filters?: QueryFilter[];
+  /** Measure filters, compiled to HAVING. */
+  having?: HavingFilter[];
+  /** Quick functions, compiled to SQL window functions. */
+  calculations?: Calculation[];
   time?: { range?: string | Period | { from: string; to: string }; grain?: Grain };
   sort?: { key: string; dir: 'asc' | 'desc' }[];
   limit?: number;
 }
 
+/** Dimension filter operators (see docs/design/widget-studio.md §1.1). */
+export type FilterOp =
+  | 'eq'
+  | 'neq'
+  | 'in'
+  | 'not_in'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'between'
+  | 'not_between'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'is_null'
+  | 'not_null'
+  | 'top'
+  | 'bottom';
+
 export interface QueryFilter {
   dimension: string;
-  op: string;
+  op: FilterOp;
   value?: unknown;
+}
+
+/** Value of a `top` / `bottom` ranking filter. */
+export interface RankingValue {
+  n: number;
+  metric: string;
+}
+
+/** A dashboard-level filter: a query filter with its display label and paused state. */
+export interface DashboardFilter extends QueryFilter {
+  label?: string;
+  disabled?: boolean;
+}
+
+export type HavingOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between' | 'not_between';
+
+export interface HavingFilter {
+  metric: string;
+  op: HavingOp;
+  value: number | [number, number];
+}
+
+export type QuickFunction =
+  'percent_of_total' | 'running_sum' | 'year_to_date' | 'difference' | 'percent_change' | 'moving_average' | 'rank';
+
+export interface Calculation {
+  fn: QuickFunction;
+  metric: string;
+  /** Moving average window, 2–24 periods. */
+  window?: number;
 }
 
 /** Proof attached to every computed number: the query behind it. */
@@ -76,6 +131,8 @@ export interface QueryColumn {
   format?: Format;
   /** Time columns: the bucket size. */
   grain?: Grain;
+  /** Quick-function columns: the function and the metric it applies to. */
+  calc?: { fn: QuickFunction; metric: string };
 }
 
 export type QueryRow = Record<string, string | number | boolean | null>;
@@ -130,6 +187,8 @@ export interface CatalogMetric {
   is_kpi: boolean;
   owner: string | null;
   expression: string;
+  /** Built only from sum/count measures, so shares and running totals are meaningful. */
+  additive: boolean;
 }
 
 export interface CatalogModel {
@@ -397,17 +456,101 @@ export interface Placement extends GridPosition {
   section: string | null;
 }
 
+export type WidgetType =
+  | 'kpi'
+  | 'chart'
+  | 'table'
+  | 'pivot'
+  | 'gauge'
+  | 'insight'
+  | 'text'
+  | 'globe'
+  | 'forecast'
+  | 'anomalies'
+  | 'image'
+  | 'map';
+
+/** Chart families offered by Widget Studio (`viz.type` of a chart widget). */
+export type ChartType =
+  'column' | 'bar' | 'line' | 'area' | 'pie' | 'funnel' | 'treemap' | 'scatter' | 'heatmap' | 'map';
+
+/**
+ * Chart subtypes. Stacking applies to column, bar and area; smoothing and steps to line;
+ * donut to pie. Older widgets also use `donut` as a type and `bar` for vertical bars.
+ */
+export type ChartSubtype = 'classic' | 'stacked' | 'stacked100' | 'spline' | 'step' | 'donut';
+
+/** Status a conditional colour rule assigns; rendered with the reserved status colours. */
+export type RuleStatus = 'good' | 'warning' | 'critical';
+
+export interface ColorRule {
+  op: 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
+  value: number;
+  status: RuleStatus;
+}
+
+export interface NumberFormat {
+  style: 'auto' | 'number' | 'currency' | 'percent';
+  /** Decimal places; 'auto' keeps the platform's executive formatting. */
+  decimals: 'auto' | 0 | 1 | 2 | 3 | 4;
+  abbreviate: 'auto' | 'none' | 'K' | 'M' | 'B';
+}
+
+/** A widget's visual options (Widget Studio design panel). Every field is optional. */
+export interface VizOptions {
+  type?: ChartType | 'donut' | 'globe' | 'table';
+  subtype?: ChartSubtype;
+  orientation?: 'horizontal' | 'vertical';
+  legend?: { enabled: boolean; position: 'top' | 'bottom' };
+  labels?: { values?: boolean; percent?: boolean };
+  axes?: {
+    xLabels?: boolean;
+    yGrid?: boolean;
+    yMin?: number | null;
+    yMax?: number | null;
+    yLog?: boolean;
+    yTitle?: string;
+  };
+  markers?: boolean;
+  lineWidth?: 'thin' | 'regular' | 'thick';
+  /** A horizontal reference line, e.g. a target. */
+  reference?: { value: number; label?: string } | null;
+  target?: number;
+  number?: NumberFormat;
+  /** Palette slot (1–8) per series key; colour follows the series, never its rank. */
+  colors?: Record<string, number>;
+  /** Conditional colour for single-series bars and table values; first matching rule wins. */
+  conditional?: ColorRule[];
+  /** Result columns used only to compute others (a quick function's base metric) and not drawn. */
+  hide?: string[];
+  /** Pivot: show a grand-total row (offered for additive metrics only). */
+  totals?: boolean;
+  gauge?: { min?: number; max?: number; target?: number };
+  // Non-chart widgets
+  compare?: 'previous_period' | 'previous_year';
+  horizon?: string;
+  text?: string;
+  fallback?: string;
+}
+
 export interface Widget {
   id: string;
   dashboard_id: string;
-  type: string;
+  type: WidgetType;
   title: string | null;
   section: string | null;
   query: SemanticQuery;
-  /** Visual options; keys depend on the widget type (type, compare, horizon, text…). */
-  viz: JsonObject;
+  viz: VizOptions;
   position: GridPosition;
   priority: number;
+}
+
+/** A dimension a dashboard filter can target, with the models (and so widgets) it reaches. */
+export interface FilterDimension {
+  key: string;
+  label: string;
+  type: string;
+  models: string[];
 }
 
 export interface DashboardSummary {
@@ -429,7 +572,10 @@ export interface Dashboard {
   title: string;
   description: string | null;
   theme: string;
-  filters: QueryFilter[];
+  filters: DashboardFilter[];
+  filter_dimensions: FilterDimension[];
+  /** Metrics the widgets show, offered for ranking filters. */
+  filter_metrics: { key: string; label: string; models: string[] }[];
   sections: { key: string; label: string }[];
   visibility: string;
   is_home: boolean;

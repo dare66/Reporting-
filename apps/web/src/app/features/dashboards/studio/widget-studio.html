@@ -1,0 +1,407 @@
+@let d = draft();
+<div class="scrim" appScrim (dismiss)="dismiss.emit()"></div>
+<div
+  class="studio panel fade-in"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="studio-title"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <header class="top">
+    <span class="eyebrow signal">{{ widget() ? 'Edit widget' : 'New widget' }}</span>
+    <h2 id="studio-title" class="visually-hidden">Widget Studio</h2>
+    <input
+      class="input title"
+      [ngModel]="d.title"
+      (ngModelChange)="edit({ title: $event })"
+      [placeholder]="title()"
+      aria-label="Widget title"
+    />
+    <span class="spacer"></span>
+    <button class="btn ghost" (click)="dismiss.emit()">Cancel</button>
+    <button class="btn signal" (click)="save()" [disabled]="issues().length > 0 || saving()">
+      {{ saving() ? 'Saving…' : widget() ? 'Save changes' : 'Add to dashboard' }}
+    </button>
+  </header>
+
+  <div class="body">
+    <!-- ── Data panel ─────────────────────────────────────────── -->
+    <aside class="data" aria-label="Data">
+      <section>
+        <h4>Chart</h4>
+        <div class="kinds" role="radiogroup" aria-label="Chart type">
+          @for (k of kinds; track k.kind) {
+            <button
+              class="kind"
+              role="radio"
+              [attr.aria-checked]="d.kind === k.kind"
+              [class.on]="d.kind === k.kind"
+              (click)="setKind(k.kind)"
+              [title]="k.label"
+            >
+              <app-icon [name]="k.icon" [size]="20" /><span>{{ k.label }}</span>
+            </button>
+          }
+        </div>
+        @if (notice(); as n) {
+          <p class="notice small" role="status">{{ n }}</p>
+        }
+      </section>
+
+      <section>
+        <label class="field"
+          >Data model
+          <select class="select" [ngModel]="d.model" (ngModelChange)="setModel($event)">
+            @for (m of catalog(); track m.key) {
+              <option [value]="m.key">{{ m.name }}</option>
+            }
+          </select>
+        </label>
+      </section>
+
+      @for (w of def().wells; track w.key) {
+        <section class="well">
+          <h4>
+            {{ w.label }}
+            @if (w.min === 0) {
+              <span class="opt">optional</span>
+            }
+          </h4>
+          @if (w.hint) {
+            <p class="muted small hint">{{ w.hint }}</p>
+          }
+
+          @if (w.key === 'values') {
+            @for (v of d.values; track $index; let i = $index) {
+              <div class="pill value" [class.open]="openValue() === i">
+                <button
+                  class="pill-main"
+                  (click)="openValue.set(openValue() === i ? null : i)"
+                  [attr.aria-expanded]="openValue() === i"
+                  [attr.aria-label]="'Options for ' + valueLabel(v)"
+                >
+                  <span
+                    class="dot"
+                    [style.background]="'var(--series-' + (d.viz.colors?.[keyOf(v)] ?? i + 1) + ')'"
+                  ></span>
+                  <span class="txt">{{ valueLabel(v) }}</span>
+                  @if (sortDir(keyOf(v)); as dir) {
+                    <app-icon [name]="dir === 'asc' ? 'arrowUp' : 'arrowDown'" [size]="12" />
+                  }
+                  <span class="more" aria-hidden="true">⋯</span>
+                </button>
+                <button class="x" (click)="removeValue(i)" [attr.aria-label]="'Remove ' + valueLabel(v)">
+                  <app-icon name="close" [size]="12" />
+                </button>
+              </div>
+              @if (openValue() === i) {
+                @let key = keyOf(v);
+                <div class="menu">
+                  <label class="field"
+                    >Quick function
+                    <select class="select" [ngModel]="v.fn ?? ''" (ngModelChange)="setQuickFunction(i, $event)">
+                      <option value="">None — show the value</option>
+                      @for (q of quickFunctions; track q.fn) {
+                        @let why = blocker(v, q.fn);
+                        <option [value]="q.fn" [disabled]="!!why">{{ q.label }}{{ why ? ' — ' + why : '' }}</option>
+                      }
+                    </select>
+                  </label>
+                  @if (v.fn === 'moving_average') {
+                    <label class="field"
+                      >Window (periods)
+                      <input
+                        class="input"
+                        type="number"
+                        min="2"
+                        max="24"
+                        [ngModel]="v.window ?? 3"
+                        (ngModelChange)="updateValue(i, { window: $event })"
+                      />
+                    </label>
+                  }
+                  @if (v.fn === 'difference' || v.fn === 'percent_change' || v.fn === 'moving_average') {
+                    <p class="muted small">Compared with the previous period returned.</p>
+                  }
+                  <div class="field">
+                    <span>Sort</span>
+                    <div class="seg mini" role="radiogroup" aria-label="Sort">
+                      <button [class.on]="!sortDir(key)" (click)="sortBy(key, null)">None</button>
+                      <button [class.on]="sortDir(key) === 'desc'" (click)="sortBy(key, 'desc')">Largest</button>
+                      <button [class.on]="sortDir(key) === 'asc'" (click)="sortBy(key, 'asc')">Smallest</button>
+                    </div>
+                  </div>
+                </div>
+              }
+            }
+            @if (d.values.length < (valuesWell()?.max ?? 0)) {
+              <select
+                class="select add"
+                #pick
+                (change)="addValue(pick.value); pick.value = ''"
+                aria-label="Add a value"
+              >
+                <option value="" disabled selected>+ Add value</option>
+                @for (m of model()?.metrics ?? []; track m.key) {
+                  <option [value]="m.key">{{ m.label }}</option>
+                }
+              </select>
+            }
+          } @else {
+            @let field = fieldOf(w.key);
+            @if (field) {
+              <div class="pill">
+                <span class="pill-main static">
+                  <app-icon [name]="field === TIME ? 'calendar' : 'layers'" [size]="13" />
+                  <span class="txt">{{ dimensionLabel(field) }}</span>
+                </span>
+                @if (field === TIME) {
+                  <select
+                    class="grain"
+                    [ngModel]="d.grain"
+                    (ngModelChange)="edit({ grain: $event })"
+                    aria-label="Time grain"
+                  >
+                    @for (g of grains; track g) {
+                      <option [value]="g">by {{ g }}</option>
+                    }
+                  </select>
+                } @else if (w.key === 'category') {
+                  <button
+                    class="x"
+                    (click)="
+                      sortBy(field, sortDir(field) === 'asc' ? 'desc' : sortDir(field) === 'desc' ? null : 'asc')
+                    "
+                    [attr.aria-label]="'Sort ' + dimensionLabel(field) + ' alphabetically'"
+                    [title]="sortDir(field) === 'asc' ? 'A → Z' : sortDir(field) === 'desc' ? 'Z → A' : 'Sort A → Z'"
+                  >
+                    <app-icon [name]="sortDir(field) === 'desc' ? 'arrowUp' : 'arrowDown'" [size]="12" />
+                  </button>
+                }
+                <button class="x" (click)="setField(w.key, null)" [attr.aria-label]="'Remove ' + dimensionLabel(field)">
+                  <app-icon name="close" [size]="12" />
+                </button>
+              </div>
+            } @else {
+              @let opts = fieldOptions(w.key);
+              <select
+                class="select add"
+                #pick
+                (change)="setField(w.key, pick.value)"
+                [attr.aria-label]="'Set ' + w.label"
+              >
+                <option value="" disabled selected>+ {{ w.label }}</option>
+                @if (opts.time) {
+                  <option [value]="TIME">{{ timeLabel() }} (time)</option>
+                }
+                @for (dim of opts.dimensions; track dim.key) {
+                  <option [value]="dim.key" [disabled]="!dim.accessible">{{ optionLabel(dim) }}</option>
+                }
+              </select>
+            }
+          }
+        </section>
+      }
+
+      <section>
+        <label class="field"
+          >Date range
+          <select class="select" [ngModel]="d.range" (ngModelChange)="edit({ range: $event })">
+            @for (r of ranges; track r.key) {
+              <option [value]="r.key">{{ r.label }}</option>
+            }
+          </select>
+        </label>
+      </section>
+
+      <section class="well">
+        <h4>Filters <span class="opt">this widget only</span></h4>
+        @for (c of filterChips(); track $index; let i = $index) {
+          <div class="pill">
+            <button class="pill-main" (click)="editFilter(i)" [attr.aria-label]="'Edit filter: ' + c">
+              <app-icon name="filter" [size]="12" /><span class="txt">{{ c }}</span>
+            </button>
+            <button class="x" (click)="removeFilter(i)" [attr.aria-label]="'Remove filter: ' + c">
+              <app-icon name="close" [size]="12" />
+            </button>
+          </div>
+        }
+        @if (filterTarget(); as ft) {
+          <div class="menu">
+            <b class="small">{{ ft.target.label }}</b>
+            <app-filter-editor
+              [target]="ft.target"
+              [initial]="ft.index === null ? null : d.filters[ft.index]"
+              [metrics]="rankMetrics()"
+              [loadMembers]="members(ft.target.key)"
+              (apply)="applyFilter($event)"
+              (dismiss)="filterTarget.set(null)"
+            />
+          </div>
+        } @else {
+          <select
+            class="select add"
+            #pick
+            (change)="startFilter(pick.value); pick.value = ''"
+            aria-label="Add a filter"
+          >
+            <option value="" disabled selected>+ Filter</option>
+            @for (dim of dimensions(); track dim.key) {
+              <option [value]="dim.key" [disabled]="!dim.accessible">{{ dim.label }}</option>
+            }
+          </select>
+        }
+      </section>
+
+      @if (d.kind !== 'kpi') {
+        <section class="well">
+          <h4>Value filters <span class="opt">on totals</span></h4>
+          @for (h of d.having; track $index; let i = $index) {
+            <div class="having">
+              <select
+                class="select"
+                [ngModel]="h.metric"
+                (ngModelChange)="updateHaving(i, { metric: $event })"
+                aria-label="Value"
+              >
+                @for (m of model()?.metrics ?? []; track m.key) {
+                  <option [value]="m.key">{{ m.label }}</option>
+                }
+              </select>
+              <select
+                class="select op"
+                [ngModel]="h.op"
+                (ngModelChange)="updateHaving(i, { op: $event })"
+                aria-label="Comparison"
+              >
+                @for (o of havingOps; track o.op) {
+                  <option [value]="o.op">{{ o.label }}</option>
+                }
+              </select>
+              <input
+                class="input"
+                type="number"
+                [ngModel]="havingBound(h, 0)"
+                (ngModelChange)="setHavingBound(i, 0, $event)"
+                aria-label="Threshold"
+              />
+              @if (isRange(h.op)) {
+                <input
+                  class="input"
+                  type="number"
+                  [ngModel]="havingBound(h, 1)"
+                  (ngModelChange)="setHavingBound(i, 1, $event)"
+                  aria-label="Upper threshold"
+                />
+              }
+              <button class="btn icon sm ghost" (click)="removeHaving(i)" aria-label="Remove value filter">✕</button>
+            </div>
+          }
+          <select
+            class="select add"
+            #pick
+            (change)="addHaving(pick.value); pick.value = ''"
+            aria-label="Add a value filter"
+          >
+            <option value="" disabled selected>+ Value filter</option>
+            @for (m of model()?.metrics ?? []; track m.key) {
+              <option [value]="m.key">{{ m.label }}</option>
+            }
+          </select>
+          @if (d.having.length) {
+            <p class="muted small">Keeps only groups whose total qualifies, e.g. institutions with SLA below 0.85.</p>
+          }
+        </section>
+      }
+    </aside>
+
+    <!-- ── Preview ────────────────────────────────────────────── -->
+    <main class="preview" aria-live="polite" aria-label="Preview">
+      <div class="stage panel">
+        <div class="stage-head">
+          <b>{{ title() }}</b
+          ><span class="spacer"></span>
+          @if (running()) {
+            <span class="muted small">Running governed query…</span>
+          }
+        </div>
+        @if (issues().length) {
+          <div class="empty">
+            <app-icon [name]="def().icon" [size]="40" />
+            <ul>
+              @for (p of issues(); track p) {
+                <li>{{ p }}</li>
+              }
+            </ul>
+          </div>
+        } @else if (previewError(); as e) {
+          <div class="empty err" role="alert">
+            <app-icon name="warning" [size]="24" />
+            <p>{{ e }}</p>
+          </div>
+        } @else if (!preview()) {
+          <div class="skeleton fill"></div>
+        } @else {
+          <div class="canvas" [class.dim]="running()">
+            @switch (def().widgetType) {
+              @case ('kpi') {
+                <div class="kpis">
+                  @for (c of cards() ?? []; track c.ref) {
+                    <app-kpi [card]="c" />
+                  }
+                </div>
+              }
+              @case ('table') {
+                @if (result(); as r) {
+                  <div class="scroll"><app-result-table [result]="r" [viz]="viz()" /></div>
+                }
+              }
+              @case ('pivot') {
+                @if (result(); as r) {
+                  <div class="scroll"><app-pivot-table [result]="r" [viz]="viz()" /></div>
+                }
+              }
+              @default {
+                @if (chartSpec(); as spec) {
+                  <app-chart [spec]="spec" [height]="380" [ariaLabel]="title()" />
+                }
+              }
+            }
+          </div>
+        }
+      </div>
+      @if (result(); as r) {
+        <p class="meta muted small">
+          {{ r.meta.row_count }} rows{{ r.meta.truncated ? ' (limited)' : '' }} · {{ r.meta.duration_ms }} ms{{
+            r.meta.cached ? ' · cached' : ''
+          }}
+          · governed by your data access
+        </p>
+        @if (r.meta.sql; as sql) {
+          <details class="sql">
+            <summary class="small">SQL</summary>
+            <pre class="mono">{{ sql }}</pre>
+          </details>
+        }
+      }
+      @if (saveError(); as e) {
+        <p class="err small" role="alert">{{ e }}</p>
+      }
+    </main>
+
+    <!-- ── Design panel ───────────────────────────────────────── -->
+    <aside class="design-col" aria-label="Design">
+      <h4 class="col-head">Design</h4>
+      <app-design-panel
+        [kind]="d.kind"
+        [subtype]="d.subtype"
+        [viz]="d.viz"
+        [limit]="d.limit"
+        [series]="series()"
+        [additive]="additive()"
+        (designChange)="design($event)"
+      />
+    </aside>
+  </div>
+</div>

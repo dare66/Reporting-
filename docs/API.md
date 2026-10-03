@@ -57,8 +57,8 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 - **Saved defaults.** `dashboard.filters` holds the defaults as `[{dimension, op, value, label?, disabled?}]`, set with `PATCH /dashboards/{id}`.
 - **Viewer's filter set.** Widget data takes `{filters}`, the viewer's current set, which replaces the defaults.
   - Paused (`disabled`) filters are skipped.
-  - Each filter applies only to widgets whose model has that dimension.
-- **`filter_dimensions`.** `GET /dashboards/{id}` returns the filterable dimensions as `[{key, label, type, models}]`, excluding time dimensions and any sensitive dimensions the user cannot access.
+  - Each filter applies only to widgets whose model has that dimension; a ranking filter also needs its metric there.
+- **`filter_dimensions` and `filter_metrics`.** `GET /dashboards/{id}` returns the filterable dimensions as `[{key, label, type, models}]`, excluding time dimensions and any sensitive dimensions the user cannot access. It also returns the metrics the widgets show, as `[{key, label, models}]`, for ranking filters.
 - **Picking members.** `GET /dashboards/{id}/filter-members?dimension=&search=` (dashboards.view) lists members for dashboard viewers who lack query rights. It is scoped to the dashboard's models and limited by row-level security.
 
 ## Reports

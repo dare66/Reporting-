@@ -9,6 +9,7 @@ import {
   QueryFilter,
   QueryResult,
   SemanticQuery,
+  VizOptions,
 } from '../../core/models';
 import { Auth } from '../../core/auth.service';
 import { RANGES, fmt } from '../../core/format';
@@ -17,12 +18,16 @@ import { ChartSpec, specFromQuery } from '../../shared/chart-spec';
 import { Icon } from '../../shared/icon';
 import { ErrorState, Working } from '../../shared/states';
 
-const VIZ = [
+type ChartChoice = NonNullable<VizOptions['type']>;
+
+const VIZ: { key: ChartChoice | 'auto'; label: string }[] = [
   { key: 'auto', label: 'Recommended' },
   { key: 'line', label: 'Line' },
   { key: 'area', label: 'Area' },
   { key: 'bar', label: 'Bar' },
   { key: 'donut', label: 'Donut' },
+  { key: 'pie', label: 'Pie' },
+  { key: 'treemap', label: 'Treemap' },
   { key: 'funnel', label: 'Funnel' },
   { key: 'heatmap', label: 'Heatmap' },
   { key: 'map', label: 'Map' },
@@ -77,7 +82,7 @@ export class Explore implements OnInit {
   readonly grain = signal<Grain | null>('month');
   readonly range = signal('last_12_months');
   readonly filters = signal<MemberFilter[]>([]);
-  readonly viz = signal('auto');
+  readonly viz = signal<ChartChoice | 'auto'>('auto');
   readonly result = signal<QueryResult | null>(null);
   readonly error = signal<string | null>(null);
   readonly loading = signal(false);
@@ -93,7 +98,7 @@ export class Explore implements OnInit {
   readonly dims = computed(() =>
     (this.model()?.dimensions ?? []).filter((d) => d.type !== 'time' && d.accessible && !d.key.endsWith('_code')),
   );
-  readonly recommended = computed(() => {
+  readonly recommended = computed<ChartChoice>(() => {
     if (this.grain() && this.dimension()) return 'heatmap';
     if (this.grain()) return this.metricFormat() === 'percent' ? 'line' : 'area';
     if (this.dimension() === 'country') return 'map';
@@ -106,7 +111,8 @@ export class Explore implements OnInit {
   readonly spec = computed<ChartSpec | null>(() => {
     const r = this.result();
     if (!r) return null;
-    const type = this.viz() === 'auto' ? this.recommended() : this.viz();
+    const choice = this.viz();
+    const type = choice === 'auto' ? this.recommended() : choice;
     return specFromQuery(r, { type, orientation: r.rows.length > 6 ? 'horizontal' : undefined });
   });
   readonly reason = computed(() => VIZ_REASONS[this.recommended()]);

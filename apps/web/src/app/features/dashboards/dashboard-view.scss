@@ -10,9 +10,26 @@
   height: 48px;
   max-width: 520px;
 }
-.filter {
-  width: auto;
-  min-width: 170px;
+.filters {
+  margin: 0 0 16px;
+}
+.quick-edit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.15s;
+  background: var(--bg-2);
+}
+.cell:hover .quick-edit,
+.quick-edit:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .quick-edit {
+    opacity: 0.8;
+  }
 }
 .grid {
   display: grid;
@@ -106,23 +123,6 @@
 }
 .small {
   font-size: 11.5px;
-}
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 60;
-}
-.add {
-  position: fixed;
-  z-index: 61;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(440px, calc(100vw - 24px));
-  padding: 20px;
-  display: grid;
-  gap: 14px;
 }
 @media (max-width: 720px) {
   .grid {

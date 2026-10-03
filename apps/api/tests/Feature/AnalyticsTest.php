@@ -82,6 +82,13 @@ class AnalyticsTest extends SeededTestCase
         Http::assertSent(fn ($req) => $req['grain'] === 'month' && $req['horizon'] === 6 && count($req['series']) >= 20);
     }
 
+    public function test_an_unreachable_engine_is_a_clear_503_not_a_server_error(): void
+    {
+        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('refused'));
+        $this->as('analyst@northstar.demo')->postJson('/api/v1/analysis/forecast', ['metric' => 'decisions.sla_compliance', 'horizon' => '6m'])
+            ->assertStatus(503)->assertJsonPath('error.code', 'engine_unavailable');
+    }
+
     public function test_home_screen_ranks_what_needs_attention(): void
     {
         $data = $this->as('ceo@northstar.demo')->getJson('/api/v1/home')->assertOk()->json('data');

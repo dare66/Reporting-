@@ -1,0 +1,51 @@
+.fe {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.seg {
+  justify-self: start;
+}
+.pair {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pair .select {
+  flex: 0 0 auto;
+  width: auto;
+}
+.n {
+  width: 90px;
+}
+.members {
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: opacity 0.15s;
+}
+.members.busy {
+  opacity: 0.55;
+}
+.member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  cursor: pointer;
+}
+.member:hover {
+  background: var(--bg-3);
+}
+.small {
+  font-size: 12px;
+}
+.actions {
+  padding-top: 4px;
+}
