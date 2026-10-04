@@ -27,9 +27,11 @@ Route::prefix('auth')->group(function () {
 });
 Route::post('ingest/webhook/{id}/{token}', [DataController::class, 'webhook'])->middleware('throttle:api');
 
-Route::middleware(['auth.jwt', 'throttle:api'])->group(function () {
+Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
+    Route::patch('me', [AuthController::class, 'updateProfile']);
+    Route::post('me/password', [AuthController::class, 'changePassword']);
     Route::patch('me/preferences', [AuthController::class, 'updatePreferences']);
     Route::post('me/mfa/setup', [AuthController::class, 'setupMfa']);
     Route::post('me/mfa/enable', [AuthController::class, 'enableMfa']);
@@ -192,18 +194,29 @@ Route::middleware(['auth.jwt', 'throttle:api'])->group(function () {
         Route::middleware('perm:admin.users')->group(function () {
             Route::get('users', [AdminController::class, 'users']);
             Route::post('users', [AdminController::class, 'storeUser']);
+            Route::get('users/{id}', [AdminController::class, 'showUser']);
             Route::patch('users/{id}', [AdminController::class, 'updateUser']);
+            Route::post('users/{id}/reset-password', [AdminController::class, 'resetPassword']);
+            Route::delete('users/{id}/mfa', [AdminController::class, 'resetMfa']);
+            Route::delete('users/{id}/sessions', [AdminController::class, 'revokeSessions']);
+            Route::get('departments', [AdminController::class, 'departments']);
         });
         Route::middleware('perm:admin.roles,admin.users')->group(function () {
             Route::get('roles', [AdminController::class, 'roles']);
             Route::get('permissions', [AdminController::class, 'permissions']);
         });
-        Route::post('roles', [AdminController::class, 'storeRole'])->middleware('perm:admin.roles');
+        Route::middleware('perm:admin.roles')->group(function () {
+            Route::post('roles', [AdminController::class, 'storeRole']);
+            Route::patch('roles/{id}', [AdminController::class, 'updateRole']);
+            Route::delete('roles/{id}', [AdminController::class, 'deleteRole']);
+        });
         Route::middleware('perm:admin.org')->group(function () {
             Route::get('organisation', [AdminController::class, 'organisation']);
             Route::patch('organisation', [AdminController::class, 'updateOrganisation']);
             Route::get('feature-flags', [AdminController::class, 'flags']);
             Route::put('feature-flags/{key}', [AdminController::class, 'setFlag']);
+            Route::get('security-policy', [AdminController::class, 'securityPolicy']);
+            Route::put('security-policy', [AdminController::class, 'updateSecurityPolicy']);
         });
         Route::get('health', [AdminController::class, 'health'])->middleware('perm:admin.system');
     });

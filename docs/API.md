@@ -9,9 +9,18 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 | POST | `/auth/mfa/verify` | TOTP code |
 | POST | `/auth/refresh` | rotating; reuse revokes the family |
 | POST | `/auth/logout` | revokes refresh token |
-| GET | `/me` · PATCH `/me/preferences` | profile, permissions, experience tier, data scope |
+| GET | `/me` | profile, permissions, experience tier, data scope, `must_change_password`, `security.{mfa_required, password_min_length}` |
+| PATCH | `/me` | own name and title |
+| POST | `/me/password` | `{current_password, password, password_confirmation, refresh_token?}` under the organisation's policy; ends every other session |
+| PATCH | `/me/preferences` | known keys only: `theme`, `accent`, `home_dashboard`, `date_format`, `default_range`, `notifications.{alert,anomaly,report,mention}.{email,push}`. In-app notifications are always kept. |
 | POST | `/me/mfa/setup` · `/me/mfa/enable` · DELETE `/me/mfa` | |
 | GET/DELETE | `/me/sessions[/{id}]` | session management |
+
+**Security policy enforcement.** A request is refused with 403 in two cases:
+- `password_change_required`: an administrator reset or set the account's password.
+- `mfa_enrolment_required`: the organisation requires MFA for this account and it is not enrolled yet.
+
+While an account is held, only `GET /me`, `POST /me/password`, `POST /me/mfa/setup|enable` and `POST /auth/logout` stay open.
 
 ## Semantic layer & queries
 | Method | Path | Permission |
@@ -74,7 +83,7 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 `GET/POST /ai/conversations`, `GET/DELETE /ai/conversations/{id}`, `POST /ai/runs`, `POST /ai/runs/{id}/feedback`.
 
 ## Governance & admin
-`GET /governance/audit-logs` (audit.view), `GET /governance/ai`, `/governance/ai/runs/{id}`, `/governance/data-quality`; `GET/POST/PATCH /admin/users`, `GET /admin/roles|permissions`, `POST /admin/roles`, `GET/PATCH /admin/organisation`, `GET/PUT /admin/feature-flags[/{key}]`, `GET /admin/health`; comments & bookmarks: `GET/POST /comments`, `POST /comments/{id}/resolve`, `GET /bookmarks`, `POST /bookmarks/toggle`.
+`GET /governance/audit-logs` (audit.view), `GET /governance/ai`, `/governance/ai/runs/{id}`, `/governance/data-quality`; `GET /admin/users?q=&role=&status=&department_id=`, `GET/PATCH /admin/users/{id}` (the detail includes sessions and the last 25 audit events), `POST /admin/users` (the password follows policy and the email domain must be allowed; the person must change the password at first sign-in), `POST /admin/users/{id}/reset-password` (returns a one-time password once and ends every session), `DELETE /admin/users/{id}/mfa`, `DELETE /admin/users/{id}/sessions`, `GET /admin/departments`, `GET /admin/roles|permissions`, `POST/PATCH/DELETE /admin/roles[/{id}]` (custom roles only; a role cannot be deleted while people hold it), `GET/PUT /admin/security-policy` (`password_min_length` 12–64, `require_mfa` none, admins or all, `allowed_email_domains`), `GET/PATCH /admin/organisation`, `GET/PUT /admin/feature-flags[/{key}]`, `GET /admin/health`; comments & bookmarks: `GET/POST /comments`, `POST /comments/{id}/resolve`, `GET /bookmarks`, `POST /bookmarks/toggle`.
 
 ## AI service (`/ai-api/v1`)
 | Method | Path | Auth |

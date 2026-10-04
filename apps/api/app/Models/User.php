@@ -6,6 +6,7 @@ use App\Support\Tenancy\BelongsToOrganisation;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class User extends Authenticatable
@@ -28,6 +29,8 @@ class User extends Authenticatable
             'mfa_secret' => 'encrypted',
             'mfa_enabled' => 'boolean',
             'last_login_at' => 'datetime',
+            'must_change_password' => 'boolean',
+            'password_changed_at' => 'datetime',
         ];
     }
 
@@ -91,5 +94,11 @@ class User extends Authenticatable
     public function attribute(string $key): mixed
     {
         return ($this->getAttribute('attributes') ?? [])[$key] ?? null;
+    }
+
+    /** @return HasMany<RefreshToken, $this> */
+    public function refreshTokens(): HasMany
+    {
+        return $this->hasMany(RefreshToken::class);
     }
 }

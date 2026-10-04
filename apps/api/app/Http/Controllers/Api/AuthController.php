@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Identity\JwtService;
+use App\Domain\Identity\SecurityPolicy;
 use App\Domain\Identity\Totp;
+use App\Domain\Notifications\Notifier;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\RefreshToken;
@@ -85,13 +87,64 @@ class AuthController extends Controller
         return new UserResource($request->user()->load('roles', 'department', 'team', 'organisation'));
     }
 
+    /** The person's own name and title; roles, scope and email stay with administrators. */
+    public function updateProfile(Request $request): UserResource
+    {
+        $user = $request->user();
+        $user->update($request->validate(['name' => 'sometimes|string|min:2|max:160', 'title' => 'sometimes|nullable|string|max:160']));
+        $this->audit->record('auth.profile_updated', ['resource_type' => 'user', 'resource_id' => $user->id]);
+
+        return new UserResource($user->load('roles', 'department', 'team', 'organisation'));
+    }
+
+    /**
+     * Changes the password under the organisation's policy. Every other session
+     * ends; the one making the change stays signed in.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $policy = SecurityPolicy::for($user->organisation);
+        $data = $request->validate(['current_password' => 'required|string', 'password' => $policy->passwordRules().'|confirmed|different:current_password']);
+        if (! Hash::check($data['current_password'], $user->password)) {
+            $this->audit->record('auth.password_change', ['decision' => 'deny', 'result' => 'failure']);
+
+            return response()->json(['error' => ['code' => 'invalid_credentials', 'message' => 'Your current password is not correct.']], 422);
+        }
+        $user->update(['password' => $data['password'], 'must_change_password' => false, 'password_changed_at' => now()]);
+        $keep = $request->input('refresh_token') ? hash('sha256', (string) $request->input('refresh_token')) : null;
+        RefreshToken::where('user_id', $user->id)->whereNull('revoked_at')->when($keep, fn ($q) => $q->where('token_hash', '!=', $keep))->update(['revoked_at' => now()]);
+        $this->audit->record('auth.password_changed');
+
+        return response()->json(['data' => new UserResource($user->load('roles', 'department', 'team', 'organisation'))]);
+    }
+
+    /** Preferences with a known shape only, so stored settings stay meaningful. */
     public function updatePreferences(Request $request): UserResource
     {
-        $data = $request->validate(['preferences' => 'required|array']);
-        $user = $request->user();
-        $user->update(['preferences' => array_merge($user->preferences ?? [], $data['preferences'])]);
+        $data = $request->validate([
+            'preferences' => 'required|array',
+            'preferences.theme' => 'sometimes|in:dark,light,system',
+            'preferences.accent' => 'sometimes|string|max:30',
+            'preferences.home_dashboard' => 'sometimes|nullable|uuid',
+            'preferences.date_format' => 'sometimes|in:day_month,month_day,iso',
+            'preferences.default_range' => 'sometimes|in:last_7_days,last_30_days,last_90_days,this_month,this_quarter,last_12_months',
+            'preferences.notifications' => 'sometimes|array',
+            'preferences.notifications.*' => 'array',
+            'preferences.notifications.*.email' => 'sometimes|boolean',
+            'preferences.notifications.*.push' => 'sometimes|boolean',
+        ]);
+        // Validated data keeps only keys with rules, so unknown keys are checked on the raw input.
+        $raw = (array) $request->input('preferences');
+        $unknown = array_diff(array_keys($raw), ['theme', 'accent', 'home_dashboard', 'date_format', 'default_range', 'notifications']);
+        abort_if($unknown !== [], 422, 'Unknown preference: '.implode(', ', $unknown).'.');
+        $categories = array_diff(array_keys((array) ($raw['notifications'] ?? [])), Notifier::CATEGORIES);
+        abort_if($categories !== [], 422, 'Unknown notification category: '.implode(', ', $categories).'.');
 
-        return new UserResource($user->load('roles', 'organisation'));
+        $user = $request->user();
+        $user->update(['preferences' => array_replace_recursive($user->preferences ?? [], $data['preferences'] ?? [])]);
+
+        return new UserResource($user->load('roles', 'department', 'team', 'organisation'));
     }
 
     public function setupMfa(Request $request): JsonResponse
@@ -118,6 +171,7 @@ class AuthController extends Controller
 
     public function disableMfa(Request $request): JsonResponse
     {
+        abort_if(SecurityPolicy::for($request->user()->organisation)->mfaRequiredFor($request->user()), 422, 'Your organisation requires two-factor authentication for your account.');
         $request->user()->update(['mfa_enabled' => false, 'mfa_secret' => null]);
         $this->audit->record('auth.mfa_disabled');
 

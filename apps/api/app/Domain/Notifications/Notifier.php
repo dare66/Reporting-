@@ -16,6 +16,9 @@ use Throwable;
  */
 class Notifier
 {
+    /** Notification types people can tune in their settings. */
+    public const CATEGORIES = ['alert', 'anomaly', 'report', 'mention'];
+
     public function __construct(private readonly PushGateway $push) {}
 
     /**
@@ -47,7 +50,7 @@ class Notifier
     /** @param  Payload  $payload */
     private function deliver(User $user, array $payload): void
     {
-        $channels = $payload['channels'] ?? ['in_app'];
+        $channels = self::channelsFor($user, $payload['type'], $payload['channels'] ?? ['in_app']);
         $notification = AppNotification::create([
             'organisation_id' => $user->organisation_id,
             'user_id' => $user->id,
@@ -70,5 +73,22 @@ class Notifier
                 logger()->warning('notify.email_failed', ['user' => $user->id, 'error' => $e->getMessage()]);
             }
         }
+    }
+
+    /**
+     * The sender's channels narrowed by the person's preferences. In-app is the
+     * record and always kept; email and push can be turned off per category.
+     *
+     * @param  list<string>  $requested
+     * @return list<string>
+     */
+    public static function channelsFor(User $user, string $type, array $requested): array
+    {
+        $prefs = (array) (($user->preferences ?? [])['notifications'][$type] ?? []);
+
+        return array_values(array_filter(
+            array_unique(['in_app', ...$requested]),
+            fn ($channel) => $channel === 'in_app' || ($prefs[$channel] ?? true) !== false,
+        ));
     }
 }

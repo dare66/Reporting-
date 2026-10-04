@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Domain\Identity\SecurityPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -33,6 +34,17 @@ class UserResource extends JsonResource
             // An object even when empty, so clients receive {} rather than [].
             'preferences' => (object) ($this->preferences ?? []),
             'mfa_enabled' => $this->mfa_enabled,
+            'must_change_password' => (bool) $this->must_change_password,
+            'department_id' => $this->department_id,
+            'team_id' => $this->team_id,
+            'active_sessions' => $this->whenCounted('active_sessions'),
+            'created_at' => $this->created_at?->toIso8601String(),
+            // What the organisation's policy asks of this account, so the UI can guide rather than fail.
+            'security' => $this->whenLoaded('organisation', function () {
+                $policy = SecurityPolicy::for($this->organisation);
+
+                return ['mfa_required' => $policy->mfaRequiredFor($this->resource), 'password_min_length' => $policy->passwordMinLength];
+            }),
             'last_login_at' => $this->last_login_at?->toIso8601String(),
         ];
     }

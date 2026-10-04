@@ -5,6 +5,7 @@ use App\Domain\Query\QueryDeniedException;
 use App\Domain\Query\QueryExecutionException;
 use App\Domain\Query\QueryValidationException;
 use App\Http\Middleware\AuthenticateJwt;
+use App\Http\Middleware\EnforceSecurityPolicy;
 use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.jwt' => AuthenticateJwt::class,
             'perm' => RequirePermission::class,
+            'policy' => EnforceSecurityPolicy::class,
         ]);
         $middleware->append(SecurityHeaders::class);
     })
