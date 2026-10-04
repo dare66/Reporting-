@@ -116,6 +116,9 @@ await step('a platform role is duplicated, tailored and removed', async () => {
 
 await step('the security policy shows and saves its rules', async () => {
   await admin.getByRole('button', { name: 'Security policy' }).click();
+  // Let the freshly rendered form bind before typing (a person cannot type within milliseconds of it appearing).
+  await admin.getByText('Minimum password length').waitFor();
+  await admin.waitForTimeout(500);
   await admin.getByLabel('Add an email domain').fill('northstar.demo');
   await admin.getByRole('button', { name: 'Add', exact: true }).click();
   await admin.getByRole('button', { name: 'Save policy' }).click();

@@ -1,5 +1,5 @@
-# Full local stack: docker compose up --build   →   http://localhost:8080
-# First run seeds the demo tenant (≈1 min): docker compose run --rm api php artisan migrate --seed --force
+# Full local stack, one command:   docker compose up -d --build   →   http://localhost:8080
+# The one-shot "setup" service migrates the database and seeds the demo tenant on first run.
 x-api-env: &api-env
   APP_ENV: production
   APP_KEY: ${APP_KEY:-base64:YmUhd7oFd1aIWbkuDx+MkWMe0oY4FGI7cWW2RZcsiC4=}
@@ -27,37 +27,51 @@ x-api-env: &api-env
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment: { POSTGRES_DB: aixbi, POSTGRES_USER: aixbi, POSTGRES_PASSWORD: "${DB_PASSWORD:-aixbi}" }
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U aixbi"], interval: 5s, retries: 20 }
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes: [redisdata:/data]
+
+  # Runs once per start: migrations always, demo seed only into an empty database.
+  setup:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    environment: *api-env
+    command: ["php", "artisan", "aixbi:install"]
+    restart: "no"
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started } }
 
   api:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
     environment: *api-env
-    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started } }
+    restart: unless-stopped
+    depends_on: { setup: { condition: service_completed_successfully } }
     volumes: [exports:/var/www/storage/app]
 
   worker:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
     environment: *api-env
     command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=300"]
-    depends_on: [api]
+    restart: unless-stopped
+    depends_on: { setup: { condition: service_completed_successfully } }
     volumes: [exports:/var/www/storage/app]
 
   scheduler:
     build: { context: ., dockerfile: infra/docker/api.Dockerfile }
     environment: *api-env
     command: ["php", "artisan", "schedule:work"]
-    depends_on: [api]
+    restart: unless-stopped
+    depends_on: { setup: { condition: service_completed_successfully } }
     volumes: [exports:/var/www/storage/app]
 
   ai:
     build: { context: ., dockerfile: infra/docker/ai.Dockerfile }
+    restart: unless-stopped
     environment:
       AIXBI_API_URL: http://web:8080/api/v1
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-0123456789abcdef0123}
@@ -69,7 +83,8 @@ services:
 
   web:
     build: { context: ., dockerfile: infra/docker/web.Dockerfile }
-    ports: ["8080:8080"]
+    ports: ["${AIXBI_PORT:-8080}:8080"]
+    restart: unless-stopped
     depends_on: [api, ai]
 
 volumes: { pgdata: {}, redisdata: {}, exports: {} }

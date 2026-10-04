@@ -11,3 +11,4 @@ coverage/
 .DS_Store
 services/ai/.venv/
 tests/e2e/node_modules
+.verify-ca.crt

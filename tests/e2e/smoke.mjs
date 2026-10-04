@@ -52,7 +52,7 @@ await step('dashboard renders widgets', async () => {
 
 await step('report generation from a template', async () => {
   await page.goto(BASE + '/reports');
-  await page.getByRole('button', { name: 'Create report' }).click();
+  await page.getByRole('button', { name: 'Create report' }).first().click();
   await page.getByRole('button', { name: /Operations/ }).click();
   await page.locator('.area').first().click();
   await page.getByRole('button', { name: 'Generate report' }).click();

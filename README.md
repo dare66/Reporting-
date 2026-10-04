@@ -51,15 +51,16 @@ An AI-native BI platform. You ask a business question; a governed AI analyst pla
 
 ## Quickstart
 
-With Docker:
+Run it on your PC with Docker:
 
-```bash
-docker compose up --build
-docker compose run --rm api php artisan migrate --seed --force
-open http://localhost:8080
-```
+- **Windows:** double-click `start.bat`.
+- **macOS / Linux:** run `./start.sh`.
 
-To run without containers, see [docs/OPERATIONS.md](docs/OPERATIONS.md). Set `ANTHROPIC_API_KEY` in the AI service to enable the Claude planner and narrator. Without it, the deterministic planner answers the same questions.
+Then open <http://localhost:8080>. The first start builds the images and seeds the demo organisation, which takes 5–15 minutes.
+
+Full guide: [docs/RUN-LOCALLY.md](docs/RUN-LOCALLY.md). Equivalent command: `docker compose up -d --build`.
+
+To run without containers, for development, see [docs/OPERATIONS.md](docs/OPERATIONS.md). Set `ANTHROPIC_API_KEY` in `.env` to enable the Claude planner and narrator. Without it, the deterministic planner answers the same questions.
 
 ## Demo personas
 

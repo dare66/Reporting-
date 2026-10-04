@@ -1,0 +1,18 @@
+# Keep build contexts small and free of local state; images install their own dependencies.
+.git
+**/node_modules
+**/.angular
+**/dist
+apps/api/vendor
+apps/api/.env
+apps/api/storage/logs/*
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/views/*
+apps/api/storage/app/*
+services/ai/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+tests/e2e/node_modules
+docs/images

@@ -11,6 +11,7 @@ COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
 COPY apps/api/ ./
 RUN composer dump-autoload --optimize --no-dev \
+ && mkdir -p storage/app storage/logs storage/framework/cache/data storage/framework/sessions storage/framework/views bootstrap/cache \
  && chown -R www-data:www-data storage bootstrap/cache \
  && printf "opcache.enable=1\nopcache.validate_timestamps=0\nopcache.memory_consumption=256\n" > /usr/local/etc/php/conf.d/opcache.ini
 USER www-data

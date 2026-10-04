@@ -103,3 +103,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+.loading {
+  height: 360px;
+  border-radius: var(--r-lg);
+}
