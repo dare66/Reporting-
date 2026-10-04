@@ -9,7 +9,7 @@ export const options = {
 const BASE = __ENV.BASE || 'http://localhost:8080';
 
 export function setup() {
-  const r = http.post(`${BASE}/api/v1/auth/login`, JSON.stringify({ email: 'analyst@northstar.demo', password: 'Demo@2026!' }), { headers: { 'Content-Type': 'application/json' } });
+  const r = http.post(`${BASE}/api/v1/auth/login`, JSON.stringify({ email: 'analyst@emgs.demo', password: 'Demo@2026!' }), { headers: { 'Content-Type': 'application/json' } });
   return { token: r.json('access_token') };
 }
 

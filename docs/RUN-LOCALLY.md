@@ -27,12 +27,12 @@ Every demo account uses the password **`Demo@2026!`**.
 
 | Email | What you'll see |
 |---|---|
-| `admin@northstar.demo` | Everything, including Administration (people, roles, security policy) |
-| `ceo@northstar.demo` | The executive Command Centre |
-| `analyst@northstar.demo` | Explore, Widget Studio, reports, the AI analyst |
-| `manager.asia@northstar.demo` | Row-level security: Asian markets only |
-| `engineer@northstar.demo` | Data platform and semantic model |
-| `viewer@northstar.demo` | Read-only |
+| `admin@emgs.demo` | Everything, including Administration (people, roles, security policy) |
+| `ceo@emgs.demo` | The executive Command Centre |
+| `analyst@emgs.demo` | Explore, Widget Studio, reports, the AI analyst |
+| `manager.asia@emgs.demo` | Row-level security: Asian markets only |
+| `engineer@emgs.demo` | Data platform and semantic model |
+| `viewer@emgs.demo` | Read-only |
 
 ## Everyday commands
 

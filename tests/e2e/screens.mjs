@@ -33,7 +33,7 @@ await page.evaluate(async () => {
   const r = await fetch('/api/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@northstar.demo', password: 'Demo@2026!' }),
+    body: JSON.stringify({ email: 'admin@emgs.demo', password: 'Demo@2026!' }),
   });
   localStorage.setItem('aixbi.refresh', (await r.json()).refresh_token);
 });

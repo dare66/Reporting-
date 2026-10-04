@@ -12,7 +12,7 @@ use Tests\SeededTestCase;
 /** User and role administration, the organisation security policy and self-service account settings. */
 class AdministrationTest extends SeededTestCase
 {
-    private const ADMIN = 'admin@northstar.demo';
+    private const ADMIN = 'admin@emgs.demo';
 
     private function login(string $email, string $password): \Illuminate\Testing\TestResponse
     {
@@ -30,23 +30,23 @@ class AdministrationTest extends SeededTestCase
     public function test_people_can_be_found_by_role_status_and_text_and_inspected(): void
     {
         $analysts = $this->as(self::ADMIN)->getJson('/api/v1/admin/users?role=analyst')->assertOk()->json('data');
-        $this->assertSame(['analyst@northstar.demo'], array_column($analysts, 'email'));
+        $this->assertSame(['analyst@emgs.demo'], array_column($analysts, 'email'));
 
-        $this->as(self::ADMIN)->getJson('/api/v1/admin/users?q=asia')->assertOk()->assertJsonPath('data.0.email', 'manager.asia@northstar.demo');
+        $this->as(self::ADMIN)->getJson('/api/v1/admin/users?q=asia')->assertOk()->assertJsonPath('data.0.email', 'manager.asia@emgs.demo');
         $this->as(self::ADMIN)->getJson('/api/v1/admin/users?status=suspended')->assertOk()->assertJsonCount(0, 'data');
 
-        $this->login('analyst@northstar.demo', 'Demo@2026!')->assertOk();
+        $this->login('analyst@emgs.demo', 'Demo@2026!')->assertOk();
         $id = $analysts[0]['id'];
         $detail = $this->as(self::ADMIN)->getJson("/api/v1/admin/users/{$id}")->assertOk();
         $this->assertNotEmpty($detail->json('data.sessions'));
         $this->assertSame('auth.login', $detail->json('data.activity.0.action'));
-        $this->as('analyst@northstar.demo')->getJson('/api/v1/admin/users')->assertForbidden();
+        $this->as('analyst@emgs.demo')->getJson('/api/v1/admin/users')->assertForbidden();
     }
 
     public function test_new_accounts_follow_the_policy_and_choose_their_own_password(): void
     {
-        $this->as(self::ADMIN)->putJson('/api/v1/admin/security-policy', ['password_min_length' => 16, 'require_mfa' => 'none', 'allowed_email_domains' => ['northstar.demo']])->assertOk();
-        $person = ['name' => 'Ana Lim', 'email' => 'ana@northstar.demo', 'roles' => ['viewer'], 'attributes' => ['country_codes' => ['JP']]];
+        $this->as(self::ADMIN)->putJson('/api/v1/admin/security-policy', ['password_min_length' => 16, 'require_mfa' => 'none', 'allowed_email_domains' => ['emgs.demo']])->assertOk();
+        $person = ['name' => 'Ana Lim', 'email' => 'ana@emgs.demo', 'roles' => ['viewer'], 'attributes' => ['country_codes' => ['JP']]];
 
         $this->as(self::ADMIN)->postJson('/api/v1/admin/users', $person + ['password' => 'Short-pass-1'])->assertStatus(422);
         $this->as(self::ADMIN)->postJson('/api/v1/admin/users', array_merge($person, ['email' => 'ana@gmail.com', 'password' => 'Initial-Password-2026']))->assertStatus(422);
@@ -56,7 +56,7 @@ class AdministrationTest extends SeededTestCase
         $this->assertSame(['country_codes' => ['JP']], $created->json('data.data_scope'));
 
         // Signed in with the administrator's password, the account is held until it chooses its own.
-        $login = $this->login('ana@northstar.demo', 'Initial-Password-2026')->assertOk();
+        $login = $this->login('ana@emgs.demo', 'Initial-Password-2026')->assertOk();
         $token = $login->json('access_token');
         $this->bearer($token)->getJson('/api/v1/dashboards')->assertForbidden()->assertJsonPath('error.code', 'password_change_required');
         $this->bearer($token)->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.must_change_password', true);
@@ -69,24 +69,24 @@ class AdministrationTest extends SeededTestCase
 
     public function test_password_reset_issues_a_one_time_password_and_ends_every_session(): void
     {
-        $session = $this->login('analyst@northstar.demo', 'Demo@2026!')->json('refresh_token');
-        $id = $this->user('analyst@northstar.demo')->id;
+        $session = $this->login('analyst@emgs.demo', 'Demo@2026!')->json('refresh_token');
+        $id = $this->user('analyst@emgs.demo')->id;
 
         $temporary = $this->as(self::ADMIN)->postJson("/api/v1/admin/users/{$id}/reset-password")->assertOk()->json('data.temporary_password');
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{5}(-[A-Za-z0-9]{5}){3}$/', $temporary);
 
         $this->flushHeaders();
         $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $session])->assertUnauthorized();
-        $this->login('analyst@northstar.demo', 'Demo@2026!')->assertUnauthorized();
-        $this->login('analyst@northstar.demo', $temporary)->assertOk();
-        $this->assertTrue($this->user('analyst@northstar.demo')->must_change_password);
+        $this->login('analyst@emgs.demo', 'Demo@2026!')->assertUnauthorized();
+        $this->login('analyst@emgs.demo', $temporary)->assertOk();
+        $this->assertTrue($this->user('analyst@emgs.demo')->must_change_password);
 
         $this->as(self::ADMIN)->postJson('/api/v1/admin/users/'.$this->user(self::ADMIN)->id.'/reset-password')->assertStatus(422);
     }
 
     public function test_mfa_reset_and_sign_out_everywhere(): void
     {
-        $user = $this->user('analyst@northstar.demo');
+        $user = $this->user('analyst@emgs.demo');
         $user->update(['mfa_secret' => Totp::generateSecret(), 'mfa_enabled' => true]);
         $this->postJson('/api/v1/auth/login', ['email' => $user->email, 'password' => 'Demo@2026!'])->assertJsonPath('mfa_required', true);
 
@@ -112,12 +112,12 @@ class AdministrationTest extends SeededTestCase
         $this->user(self::ADMIN)->update(['mfa_secret' => Totp::generateSecret(), 'mfa_enabled' => true]);
         $this->as(self::ADMIN)->putJson('/api/v1/admin/security-policy', ['password_min_length' => 12, 'require_mfa' => 'all', 'allowed_email_domains' => []])->assertOk();
 
-        $this->as('analyst@northstar.demo')->getJson('/api/v1/dashboards')->assertForbidden()->assertJsonPath('error.code', 'mfa_enrolment_required');
-        $this->as('analyst@northstar.demo')->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.security.mfa_required', true);
-        $secret = $this->as('analyst@northstar.demo')->postJson('/api/v1/me/mfa/setup')->assertOk()->json('secret');
-        $this->as('analyst@northstar.demo')->postJson('/api/v1/me/mfa/enable', ['code' => Totp::code($secret)])->assertOk();
-        $this->as('analyst@northstar.demo')->getJson('/api/v1/dashboards')->assertOk();
-        $this->as('analyst@northstar.demo')->deleteJson('/api/v1/me/mfa')->assertStatus(422);
+        $this->as('analyst@emgs.demo')->getJson('/api/v1/dashboards')->assertForbidden()->assertJsonPath('error.code', 'mfa_enrolment_required');
+        $this->as('analyst@emgs.demo')->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.security.mfa_required', true);
+        $secret = $this->as('analyst@emgs.demo')->postJson('/api/v1/me/mfa/setup')->assertOk()->json('secret');
+        $this->as('analyst@emgs.demo')->postJson('/api/v1/me/mfa/enable', ['code' => Totp::code($secret)])->assertOk();
+        $this->as('analyst@emgs.demo')->getJson('/api/v1/dashboards')->assertOk();
+        $this->as('analyst@emgs.demo')->deleteJson('/api/v1/me/mfa')->assertStatus(422);
     }
 
     public function test_custom_roles_are_editable_and_platform_roles_are_not(): void
@@ -134,23 +134,23 @@ class AdministrationTest extends SeededTestCase
         $viewer = TenantScopeBypass::run(fn () => Role::where('key', 'viewer')->value('id'));
         $this->as(self::ADMIN)->patchJson("/api/v1/admin/roles/{$viewer}", ['name' => 'Renamed'])->assertStatus(422);
 
-        $this->as(self::ADMIN)->patchJson('/api/v1/admin/users/'.$this->user('viewer@northstar.demo')->id, ['roles' => ['regional_lead']])->assertOk();
+        $this->as(self::ADMIN)->patchJson('/api/v1/admin/users/'.$this->user('viewer@emgs.demo')->id, ['roles' => ['regional_lead']])->assertOk();
         $this->as(self::ADMIN)->deleteJson("/api/v1/admin/roles/{$role['id']}")->assertStatus(422);
-        $this->as(self::ADMIN)->patchJson('/api/v1/admin/users/'.$this->user('viewer@northstar.demo')->id, ['roles' => ['viewer']])->assertOk();
+        $this->as(self::ADMIN)->patchJson('/api/v1/admin/users/'.$this->user('viewer@emgs.demo')->id, ['roles' => ['viewer']])->assertOk();
         $this->as(self::ADMIN)->deleteJson("/api/v1/admin/roles/{$role['id']}")->assertNoContent();
     }
 
     public function test_people_manage_their_own_profile_and_notification_channels(): void
     {
-        $this->as('analyst@northstar.demo')->patchJson('/api/v1/me', ['name' => 'Priya N. Nair', 'title' => 'Lead Analyst'])
+        $this->as('analyst@emgs.demo')->patchJson('/api/v1/me', ['name' => 'Priya N. Nair', 'title' => 'Lead Analyst'])
             ->assertOk()->assertJsonPath('data.name', 'Priya N. Nair')->assertJsonPath('data.title', 'Lead Analyst');
 
-        $this->as('analyst@northstar.demo')->patchJson('/api/v1/me/preferences', ['preferences' => ['notifications' => ['mention' => ['email' => false]], 'date_format' => 'iso']])->assertOk();
-        $this->as('analyst@northstar.demo')->patchJson('/api/v1/me/preferences', ['preferences' => ['notifications' => ['gossip' => ['email' => true]]]])->assertStatus(422);
-        $this->as('analyst@northstar.demo')->patchJson('/api/v1/me/preferences', ['preferences' => ['favourite_colour' => 'teal']])->assertStatus(422);
+        $this->as('analyst@emgs.demo')->patchJson('/api/v1/me/preferences', ['preferences' => ['notifications' => ['mention' => ['email' => false]], 'date_format' => 'iso']])->assertOk();
+        $this->as('analyst@emgs.demo')->patchJson('/api/v1/me/preferences', ['preferences' => ['notifications' => ['gossip' => ['email' => true]]]])->assertStatus(422);
+        $this->as('analyst@emgs.demo')->patchJson('/api/v1/me/preferences', ['preferences' => ['favourite_colour' => 'teal']])->assertStatus(422);
 
         /** @var User $analyst */
-        $analyst = $this->user('analyst@northstar.demo');
+        $analyst = $this->user('analyst@emgs.demo');
         $this->assertSame(['in_app', 'push'], Notifier::channelsFor($analyst, 'mention', ['email', 'push']));
         $this->assertSame(['in_app', 'email'], Notifier::channelsFor($analyst, 'alert', ['email']));
     }

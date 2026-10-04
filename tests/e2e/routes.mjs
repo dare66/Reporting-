@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.BASE ?? 'http://localhost:4200';
-const PERSONAS = ['admin@northstar.demo', 'manager.asia@northstar.demo'];
+const PERSONAS = ['admin@emgs.demo', 'manager.asia@emgs.demo'];
 const ROUTES = [
   '/home', '/insights', '/dashboards', '/reports', '/explore', '/forecast', '/alerts', '/data', '/semantic',
   '/governance', '/admin', '/notifications', '/settings', '/ai', '/investigate?metric=decisions.sla_compliance',

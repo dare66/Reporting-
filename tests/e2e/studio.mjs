@@ -32,7 +32,7 @@ const { dashboardId } = await page.evaluate(async () => {
     await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'analyst@northstar.demo', password: 'Demo@2026!' }),
+      body: JSON.stringify({ email: 'analyst@emgs.demo', password: 'Demo@2026!' }),
     })
   ).json();
   localStorage.setItem('aixbi.refresh', login.refresh_token);

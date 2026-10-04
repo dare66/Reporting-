@@ -43,8 +43,8 @@ const step = async (name, fn) => {
 };
 const shot = (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png` });
 
-const admin = await session('admin@northstar.demo', 'Demo@2026!');
-const email = `e2e.${Date.now()}@northstar.demo`;
+const admin = await session('admin@emgs.demo', 'Demo@2026!');
+const email = `e2e.${Date.now()}@emgs.demo`;
 let initialPassword = '';
 
 await step('people can be filtered and opened', async () => {
@@ -119,12 +119,12 @@ await step('the security policy shows and saves its rules', async () => {
   // Let the freshly rendered form bind before typing (a person cannot type within milliseconds of it appearing).
   await admin.getByText('Minimum password length').waitFor();
   await admin.waitForTimeout(500);
-  await admin.getByLabel('Add an email domain').fill('northstar.demo');
+  await admin.getByLabel('Add an email domain').fill('emgs.demo');
   await admin.getByRole('button', { name: 'Add', exact: true }).click();
   await admin.getByRole('button', { name: 'Save policy' }).click();
   await admin.getByText('Policy saved.').waitFor();
   await shot(admin, 'admin-security-policy');
-  await admin.getByRole('button', { name: 'Remove northstar.demo' }).click();
+  await admin.getByRole('button', { name: 'Remove emgs.demo' }).click();
   await admin.getByRole('button', { name: 'Save policy' }).click();
   await admin.getByText('Policy saved.').waitFor();
 });

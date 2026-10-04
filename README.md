@@ -68,13 +68,13 @@ Every persona uses the password `Demo@2026!`.
 
 | Email | Role | Experience |
 |---|---|---|
-| `ceo@northstar.demo` | CEO | Executive command centre |
-| `coo@northstar.demo` | Executive | Operations focus |
-| `manager.asia@northstar.demo` | Manager | Row-level security: Asian markets only |
-| `analyst@northstar.demo` | Analyst | Explore, AI, reports |
-| `engineer@northstar.demo` | Data engineer | Data platform, semantic model |
-| `admin@northstar.demo` | Tenant admin | Administration, governance |
-| `viewer@northstar.demo` | Viewer | Read-only |
+| `ceo@emgs.demo` | CEO | Executive command centre |
+| `coo@emgs.demo` | Executive | Operations focus |
+| `manager.asia@emgs.demo` | Manager | Row-level security: Asian markets only |
+| `analyst@emgs.demo` | Analyst | Explore, AI, reports |
+| `engineer@emgs.demo` | Data engineer | Data platform, semantic model |
+| `admin@emgs.demo` | Tenant admin | Administration, governance |
+| `viewer@emgs.demo` | Viewer | Read-only |
 
 **Demo journey** (as the CEO), typed into the AI Analyst:
 

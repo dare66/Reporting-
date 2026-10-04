@@ -18,21 +18,21 @@ import { Icon } from '../../shared/icon';
 import { Scrim } from '../../shared/scrim';
 
 const PERSONAS = [
-  { email: 'ceo@northstar.demo', name: 'Mohammed Hakim', role: 'CEO', note: 'Executive experience' },
+  { email: 'ceo@emgs.demo', name: 'Mohammed Hakim', role: 'CEO', note: 'Executive experience' },
   {
-    email: 'manager.asia@northstar.demo',
+    email: 'manager.asia@emgs.demo',
     name: 'Wei Ling Chen',
     role: 'Head of Asia Markets',
     note: 'Row-level security: 6 markets',
   },
   {
-    email: 'analyst@northstar.demo',
+    email: 'analyst@emgs.demo',
     name: 'Priya Nair',
     role: 'Senior Analyst',
     note: 'Explore, build, SQL provenance',
   },
-  { email: 'engineer@northstar.demo', name: 'Daniel Lim', role: 'Data Engineer', note: 'Connectors, semantic layer' },
-  { email: 'admin@northstar.demo', name: 'Sarah Wong', role: 'Tenant Admin', note: 'Users, roles, health' },
+  { email: 'engineer@emgs.demo', name: 'Daniel Lim', role: 'Data Engineer', note: 'Connectors, semantic layer' },
+  { email: 'admin@emgs.demo', name: 'Sarah Wong', role: 'Tenant Admin', note: 'Users, roles, health' },
 ];
 
 @Component({
@@ -49,7 +49,7 @@ export class Landing implements OnDestroy {
   private canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('field');
 
   readonly personas = PERSONAS;
-  readonly email = signal('ceo@northstar.demo');
+  readonly email = signal('ceo@emgs.demo');
   readonly password = signal('Demo@2026!');
   readonly code = signal('');
   readonly mfaToken = signal<string | null>(null);

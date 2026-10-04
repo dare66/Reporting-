@@ -30,9 +30,9 @@ class DemoTenantSeeder extends Seeder
     {
         $this->loadAnalyticsData();
 
-        $org = Organisation::updateOrCreate(['slug' => 'northstar'], [
-            'name' => 'Northstar Education Services', 'industry' => 'education', 'currency' => 'MYR', 'timezone' => 'Asia/Kuala_Lumpur',
-            'branding' => ['accent' => '#E8B04B', 'logo_text' => 'NORTHSTAR'],
+        $org = Organisation::updateOrCreate(['slug' => 'emgs'], [
+            'name' => 'Education Malaysia Global Services (EMGS)', 'industry' => 'education', 'currency' => 'MYR', 'timezone' => 'Asia/Kuala_Lumpur',
+            'branding' => ['accent' => '#E8B04B', 'logo_text' => 'EMGS'],
         ]);
         app(TenantContext::class)->setOrganisation($org->id);
 
@@ -46,15 +46,15 @@ class DemoTenantSeeder extends Seeder
         }
 
         $people = [
-            ['ceo@northstar.demo', 'Mohammed Hakim', 'Chief Executive Officer', 'ceo', 'Executive Office', null, []],
-            ['coo@northstar.demo', 'Aisha Tan', 'Chief Operating Officer', 'executive', 'Operations', null, []],
-            ['cfo@northstar.demo', 'Rajesh Kumar', 'Chief Financial Officer', 'executive', 'Finance', 'Revenue Assurance', []],
-            ['manager.asia@northstar.demo', 'Wei Ling Chen', 'Head of Asia Markets', 'manager', 'Operations', 'Asia Markets', ['country_codes' => ['CN', 'VN', 'TH', 'JP', 'KR', 'ID']]],
-            ['analyst@northstar.demo', 'Priya Nair', 'Senior Business Analyst', 'analyst', 'Data & Analytics', 'BI Engineering', []],
-            ['engineer@northstar.demo', 'Daniel Lim', 'Data Engineer', 'data_engineer', 'Data & Analytics', 'BI Engineering', []],
-            ['designer@northstar.demo', 'Sofia Rahman', 'Report Designer', 'report_designer', 'Data & Analytics', null, []],
-            ['admin@northstar.demo', 'Sarah Wong', 'Platform Administrator', 'tenant_admin', 'Information Technology', null, []],
-            ['viewer@northstar.demo', 'Hafiz Ismail', 'Board Observer', 'viewer', 'Executive Office', null, []],
+            ['ceo@emgs.demo', 'Mohammed Hakim', 'Chief Executive Officer', 'ceo', 'Executive Office', null, []],
+            ['coo@emgs.demo', 'Aisha Tan', 'Chief Operating Officer', 'executive', 'Operations', null, []],
+            ['cfo@emgs.demo', 'Rajesh Kumar', 'Chief Financial Officer', 'executive', 'Finance', 'Revenue Assurance', []],
+            ['manager.asia@emgs.demo', 'Wei Ling Chen', 'Head of Asia Markets', 'manager', 'Operations', 'Asia Markets', ['country_codes' => ['CN', 'VN', 'TH', 'JP', 'KR', 'ID']]],
+            ['analyst@emgs.demo', 'Priya Nair', 'Senior Business Analyst', 'analyst', 'Data & Analytics', 'BI Engineering', []],
+            ['engineer@emgs.demo', 'Daniel Lim', 'Data Engineer', 'data_engineer', 'Data & Analytics', 'BI Engineering', []],
+            ['designer@emgs.demo', 'Sofia Rahman', 'Report Designer', 'report_designer', 'Data & Analytics', null, []],
+            ['admin@emgs.demo', 'Sarah Wong', 'Platform Administrator', 'tenant_admin', 'Information Technology', null, []],
+            ['viewer@emgs.demo', 'Hafiz Ismail', 'Board Observer', 'viewer', 'Executive Office', null, []],
         ];
         $users = [];
         foreach ($people as [$email, $name, $title, $role, $dept, $team, $attrs]) {

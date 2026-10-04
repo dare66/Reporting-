@@ -21,7 +21,7 @@ class UploadIngestionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (! TenantScopeBypass::run(fn () => Organisation::where('slug', 'northstar')->exists())) {
+        if (! TenantScopeBypass::run(fn () => Organisation::where('slug', 'emgs')->exists())) {
             Artisan::call('migrate:fresh', ['--seed' => true]);
         }
     }
@@ -47,17 +47,17 @@ class UploadIngestionTest extends TestCase
             $csv .= sprintf("2026-%02d-%02d,%s,%s,%.2f,%d\n", ($i % 9) + 1, ($i % 27) + 1, ['North', 'South', 'East'][$i % 3], ['Alpha', 'Beta'][$i % 2], 100 + $i * 3.5, $i % 7 + 1);
         }
         $file = UploadedFile::fake()->createWithContent('Sales Orders.csv', $csv);
-        $up = $this->as('engineer@northstar.demo')->post('/api/v1/data/upload', ['file' => $file], ['Accept' => 'application/json'])->assertCreated()->json('data');
+        $up = $this->as('engineer@emgs.demo')->post('/api/v1/data/upload', ['file' => $file], ['Accept' => 'application/json'])->assertCreated()->json('data');
         $this->assertSame(60, $up['run']['records']);
         $types = collect($up['dataset']['fields'])->pluck('data_type', 'name');
         $this->assertSame(['date', 'string', 'string', 'decimal', 'integer'], [$types['order_date'], $types['region'], $types['product'], $types['amount'], $types['units']]);
 
-        $proposal = $this->as('engineer@northstar.demo')->getJson("/api/v1/datasets/{$up['dataset']['id']}/semantic-proposal")->assertOk()->json('data');
+        $proposal = $this->as('engineer@emgs.demo')->getJson("/api/v1/datasets/{$up['dataset']['id']}/semantic-proposal")->assertOk()->json('data');
         $this->assertSame('order_date', $proposal['time_dimension']);
         $this->assertContains('total_amount', array_column($proposal['metrics'], 'key'));
 
-        $model = $this->as('engineer@northstar.demo')->postJson("/api/v1/datasets/{$up['dataset']['id']}/semantic-model")->assertCreated()->json('data');
-        $rows = $this->as('engineer@northstar.demo')->postJson('/api/v1/query', ['model' => $model['key'], 'metrics' => ['total_amount'], 'dimensions' => ['region']])->assertOk()->json('rows');
+        $model = $this->as('engineer@emgs.demo')->postJson("/api/v1/datasets/{$up['dataset']['id']}/semantic-model")->assertCreated()->json('data');
+        $rows = $this->as('engineer@emgs.demo')->postJson('/api/v1/query', ['model' => $model['key'], 'metrics' => ['total_amount'], 'dimensions' => ['region']])->assertOk()->json('rows');
         $this->assertCount(3, $rows);
         $this->assertEqualsWithDelta(array_sum(array_map(fn ($i) => 100 + $i * 3.5, range(1, 60))), array_sum(array_column($rows, 'total_amount')), 0.01);
     }
@@ -65,7 +65,7 @@ class UploadIngestionTest extends TestCase
     public function test_webhook_accepts_a_record_or_a_list_and_rejects_bad_tokens(): void
     {
         // The web app always sends a (possibly empty) config object.
-        $created = $this->as('engineer@northstar.demo')->postJson('/api/v1/data-sources', ['connector_key' => 'webhook', 'name' => 'Webhook Orders', 'config' => ['token' => 'chosen-by-client']])
+        $created = $this->as('engineer@emgs.demo')->postJson('/api/v1/data-sources', ['connector_key' => 'webhook', 'name' => 'Webhook Orders', 'config' => ['token' => 'chosen-by-client']])
             ->assertCreated()->assertJsonMissingPath('data.config');
         $url = parse_url($created->json('ingest.url'), PHP_URL_PATH);
         $this->assertStringNotContainsString('chosen-by-client', $url);
