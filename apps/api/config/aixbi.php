@@ -22,6 +22,12 @@ return [
         'timeout' => (int) env('AI_SERVICE_TIMEOUT', 120),
     ],
 
+    'connectors' => [
+        // Loopback and link-local (cloud metadata) hosts are always refused.
+        // Set to true to also refuse private networks, e.g. for a hosted multi-tenant deployment.
+        'block_private' => (bool) env('CONNECTORS_BLOCK_PRIVATE', false),
+    ],
+
     'streaming' => [
         'kafka_brokers' => env('KAFKA_BROKERS'),
     ],

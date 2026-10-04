@@ -7,9 +7,12 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use PDO;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Reader\IReader;
 use PhpOffice\PhpSpreadsheet\Reader\Xls;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Throwable;
 
 /**
@@ -21,14 +24,26 @@ use Throwable;
  */
 class Connectors
 {
-    /** @return list<Record> */
+    public function __construct(private readonly OutboundGuard $guard = new OutboundGuard) {}
+
+    /** @return list<Record> records of the file (the first sheet with data, for a workbook) */
     public function readFile(UploadedFile $file): array
+    {
+        return array_values($this->readSheets($file))[0] ?? [];
+    }
+
+    /**
+     * Every table in a file: one per non-empty sheet for a workbook, one for CSV/JSON.
+     *
+     * @return array<string, list<Record>> sheet title → records
+     */
+    public function readSheets(UploadedFile $file): array
     {
         $ext = strtolower($file->getClientOriginalExtension());
 
         return match ($ext) {
-            'csv', 'txt' => $this->csv($file->getRealPath()),
-            'json' => $this->json(file_get_contents($file->getRealPath()), null),
+            'csv', 'txt' => ['Sheet1' => $this->csv($file->getRealPath())],
+            'json' => ['Sheet1' => $this->json(file_get_contents($file->getRealPath()), null)],
             'xlsx' => $this->excel(new Xlsx, $file->getRealPath()),
             'xls' => $this->excel(new Xls, $file->getRealPath()),
             default => throw new InvalidArgumentException("Unsupported file type .{$ext}. Use CSV, Excel or JSON."),
@@ -59,6 +74,7 @@ class Connectors
     private function pdo(DataSource $source): PDO
     {
         $c = $source->config ?? [];
+        $this->guard->assertHostAllowed((string) ($c['host'] ?? ''));
         $driver = $source->connector_key === 'postgresql' ? 'pgsql' : 'mysql';
         $port = $c['port'] ?? ($driver === 'pgsql' ? 5432 : 3306);
         $pdo = new PDO("{$driver}:host={$c['host']};port={$port};dbname={$c['database']}", $c['username'] ?? null, $c['password'] ?? null, [
@@ -115,7 +131,9 @@ class Connectors
     private function pullApi(DataSource $source): array
     {
         $c = $source->config ?? [];
-        $req = Http::timeout(30)->acceptJson();
+        $this->guard->assertUrlAllowed((string) ($c['url'] ?? ''));
+        // Redirects are not followed: a redirect could lead to an address the guard refuses.
+        $req = Http::timeout(30)->acceptJson()->withoutRedirecting();
         if (! empty($c['auth_header'])) {
             $req = $req->withHeaders(['Authorization' => $c['auth_header']]);
         }
@@ -166,29 +184,63 @@ class Connectors
      * Uploaded workbooks are untrusted: the reader is chosen from the validated
      * extension (never sniffed), only cell values are read, and formulas are
      * not recalculated, so external references and WEBSERVICE() never execute.
+     * Number formats are kept so date cells arrive as dates, not Excel serials.
      *
-     * @return list<Record>
+     * @return array<string, list<Record>> sheet title → records, empty sheets left out
      */
     private function excel(IReader $reader, string $path): array
     {
-        $reader->setReadDataOnly(true);
+        $reader->setReadDataOnly(false);
         $reader->setReadEmptyCells(false);
+        $sheets = [];
+        foreach ($reader->load($path)->getWorksheetIterator() as $sheet) {
+            $records = $this->sheetRecords($sheet);
+            if ($records !== []) {
+                $sheets[$sheet->getTitle()] = $records;
+            }
+        }
+
+        return $sheets;
+    }
+
+    /** @return list<Record> */
+    private function sheetRecords(Worksheet $sheet): array
+    {
         $rows = [];
-        foreach ($reader->load($path)->getActiveSheet()->getRowIterator() as $row) {
+        foreach ($sheet->getRowIterator() as $row) {
             $cells = $row->getCellIterator();
             $cells->setIterateOnlyExistingCells(false);
-            $rows[] = array_map(
-                fn ($cell) => $cell->isFormula() ? $cell->getOldCalculatedValue() : $cell->getValue(),
-                iterator_to_array($cells, false),
-            );
+            // Read each value while its cell is current: the sheet detaches cell objects once the iterator moves on.
+            $values = [];
+            foreach ($cells as $cell) {
+                $values[] = $this->cellValue($cell);
+            }
+            $rows[] = $values;
         }
-        $header = array_map('strval', array_shift($rows) ?? []);
-        $width = count($header);
+        $header = array_map(fn ($h) => trim((string) $h), array_shift($rows) ?? []);
+        // Columns without a heading carry no meaning a person could check; leave them out.
+        $keep = array_keys(array_filter($header, fn ($h) => $h !== ''));
         $rows = array_filter($rows, fn ($r) => array_filter($r, fn ($v) => $v !== null && $v !== '') !== []);
 
-        return array_values(array_map(
-            fn ($r) => array_combine($header, array_pad(array_slice($r, 0, $width), $width, null)),
-            $rows,
-        ));
+        return array_values(array_map(function ($r) use ($header, $keep) {
+            $record = [];
+            foreach ($keep as $i) {
+                $record[$header[$i]] = $r[$i] ?? null;
+            }
+
+            return $record;
+        }, $rows));
+    }
+
+    private function cellValue(Cell $cell): mixed
+    {
+        $value = $cell->isFormula() ? $cell->getOldCalculatedValue() : $cell->getValue();
+        if (is_numeric($value) && ExcelDate::isDateTime($cell, $value)) {
+            $date = ExcelDate::excelToDateTimeObject((float) $value);
+
+            return floor((float) $value) == $value ? $date->format('Y-m-d') : $date->format('Y-m-d H:i:s');
+        }
+
+        return $value instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText ? $value->getPlainText() : $value;
     }
 }

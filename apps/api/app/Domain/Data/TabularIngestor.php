@@ -24,9 +24,10 @@ class TabularIngestor
     /**
      * @param  array<int, array<string, mixed>>  $rows  records keyed by column name
      * @param  'full'|'append'  $mode
+     * @param  string|null  $label  display name; defaults to the name
      * @return array{run: IngestionRun, dataset: Dataset}
      */
-    public function ingest(DataSource $source, string $name, array $rows, string $mode = 'full'): array
+    public function ingest(DataSource $source, string $name, array $rows, string $mode = 'full', ?string $label = null): array
     {
         $run = IngestionRun::create(['organisation_id' => $source->organisation_id, 'data_source_id' => $source->id, 'mode' => $mode, 'status' => 'running', 'started_at' => now()]);
         $started = microtime(true);
@@ -54,7 +55,7 @@ class TabularIngestor
                 }
             });
 
-            $dataset = $this->registrar->register($source, 'analytics', $table, Str::headline($name));
+            $dataset = $this->registrar->register($source, 'analytics', $table, $label ?? Str::headline($name));
             $source->update(['status' => 'connected', 'last_sync_at' => now(), 'last_error' => null]);
             $run->update(['status' => 'succeeded', 'records' => count($rows), 'warning_count' => $warnings, 'log' => $log,
                 'duration_ms' => (int) ((microtime(true) - $started) * 1000), 'finished_at' => now()]);

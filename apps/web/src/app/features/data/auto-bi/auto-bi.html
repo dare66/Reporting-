@@ -1,0 +1,316 @@
+<div class="page">
+  <a routerLink="/data" class="muted back">← Data</a>
+
+  @if (error(); as message) {
+    <app-error title="Auto BI couldn't read this source" [message]="message" (retry)="load()" />
+  }
+
+  @if (!plan() && !error()) {
+    <app-working
+      title="Understanding your data"
+      [steps]="[
+        'Profiling every column',
+        'Finding how tables join',
+        'Recognising the business',
+        'Proposing KPIs',
+        'Designing the dashboard',
+      ]"
+    />
+  }
+
+  @if (plan(); as p) {
+    <header class="page-head">
+      <div>
+        <div class="eyebrow ai">Auto BI Designer</div>
+        <h1>{{ p.source.name }}</h1>
+        <p class="lede">
+          This looks like <b>{{ p.domain.name }}</b> data, one row per <b>{{ p.entity | lowercase }}</b>
+          <span class="badge" [class]="tone(p.domain.confidence)">{{ pct(p.domain.confidence) }} confident</span>
+          · {{ p.datasets.length }} {{ p.datasets.length === 1 ? 'table' : 'tables' }}, {{ p.fact.rows | number }}
+          {{ p.entity | lowercase }} rows
+          @if (p.window) {
+            · {{ fmtDate(p.window.from, 'long') }} – {{ fmtDate(p.window.to, 'long') }}
+          }
+        </p>
+      </div>
+    </header>
+
+    @if (p.questions.length) {
+      <section class="panel confirm" role="note">
+        <app-icon name="info" [size]="18" />
+        <div>
+          <b>Please check before publishing</b>
+          <ul>
+            @for (q of p.questions; track q) {
+              <li>{{ q }}</li>
+            }
+          </ul>
+        </div>
+      </section>
+    }
+
+    <nav class="steps" aria-label="Auto BI steps">
+      <button [class.on]="step() === 'understand'" (click)="step.set('understand')"><span>1</span>Understand</button>
+      <button [class.on]="step() === 'kpis'" (click)="step.set('kpis')"><span>2</span>Approve KPIs</button>
+      <button [class.on]="step() === 'design'" (click)="goDesign()" [disabled]="!approved().length">
+        <span>3</span>Design &amp; publish
+      </button>
+    </nav>
+
+    @switch (step()) {
+      @case ('understand') {
+        <div class="tables">
+          @for (d of p.datasets; track d.id) {
+            <button class="table-card panel" [class.on]="current()?.id === d.id" (click)="table.set(d.name)">
+              <div class="row">
+                <b class="grow">{{ d.label }}</b>
+                @if (d.is_fact) {
+                  <span class="badge ai">Main table</span>
+                }
+              </div>
+              <div class="muted small">{{ d.rows | number }} rows · {{ d.fields.length }} columns</div>
+              <div class="trust">
+                <div class="ring" [style.--v]="d.trust.score" [class]="d.trust.grade">
+                  <b>{{ d.trust.score | number: '1.0-0' }}</b>
+                </div>
+                <div class="parts">
+                  @for (t of d.trust.parts; track t.key) {
+                    <div class="part" [title]="t.detail">
+                      <span>{{ t.label }}</span>
+                      <i class="meter"><i [style.width.%]="t.score ?? 0"></i></i>
+                      <span class="mono">{{ t.score === null ? 'n/a' : (t.score | number: '1.0-0') }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+
+        @if (p.relationships.length) {
+          <h3 class="sec-title">How the tables join</h3>
+          <section class="panel joins">
+            @for (r of p.relationships; track r.from + r.to) {
+              <details>
+                <summary>
+                  <span class="mono">{{ r.from_label }}</span>
+                  <app-icon name="link" [size]="14" />
+                  <span class="mono">{{ r.to_label }}</span>
+                  <span class="muted small">{{ r.cardinality === 'many_to_one' ? 'many → one' : 'one → one' }}</span>
+                  <span class="badge" [class]="tone(r.confidence)">{{ pct(r.coverage, 1) }} matched</span>
+                </summary>
+                <ul class="why">
+                  @for (why of r.reasons; track why) {
+                    <li>{{ why }}</li>
+                  }
+                </ul>
+              </details>
+            }
+          </section>
+        }
+
+        @if (current(); as d) {
+          <h3 class="sec-title">What each column means — {{ d.label }}</h3>
+          <section class="panel">
+            <table class="table fields">
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Detected as</th>
+                  <th>Means</th>
+                  <th>Confidence</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (f of d.fields; track f.field) {
+                  <tr [class.dim]="f.role === 'ignored' || f.role === 'text'">
+                    <td>
+                      <b>{{ f.label }}</b>
+                      <div class="muted small mono">{{ f.field }} · {{ f.data_type }}</div>
+                    </td>
+                    <td>
+                      <span class="role" [attr.data-role]="f.role">{{ roleLabel[f.role] }}</span>
+                    </td>
+                    <td>{{ f.concept }}</td>
+                    <td>
+                      <div class="conf">
+                        <i class="meter" [class]="tone(f.confidence)"><i [style.width.%]="f.confidence * 100"></i></i>
+                        <span class="mono small">{{ pct(f.confidence, 1) }}</span>
+                      </div>
+                    </td>
+                    <td class="small">{{ f.reasons.join(' ') }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </section>
+        }
+        <div class="next">
+          <button class="btn primary" (click)="step.set('kpis')">Review KPIs →</button>
+        </div>
+      }
+
+      @case ('kpis') {
+        <p class="muted">
+          Approve the measures this data should be judged by. Approved KPIs become governed metrics: every dashboard,
+          report and AI answer uses the same definition.
+        </p>
+        <section class="panel kpis">
+          @for (k of p.kpis; track k.key) {
+            <div class="kpi-row" [class.on]="isApproved(k)">
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="isApproved(k)"
+                  (change)="toggle(k)"
+                  [attr.aria-label]="'Approve ' + k.label"
+                />
+              </label>
+              <div class="grow">
+                <div class="row">
+                  <input
+                    class="name"
+                    [ngModel]="labels()[k.key] ?? k.label"
+                    (ngModelChange)="rename(k, $event)"
+                    [attr.aria-label]="'Name for ' + k.label"
+                    maxlength="80"
+                  />
+                  @if (k.recommended) {
+                    <span class="badge ai">Recommended</span>
+                  }
+                  <span class="badge">{{ k.higher_is_better ? 'Higher is better' : 'Lower is better' }}</span>
+                </div>
+                <div class="mono small formula">{{ k.formula }}</div>
+                <div class="muted small">{{ k.reason }}</div>
+              </div>
+              <div class="conf">
+                <i class="meter" [class]="tone(k.confidence)"><i [style.width.%]="k.confidence * 100"></i></i>
+                <span class="mono small">{{ pct(k.confidence) }}</span>
+              </div>
+            </div>
+          }
+        </section>
+        <div class="next">
+          <span class="muted small">{{ approved().length }} approved</span>
+          <button class="btn primary" (click)="goDesign()" [disabled]="!approved().length">
+            Design the dashboard →
+          </button>
+        </div>
+      }
+
+      @case ('design') {
+        <div class="design-head">
+          <div class="seg" role="radiogroup" aria-label="Audience">
+            <button
+              role="radio"
+              [attr.aria-checked]="audience() === 'executive'"
+              [class.on]="audience() === 'executive'"
+              (click)="setAudience('executive')"
+            >
+              Executive
+            </button>
+            <button
+              role="radio"
+              [attr.aria-checked]="audience() === 'operations'"
+              [class.on]="audience() === 'operations'"
+              (click)="setAudience('operations')"
+            >
+              Operations
+            </button>
+          </div>
+          <div class="order">
+            <span class="muted small">KPI order</span>
+            @for (k of chosen(); track k.key; let first = $first; let last = $last) {
+              <span class="chip">
+                {{ k.label }}
+                <button
+                  class="nudge"
+                  (click)="move(k.key, -1); load(true)"
+                  [disabled]="first"
+                  [attr.aria-label]="'Move ' + k.label + ' earlier'"
+                >
+                  ‹
+                </button>
+                <button
+                  class="nudge"
+                  (click)="move(k.key, 1); load(true)"
+                  [disabled]="last"
+                  [attr.aria-label]="'Move ' + k.label + ' later'"
+                >
+                  ›
+                </button>
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="design" [class.busy]="refreshing()">
+          <section>
+            <h3 class="sec-title">Dashboard blueprint</h3>
+            <div class="blueprint" [style.grid-template-rows]="'repeat(' + rows() + ', 34px)'">
+              @for (w of p.dashboard.widgets; track $index) {
+                <div
+                  class="cell"
+                  [attr.data-type]="w.viz.type ?? w.type"
+                  [style.grid-column]="w.position.x + 1 + ' / span ' + w.position.w"
+                  [style.grid-row]="w.position.y + 1 + ' / span ' + w.position.h"
+                >
+                  <div class="purpose">{{ w.purpose }}</div>
+                  <b>{{ w.title }}</b>
+                  <p>{{ w.rationale }}</p>
+                </div>
+              }
+            </div>
+          </section>
+          <section>
+            <h3 class="sec-title">Executive report</h3>
+            <ol class="panel outline">
+              @for (s of p.report.sections; track $index) {
+                <li>
+                  <b>{{ s.title }}</b
+                  ><span class="muted small">{{ s.type.replace('_', ' ') }}</span>
+                </li>
+              }
+            </ol>
+            @if (p.report.range; as r) {
+              <p class="muted small">
+                Reports on {{ fmtDate(r.from, 'long') }} – {{ fmtDate(r.to, 'long') }}, the latest period in the data.
+              </p>
+            }
+          </section>
+        </div>
+
+        @if (published(); as done) {
+          <section class="panel done rise" role="status">
+            <app-icon name="check" [size]="20" />
+            <div class="grow">
+              <b>Published.</b> The semantic model <span class="mono">{{ done.model }}</span
+              >, the dashboard and the report are ready. Every number in them is a governed query on your data.
+            </div>
+            <a class="btn primary" [routerLink]="['/dashboards', done.dashboard_id]">Open dashboard</a>
+            <a class="btn" [routerLink]="['/reports', done.report_id]">Open report</a>
+          </section>
+        } @else {
+          @if (publishError(); as message) {
+            <p class="neg" role="alert">{{ message }}</p>
+          }
+          <div class="next">
+            @if (!canPublish()) {
+              <span class="muted small"
+                >Publishing needs permission to manage data, models, dashboards and reports.</span
+              >
+            }
+            <button
+              class="btn signal"
+              (click)="publish()"
+              [disabled]="publishing() || !canPublish() || !approved().length"
+            >
+              {{ publishing() ? 'Publishing…' : 'Publish model, dashboard and report' }}
+            </button>
+          </div>
+        }
+      }
+    }
+  }
+</div>

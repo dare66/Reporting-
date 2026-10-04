@@ -27,7 +27,7 @@ export class DataPage implements OnInit {
   private api = inject(Api);
   private router = inject(Router);
   readonly auth = inject(Auth);
-  readonly journey = ['Connect data', 'AI analyses it', 'Semantic model', 'Metrics', 'Ask & visualise'];
+  readonly journey = ['Connect data', 'AIXBI understands it', 'Approve KPIs', 'Dashboard & report', 'Ask & act'];
   readonly step = signal(0);
   readonly connectors = signal<Connector[]>([]);
   readonly sources = signal<DataSource[]>([]);
@@ -69,7 +69,8 @@ export class DataPage implements OnInit {
     try {
       const r = (await this.api.upload<Envelope<UploadResult>>('/data/upload', form)).data;
       this.step.set(2);
-      this.router.navigate(['/data/datasets', r.dataset.id], { queryParams: { new: 1 } });
+      // Straight into Auto BI: understand the file, propose KPIs, design the dashboard and report.
+      this.router.navigate(['/data/sources', r.source.id, 'auto-bi']);
     } catch (e) {
       this.uploadError.set(errorMessage(e));
       this.step.set(0);

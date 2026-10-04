@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\AnalysisController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AutoBiController;
 use App\Http\Controllers\Api\CollaborationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DataController;
@@ -161,6 +162,7 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::get('datasets/{id}', [DataController::class, 'dataset']);
         Route::get('datasets/{id}/preview', [DataController::class, 'preview']);
         Route::get('datasets/{id}/semantic-proposal', [DataController::class, 'proposeModel']);
+        Route::get('data-sources/{id}/auto-bi', [AutoBiController::class, 'plan']);
     });
     Route::middleware('perm:data.manage')->group(function () {
         Route::post('data-sources', [DataController::class, 'storeSource']);
@@ -170,6 +172,7 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::post('data/upload', [DataController::class, 'upload']);
         Route::post('datasets/{id}/profile', [DataController::class, 'profile']);
         Route::post('datasets/{id}/semantic-model', [DataController::class, 'createModel'])->middleware('perm:semantic.manage');
+        Route::post('data-sources/{id}/auto-bi', [AutoBiController::class, 'publish']);
     });
 
     // Governance

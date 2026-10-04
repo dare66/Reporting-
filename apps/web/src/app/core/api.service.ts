@@ -5,7 +5,10 @@ import { firstValueFrom } from 'rxjs';
 export const API = '/api/v1';
 export const AI = '/ai-api/v1';
 
-export type QueryParams = Record<string, string | number | boolean | null | undefined>;
+export type QueryParams = Record<
+  string,
+  string | number | boolean | string[] | Partial<Record<string, string>> | null | undefined
+>;
 
 /** Error body shapes produced by the API (`{error}`) and the AI service (`{detail}`). */
 interface ErrorBody {
@@ -22,7 +25,11 @@ export class Api {
   get<T>(path: string, params?: QueryParams): Promise<T> {
     let p = new HttpParams();
     for (const [key, value] of Object.entries(params ?? {})) {
-      if (value !== undefined && value !== null && value !== '') p = p.set(key, String(value));
+      // Lists go out as key[]=a&key[]=b and maps as key[k]=v, which the API reads as arrays.
+      if (Array.isArray(value)) for (const v of value) p = p.append(`${key}[]`, String(v));
+      else if (value && typeof value === 'object') {
+        for (const [k, v] of Object.entries(value)) if (v) p = p.append(`${key}[${k}]`, v);
+      } else if (value !== undefined && value !== null && value !== '') p = p.set(key, String(value));
     }
     return firstValueFrom(this.http.get<T>(API + path, { params: p }));
   }

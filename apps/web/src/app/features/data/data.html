@@ -4,8 +4,8 @@
       <div class="eyebrow signal">Data platform</div>
       <h1>Connect, understand, model</h1>
       <p class="lede">
-        Bring data in; AIXBI profiles it, proposes a semantic model, and makes it askable — under the same governance as
-        everything else.
+        Bring data in and AIXBI works out what it means, proposes the KPIs that matter, and designs the dashboard and
+        executive report — you approve every step, under the same governance as everything else.
       </p>
     </div>
   </header>
@@ -34,7 +34,7 @@
       @if (uploading()) {
         <app-working
           title="Ingesting your data"
-          [steps]="['Reading file', 'Inferring types', 'Loading analytical table', 'Profiling quality']"
+          [steps]="['Reading every sheet', 'Inferring types', 'Loading analytical tables', 'Profiling quality']"
         />
       }
       @if (uploadError(); as message) {
@@ -74,6 +74,13 @@
         </div>
         @if (s.last_error) {
           <p class="neg small">{{ s.last_error }}</p>
+        }
+        @if (s.datasets_count) {
+          <div class="row">
+            <a class="btn sm ai" [routerLink]="['/data/sources', s.id, 'auto-bi']"
+              ><app-icon name="ai" [size]="14" /> Design with Auto BI</a
+            >
+          </div>
         }
         @if (auth.can('data.manage') && !['csv', 'excel', 'json'].includes(s.connector_key)) {
           <div class="row">

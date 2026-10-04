@@ -6,7 +6,8 @@
     "smoke": "node smoke.mjs",
     "routes": "node routes.mjs",
     "studio": "node studio.mjs",
-    "test": "node smoke.mjs && node routes.mjs && node studio.mjs && node admin.mjs",
+    "test": "node smoke.mjs && node routes.mjs && node studio.mjs && node admin.mjs && node auto-bi.mjs",
+    "auto-bi": "node auto-bi.mjs",
     "admin": "node admin.mjs",
     "screens": "node screens.mjs"
   },

@@ -93,10 +93,25 @@ class DataController extends Controller
         $name = $data['name'] ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
         $source = DataSource::create(['connector_key' => $connector, 'name' => Str::headline($name).' (upload)', 'status' => 'syncing',
             'config' => ['filename' => $file->getClientOriginalName()], 'created_by' => $request->user()->id]);
-        $result = $this->ingestor->ingest($source, $name, $this->connectors->readFile($file));
-        $this->audit->record('data.uploaded', ['resource_type' => 'dataset', 'resource_id' => $result['dataset']->id], ['file' => $file->getClientOriginalName()]);
+        $sheets = $this->connectors->readSheets($file);
+        abort_if($sheets === [], 422, 'The file contains no records.');
+        // A workbook with several sheets becomes one dataset per sheet; the table name keeps the file, the label is the sheet.
+        $results = [];
+        foreach ($sheets as $sheet => $records) {
+            $results[] = count($sheets) > 1
+                ? $this->ingestor->ingest($source, "{$name} {$sheet}", $records, 'full', Str::headline($sheet))
+                : $this->ingestor->ingest($source, $name, $records);
+        }
+        foreach ($results as $r) {
+            $this->audit->record('data.uploaded', ['resource_type' => 'dataset', 'resource_id' => $r['dataset']->id], ['file' => $file->getClientOriginalName()]);
+        }
 
-        return response()->json(['data' => ['source' => $source->fresh(), 'dataset' => $result['dataset']->load('fields'), 'run' => $result['run']]], 201);
+        return response()->json(['data' => [
+            'source' => $source->fresh(),
+            'dataset' => $results[0]['dataset']->load('fields'),
+            'run' => $results[0]['run'],
+            'datasets' => array_map(fn ($r) => $r['dataset']->load('fields'), $results),
+        ]], 201);
     }
 
     /** Public webhook endpoint (token-authenticated): appends JSON records. */

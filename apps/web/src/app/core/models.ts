@@ -945,6 +945,108 @@ export interface SemanticProposal {
 export interface UploadResult {
   run: IngestionRun;
   dataset: Dataset;
+  /** One dataset per sheet of a workbook; one for CSV/JSON. */
+  datasets: Dataset[];
+  source: DataSource;
+}
+
+// ── Auto BI Designer ──
+
+export type FieldRole =
+  'identifier' | 'time' | 'measure' | 'dimension' | 'geography' | 'status' | 'flag' | 'text' | 'ignored';
+
+export interface FieldUnderstanding {
+  field: string;
+  label: string;
+  data_type: string;
+  role: FieldRole;
+  concept: string;
+  format: string | null;
+  confidence: number;
+  reasons: string[];
+  values?: string[];
+}
+
+export interface TrustPart {
+  key: string;
+  label: string;
+  score: number | null;
+  detail: string;
+}
+
+export interface DataTrust {
+  score: number;
+  grade: 'high' | 'moderate' | 'low';
+  parts: TrustPart[];
+  issues: { severity: string; field: string | null; message: string }[];
+}
+
+export interface AutoBiDataset {
+  id: string;
+  name: string;
+  label: string;
+  rows: number;
+  is_fact: boolean;
+  fields: FieldUnderstanding[];
+  trust: DataTrust;
+}
+
+export interface AutoBiRelationship {
+  from: string;
+  to: string;
+  from_dataset: string;
+  to_dataset: string;
+  from_label: string;
+  to_label: string;
+  cardinality: 'many_to_one' | 'one_to_one';
+  coverage: number;
+  confidence: number;
+  reasons: string[];
+}
+
+export interface AutoBiKpi {
+  key: string;
+  label: string;
+  kind: string;
+  formula: string;
+  expression: string;
+  format: string;
+  higher_is_better: boolean;
+  confidence: number;
+  reason: string;
+  recommended: boolean;
+}
+
+export interface AutoBiWidget {
+  type: string;
+  title: string;
+  purpose: string;
+  rationale: string;
+  viz: VizOptions;
+  position: { x: number; y: number; w: number; h: number };
+}
+
+export type Audience = 'executive' | 'operations';
+
+export interface AutoBiPlan {
+  source: { id: string; name: string };
+  model_key: string;
+  fact: { name: string; label: string; rows: number };
+  entity: string;
+  domain: { name: string; confidence: number; evidence: string[] };
+  datasets: AutoBiDataset[];
+  relationships: AutoBiRelationship[];
+  kpis: AutoBiKpi[];
+  window: { from: string; to: string; grain: string; span_days: number } | null;
+  questions: string[];
+  dashboard: { audience: Audience; widgets: AutoBiWidget[] };
+  report: { range: { from: string; to: string } | null; sections: { type: string; title: string }[] };
+}
+
+export interface AutoBiPublished {
+  model: string;
+  dashboard_id: string;
+  report_id: string;
 }
 
 /** Where a metric comes from and where it is used. */

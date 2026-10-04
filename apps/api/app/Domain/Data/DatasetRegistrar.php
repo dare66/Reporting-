@@ -105,15 +105,23 @@ class DatasetRegistrar
             $field->update(['profile' => $profile]);
         }
 
-        $pk = $dataset->fields->firstWhere('name', 'id');
-        if ($pk && $pk->profile['distinct'] !== $rowCount) {
-            $issues[] = ['severity' => 'critical', 'field' => 'id', 'message' => 'Duplicate identifiers detected.'];
+        // A key column is `id`, or an `…_id` column that is almost unique: repeats there are duplicates, not references.
+        foreach ($dataset->fields as $field) {
+            $distinct = $field->profile['distinct'] ?? 0;
+            $isKey = $field->name === 'id' || (str_ends_with($field->name, '_id') && $rowCount > 0 && $distinct >= $rowCount * 0.9);
+            if ($isKey && $distinct + ($field->profile['null_count'] ?? 0) < $rowCount) {
+                $issues[] = ['severity' => 'critical', 'field' => $field->name, 'message' => ($rowCount - $distinct).' duplicate identifiers detected in '.$field->label.'.'];
+            }
+        }
+        $duplicateRows = $rowCount - (int) $conn->selectOne("SELECT COUNT(*) AS n FROM (SELECT DISTINCT * FROM {$table}) d")->n;
+        if ($duplicateRows > 0) {
+            $issues[] = ['severity' => 'warning', 'field' => null, 'message' => "{$duplicateRows} rows are exact duplicates of another row."];
         }
 
         $dataset->update([
             'row_count' => $rowCount,
             'freshness_at' => $freshness,
-            'profile' => ['profiled_at' => now()->toIso8601String(), 'issues' => $issues, 'column_count' => $dataset->fields->count()],
+            'profile' => ['profiled_at' => now()->toIso8601String(), 'issues' => $issues, 'column_count' => $dataset->fields->count(), 'duplicate_rows' => $duplicateRows],
         ]);
 
         return $dataset;

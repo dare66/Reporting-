@@ -80,6 +80,12 @@ export const routes: Routes = [
         title: 'Data · AIXBI',
       },
       {
+        path: 'data/sources/:id/auto-bi',
+        canActivate: [permissionGuard('data.view')],
+        loadComponent: () => import('./features/data/auto-bi/auto-bi').then((m) => m.AutoBiPage),
+        title: 'Auto BI Designer · AIXBI',
+      },
+      {
         path: 'data/datasets/:id',
         canActivate: [permissionGuard('data.view')],
         loadComponent: () => import('./features/data/dataset').then((m) => m.DatasetPage),
