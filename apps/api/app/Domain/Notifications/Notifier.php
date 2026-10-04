@@ -17,7 +17,7 @@ use Throwable;
 class Notifier
 {
     /** Notification types people can tune in their settings. */
-    public const CATEGORIES = ['alert', 'anomaly', 'report', 'mention'];
+    public const CATEGORIES = ['alert', 'anomaly', 'report', 'mention', 'data_quality'];
 
     public function __construct(private readonly PushGateway $push) {}
 

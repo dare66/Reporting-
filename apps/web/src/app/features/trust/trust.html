@@ -1,0 +1,111 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Data platform</div>
+      <h1>Data Trust Center</h1>
+      <p class="lede">
+        How far each dataset can be trusted, measured on every load: completeness, uniqueness, validity, freshness and
+        schema stability. Changes in the shape of the data are caught as they arrive, with the metrics and dashboards
+        they affect.
+      </p>
+    </div>
+  </header>
+
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  }
+
+  @if (summary(); as s) {
+    <section class="summary panel">
+      <div>
+        <span>Average trust</span><b>{{ s.average ?? '—' }}</b>
+      </div>
+      <div>
+        <span>Datasets</span><b>{{ s.datasets }}</b>
+      </div>
+      <div>
+        <span>Need attention</span><b [class.neg]="s.attention">{{ s.attention }}</b>
+      </div>
+      <div>
+        <span>Open breaking changes</span><b [class.neg]="s.open_critical">{{ s.open_critical }}</b>
+      </div>
+    </section>
+
+    <div class="filters">
+      <label
+        ><input type="checkbox" [checked]="attentionOnly()" (change)="attentionOnly.set(!attentionOnly())" /> Only
+        datasets that need attention</label
+      >
+    </div>
+
+    <section class="panel">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Dataset</th>
+            <th>Trust</th>
+            <th>Across loads</th>
+            <th>Open changes</th>
+            <th class="r">Rows</th>
+            <th>Checked</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of shown(); track r.id) {
+            <tr>
+              <td>
+                <button class="link" (click)="select(r.id)" [attr.aria-label]="'Open ' + r.label">
+                  <b>{{ r.label }}</b>
+                </button>
+                <div class="muted small">{{ r.source ?? 'No source' }}</div>
+              </td>
+              <td>
+                <span class="score" [attr.data-grade]="grade(r.score)">{{ r.score ?? '—' }}</span>
+                @if (delta(r); as d) {
+                  <span class="small" [class.pos]="d > 0" [class.neg]="d < 0">{{ d > 0 ? '+' : '' }}{{ d }}</span>
+                }
+              </td>
+              <td class="spark">
+                @if (r.history.length > 1) {
+                  <app-spark
+                    [points]="points(r)"
+                    [width]="120"
+                    [height]="26"
+                    [label]="'Trust across loads for ' + r.label"
+                  />
+                } @else {
+                  <span class="muted small">One load so far</span>
+                }
+              </td>
+              <td>
+                @if (r.open_drift.critical) {
+                  <span class="badge critical">{{ r.open_drift.critical }} breaking</span>
+                }
+                @if (r.open_drift.warning) {
+                  <span class="badge warning">{{ r.open_drift.warning }} warning</span>
+                }
+                @if (!r.open_drift.critical && !r.open_drift.warning) {
+                  <span class="muted small">{{ r.open_drift.info ? r.open_drift.info + ' minor' : 'None' }}</span>
+                }
+              </td>
+              <td class="r mono">{{ r.rows.toLocaleString() }}</td>
+              <td class="muted small">{{ ago(r.checked_at) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="muted empty">
+                {{
+                  attentionOnly() ? 'Nothing needs attention right now.' : 'No datasets yet. Load data to measure it.'
+                }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</div>
+
+@if (open(); as id) {
+  <app-trust-drawer [datasetId]="id" (changed)="load()" (dismiss)="select(null)" />
+}

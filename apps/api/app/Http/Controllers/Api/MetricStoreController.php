@@ -49,7 +49,7 @@ class MetricStoreController extends Controller
         $ref = $this->store->ref($m);
         $versions = MetricVersion::with('author:id,name')->where('semantic_model_id', $m->semantic_model_id)->where('metric_key', $m->key)->orderByDesc('version')->get();
         $history = $user->hasPermission('audit.view') || $user->hasPermission('governance.view')
-            ? AuditLog::with('user:id,name')->where('resource_type', 'metric')->where('resource_id', $ref)->latest()->limit(50)->get()
+            ? AuditLog::with('user:id,name')->where('resource_type', 'metric')->where('resource_id', $ref)->orderByDesc('created_at')->orderByDesc('id')->limit(50)->get()
                 ->map(fn ($a) => ['action' => $a->action, 'by' => $a->user?->name, 'at' => $a->created_at, 'meta' => $a->meta])
             : [];
 

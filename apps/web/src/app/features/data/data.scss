@@ -140,3 +140,18 @@
   display: grid;
   gap: 12px;
 }
+
+.impact {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+.row.end {
+  justify-content: flex-end;
+}
+.btn.danger {
+  background: var(--neg);
+  border-color: transparent;
+  color: #fff;
+}

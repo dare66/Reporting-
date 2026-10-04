@@ -3,7 +3,15 @@ import { ChangeDetectionStrategy, Component, ElementRef, OnInit, inject, signal,
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api.service';
-import { ConnectionTest, Connector, DataSource, DatasetSummary, Envelope, UploadResult } from '../../core/models';
+import {
+  ConnectionTest,
+  Connector,
+  DataSource,
+  DatasetSummary,
+  Envelope,
+  SourceImpact,
+  UploadResult,
+} from '../../core/models';
 
 /** Creating a webhook source also returns its ingest URL, shown exactly once. */
 interface CreatedSource extends Envelope<DataSource> {
@@ -40,6 +48,9 @@ export class DataPage implements OnInit {
   readonly formError = signal<string | null>(null);
   readonly ingest = signal<{ url: string; method: string } | null>(null);
   readonly copied = signal(false);
+  readonly removing = signal<{ source: DataSource; impact: SourceImpact | null } | null>(null);
+  readonly removeError = signal<string | null>(null);
+  readonly busyRemove = signal(false);
   private ingestUrl = viewChild<ElementRef<HTMLInputElement>>('ingestUrl');
   form: { name: string; config: Record<string, string> } = { name: '', config: {} };
   ago = ago;
@@ -119,6 +130,29 @@ export class DataPage implements OnInit {
       this.load();
     } catch (e) {
       this.formError.set(errorMessage(e));
+    }
+  }
+  /** Shows what removing a source would delete, or what still depends on it, before anything happens. */
+  async askRemove(source: DataSource) {
+    this.removeError.set(null);
+    this.removing.set({ source, impact: null });
+    try {
+      const impact = (await this.api.get<Envelope<SourceImpact>>(`/data-sources/${source.id}/impact`)).data;
+      this.removing.set({ source, impact });
+    } catch (e) {
+      this.removeError.set(errorMessage(e));
+    }
+  }
+  async remove(source: DataSource) {
+    this.busyRemove.set(true);
+    try {
+      await this.api.delete(`/data-sources/${source.id}`);
+      this.removing.set(null);
+      await this.load();
+    } catch (e) {
+      this.removeError.set(errorMessage(e));
+    } finally {
+      this.busyRemove.set(false);
     }
   }
   async copyIngestUrl(url: string) {

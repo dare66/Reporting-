@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\QueryController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\SemanticModelController;
+use App\Http\Controllers\Api\TrustController;
 use Illuminate\Support\Facades\Route;
 
 // Prefix: /api/v1 (bootstrap/app.php)
@@ -170,6 +171,9 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::get('connectors', [DataController::class, 'connectors']);
         Route::get('data-sources', [DataController::class, 'sources']);
         Route::get('data-sources/{id}/runs', [DataController::class, 'runs']);
+        Route::get('data-sources/{id}/impact', [DataController::class, 'sourceImpact']);
+        Route::get('trust', [TrustController::class, 'index']);
+        Route::get('trust/datasets/{id}', [TrustController::class, 'show']);
         Route::get('datasets', [DataController::class, 'datasets']);
         Route::get('datasets/{id}', [DataController::class, 'dataset']);
         Route::get('datasets/{id}/preview', [DataController::class, 'preview']);
@@ -185,6 +189,7 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::post('datasets/{id}/profile', [DataController::class, 'profile']);
         Route::post('datasets/{id}/semantic-model', [DataController::class, 'createModel'])->middleware('perm:semantic.manage');
         Route::post('data-sources/{id}/auto-bi', [AutoBiController::class, 'publish']);
+        Route::post('trust/drift/{id}/acknowledge', [TrustController::class, 'acknowledge']);
     });
 
     // Governance

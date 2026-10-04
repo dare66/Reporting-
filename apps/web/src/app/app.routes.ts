@@ -92,6 +92,12 @@ export const routes: Routes = [
         title: 'Dataset · AIXBI',
       },
       {
+        path: 'trust',
+        canActivate: [permissionGuard('data.view')],
+        loadComponent: () => import('./features/trust/trust').then((m) => m.TrustCenterPage),
+        title: 'Data Trust Center · AIXBI',
+      },
+      {
         path: 'metrics',
         canActivate: [permissionGuard('semantic.view')],
         loadComponent: () => import('./features/metrics/metric-store').then((m) => m.MetricStorePage),

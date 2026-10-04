@@ -1,0 +1,147 @@
+<div class="scrim" appScrim (dismiss)="dismiss.emit()"></div>
+<aside
+  class="drawer fade-in"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="trust-title"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <header class="head">
+    <div class="who">
+      <h2 id="trust-title">{{ detail()?.label ?? 'Dataset' }}</h2>
+      @if (detail(); as d) {
+        <span class="muted small mono">{{ d.table }}</span>
+        <span class="muted small">{{ d.source?.name ?? 'No source' }} · {{ d.rows.toLocaleString() }} rows</span>
+      }
+    </div>
+    <button class="btn icon sm ghost" (click)="dismiss.emit()" aria-label="Close">
+      <app-icon name="close" [size]="16" />
+    </button>
+  </header>
+
+  <div class="scroll">
+    @if (error(); as message) {
+      <p class="neg" role="alert">{{ message }}</p>
+    }
+    @if (detail(); as d) {
+      <section aria-labelledby="score">
+        <h3 id="score">Trust score</h3>
+        <div class="score-row">
+          <div class="ring" [attr.data-grade]="grade(d.trust.score)" [style.--v]="d.trust.score">
+            <b>{{ d.trust.score }}</b>
+          </div>
+          <div class="parts">
+            @for (p of d.trust.parts; track p.key) {
+              <div class="part">
+                <span>{{ p.label }}</span>
+                <i class="meter" [attr.data-grade]="grade(p.score)"><i [style.width.%]="p.score ?? 0"></i></i>
+                <span class="mono">{{ p.score ?? 'n/a' }}</span>
+                <small class="muted">{{ p.detail }}</small>
+              </div>
+            }
+          </div>
+        </div>
+        @if (history().length > 1) {
+          <div class="history">
+            <app-spark [points]="history()" [width]="520" [height]="44" label="Trust score across loads" />
+            <span class="muted small"
+              >{{ history().length }} loads since {{ fmtDate(d.history[0].taken_at, 'long') }}</span
+            >
+          </div>
+        }
+      </section>
+
+      <section aria-labelledby="drift">
+        <div class="row">
+          <h3 id="drift" class="grow">Changes in the data</h3>
+          <label class="small muted"
+            ><input type="checkbox" [checked]="showAll()" (change)="showAll.set(!showAll())" /> Include
+            acknowledged</label
+          >
+        </div>
+        @for (e of drift(); track e.id) {
+          <article class="event" [attr.data-severity]="e.severity" [class.done]="e.status === 'acknowledged'">
+            <div class="row">
+              <span
+                class="badge"
+                [class.critical]="e.severity === 'critical'"
+                [class.warning]="e.severity === 'warning'"
+                >{{ e.severity === 'critical' ? 'Breaking' : e.severity === 'warning' ? 'Warning' : 'Minor' }}</span
+              >
+              <b class="grow">{{ e.message }}</b>
+            </div>
+            <div class="muted small">
+              Detected {{ ago(e.detected_at) }}
+              @if (e.acknowledged_by) {
+                · acknowledged by {{ e.acknowledged_by }} {{ ago(e.acknowledged_at) }}
+              }
+            </div>
+            @if (e.impact; as i) {
+              @if (affected(e)) {
+                <div class="impact">
+                  <span class="muted small">Affects</span>
+                  @for (m of i.metrics; track m.ref) {
+                    <a class="chip" routerLink="/metrics"><app-icon name="target" [size]="12" />{{ m.label }}</a>
+                  }
+                  @for (x of i.dashboards; track x.id) {
+                    <a class="chip" [routerLink]="['/dashboards', x.id]"
+                      ><app-icon name="dashboard" [size]="12" />{{ x.title }}</a
+                    >
+                  }
+                  @for (x of i.reports; track x.id) {
+                    <a class="chip" [routerLink]="['/reports', x.id]"
+                      ><app-icon name="report" [size]="12" />{{ x.title }}</a
+                    >
+                  }
+                  @for (x of i.alerts; track x.id) {
+                    <a class="chip" routerLink="/alerts"><app-icon name="alert" [size]="12" />{{ x.title }}</a>
+                  }
+                  @if (i.hidden) {
+                    <span class="muted small">+{{ i.hidden }} you can't open</span>
+                  }
+                </div>
+              } @else {
+                <div class="muted small">Nothing built on this data uses it.</div>
+              }
+            }
+            @if (d.can_manage && e.status === 'open') {
+              <div class="actions">
+                <button class="btn sm" (click)="acknowledge(e)" [disabled]="busy() === e.id">Acknowledge</button>
+              </div>
+            }
+          </article>
+        } @empty {
+          <p class="muted">
+            {{
+              d.history.length > 1
+                ? 'No open changes since the previous load.'
+                : 'Changes are detected from the next load onwards.'
+            }}
+          </p>
+        }
+      </section>
+
+      @if (d.trust.issues.length) {
+        <section aria-labelledby="issues">
+          <h3 id="issues">Quality issues in the latest load</h3>
+          <ul class="issues">
+            @for (i of d.trust.issues; track $index) {
+              <li>
+                <span
+                  class="badge"
+                  [class.critical]="i.severity === 'critical'"
+                  [class.warning]="i.severity === 'warning'"
+                  >{{ i.severity }}</span
+                >
+                {{ i.message }}
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    } @else if (!error()) {
+      <div class="loading skeleton"></div>
+    }
+  </div>
+</aside>

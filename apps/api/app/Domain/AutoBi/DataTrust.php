@@ -3,17 +3,19 @@
 namespace App\Domain\AutoBi;
 
 use App\Models\Dataset;
+use App\Models\DatasetSnapshot;
+use App\Models\DriftEvent;
 
 /**
  * A 0–100 trust score for a profiled dataset, built from parts a person can
- * check: completeness, uniqueness, validity and freshness. A part that cannot
+ * check: completeness, uniqueness, validity, freshness and schema stability. A part that cannot
  * be measured yet is reported as such and left out of the score, never guessed.
  *
  * @phpstan-type TrustPart array{key: string, label: string, score: float|null, detail: string}
  */
 class DataTrust
 {
-    private const WEIGHTS = ['completeness' => 0.3, 'uniqueness' => 0.3, 'validity' => 0.2, 'freshness' => 0.2];
+    private const WEIGHTS = ['completeness' => 0.25, 'uniqueness' => 0.25, 'validity' => 0.15, 'freshness' => 0.2, 'stability' => 0.15];
 
     /** @return array{score: float, grade: string, parts: list<TrustPart>, issues: list<array<string, mixed>>} */
     public function assess(Dataset $dataset): array
@@ -40,6 +42,7 @@ class DataTrust
             ['key' => 'validity', 'label' => 'Validity', 'score' => $rows && $numeric->isNotEmpty() ? round(100 - min(100, 100 * $outliers / ($rows * $numeric->count()) * 20), 1) : null,
                 'detail' => $numeric->isEmpty() ? 'No numeric columns to check.' : ($outliers ? "{$outliers} values are more than 4 standard deviations from the mean." : 'No extreme values.')],
             $this->freshness($dataset),
+            $this->stability($dataset),
         ];
 
         $scored = array_filter($parts, fn ($p) => $p['score'] !== null);
@@ -55,6 +58,27 @@ class DataTrust
             'parts' => $parts,
             'issues' => $issues,
         ];
+    }
+
+    /**
+     * Schema stability: how much the latest load changed the shape of the data.
+     * Breaking changes to columns in use cost most.
+     *
+     * @return TrustPart
+     */
+    private function stability(Dataset $dataset): array
+    {
+        $snapshots = DatasetSnapshot::where('dataset_id', $dataset->id)->latest('taken_at')->limit(2)->get();
+        if ($snapshots->count() < 2) {
+            return ['key' => 'stability', 'label' => 'Schema stability', 'score' => null, 'detail' => 'Measured from the second load onwards.'];
+        }
+        $events = DriftEvent::where('snapshot_id', $snapshots->first()->id)->get();
+        $critical = $events->where('severity', 'critical')->count();
+        $warning = $events->where('severity', 'warning')->count();
+
+        return ['key' => 'stability', 'label' => 'Schema stability', 'score' => (float) max(0, 100 - 30 * $critical - 10 * $warning),
+            'detail' => $events->isEmpty() ? 'No changes since the previous load.'
+                : trim(($critical ? "{$critical} breaking change(s). " : '').($warning ? "{$warning} warning(s). " : '').($events->count() - $critical - $warning ? ($events->count() - $critical - $warning).' minor change(s).' : ''))];
     }
 
     /** @return TrustPart */

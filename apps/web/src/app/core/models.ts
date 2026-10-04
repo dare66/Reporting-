@@ -1247,7 +1247,7 @@ export interface SecurityPolicy {
   allowed_email_domains: string[];
 }
 
-export type NotificationCategory = 'alert' | 'anomaly' | 'report' | 'mention';
+export type NotificationCategory = 'alert' | 'anomaly' | 'report' | 'mention' | 'data_quality';
 
 /** A person's own settings, stored on their profile. */
 export interface Preferences {
@@ -1411,4 +1411,73 @@ export interface ConversationSummary {
   id: string;
   title: string;
   updated_at: string;
+}
+
+// ── Data Trust Center ──
+
+export interface TrustRow {
+  id: string;
+  label: string;
+  source: string | null;
+  connector: string | null;
+  rows: number;
+  score: number | null;
+  previous_score: number | null;
+  history: number[];
+  checked_at: string | null;
+  open_drift: { critical: number; warning: number; info: number };
+}
+
+export interface TrustSummary {
+  datasets: number;
+  average: number | null;
+  attention: number;
+  open_critical: number;
+}
+
+export interface DriftImpact {
+  metrics: { ref: string; label: string; status: MetricStatus }[];
+  dimensions: { ref: string; label: string }[];
+  dashboards: UsageItem[];
+  reports: UsageItem[];
+  alerts: UsageItem[];
+  hidden: number;
+}
+
+export interface DriftEventView {
+  id: string;
+  kind: string;
+  column: string | null;
+  severity: 'critical' | 'warning' | 'info';
+  message: string;
+  status: 'open' | 'acknowledged';
+  detected_at: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  impact: DriftImpact | null;
+}
+
+export interface TrustDetail {
+  id: string;
+  label: string;
+  table: string;
+  source: { id: string; name: string; connector_key: string; last_sync_at: string | null } | null;
+  rows: number;
+  trust: DataTrust;
+  history: { id: string; trigger: string; row_count: number; trust_score: number | null; taken_at: string }[];
+  drift: DriftEventView[];
+  can_manage: boolean;
+}
+
+export interface SourceImpact {
+  datasets: { id: string; label: string; table: string; rows: number; drops_table: boolean }[];
+  models: { key: string; name: string; metrics: number }[];
+  blocking: {
+    dashboards: UsageItem[];
+    reports: UsageItem[];
+    alerts: UsageItem[];
+    models: { key: string; name: string }[];
+    hidden: number;
+  };
+  can_delete: boolean;
 }

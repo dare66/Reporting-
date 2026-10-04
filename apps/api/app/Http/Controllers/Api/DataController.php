@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Data\Connectors;
 use App\Domain\Data\DatasetRegistrar;
+use App\Domain\Data\SourceRemoval;
 use App\Domain\Data\TabularIngestor;
 use App\Domain\Semantic\SemanticModelGenerator;
 use App\Domain\Semantic\SemanticModelImporter;
@@ -54,10 +55,19 @@ class DataController extends Controller
         return response()->json(['data' => $source, 'ingest' => $ingest], 201);
     }
 
-    public function deleteSource(string $id): JsonResponse
+    /** What deleting a source would remove, and what (if anything) stops it. */
+    public function sourceImpact(Request $request, string $id, SourceRemoval $removal): JsonResponse
     {
-        DataSource::findOrFail($id)->delete();
-        $this->audit->record('data_source.deleted', ['resource_type' => 'data_source', 'resource_id' => $id]);
+        return response()->json(['data' => $removal->impact(DataSource::findOrFail($id), $request->user())]);
+    }
+
+    public function deleteSource(Request $request, string $id, SourceRemoval $removal): JsonResponse
+    {
+        $source = DataSource::findOrFail($id);
+        $impact = $removal->impact($source, $request->user());
+        abort_unless($impact['can_delete'], 409, 'This source still feeds dashboards, reports, alerts or other data models. Remove or repoint them first.');
+        $removed = $removal->remove($source, $request->user());
+        $this->audit->record('data_source.deleted', ['resource_type' => 'data_source', 'resource_id' => $id], $removed + ['name' => $source->name]);
 
         return response()->json(null, 204);
     }

@@ -27,6 +27,7 @@ const CATEGORIES: { key: NotificationCategory; label: string; hint: string }[] =
   { key: 'anomaly', label: 'Anomalies', hint: 'Unusual movements detected in governed metrics' },
   { key: 'report', label: 'Reports', hint: 'Scheduled reports and exports are ready' },
   { key: 'mention', label: 'Mentions', hint: 'Someone mentions you in a comment' },
+  { key: 'data_quality', label: 'Data quality', hint: 'The shape of data you own or manage changes unexpectedly' },
 ];
 
 const RANGES: { key: NonNullable<Prefs['default_range']>; label: string }[] = [

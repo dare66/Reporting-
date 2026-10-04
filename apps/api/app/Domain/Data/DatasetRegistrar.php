@@ -2,6 +2,7 @@
 
 namespace App\Domain\Data;
 
+use App\Domain\Trust\DriftMonitor;
 use App\Models\Dataset;
 use App\Models\DatasetField;
 use App\Models\DataSource;
@@ -16,6 +17,8 @@ use InvalidArgumentException;
  */
 class DatasetRegistrar
 {
+    public function __construct(private readonly DriftMonitor $monitor) {}
+
     private const TYPE_MAP = [
         'smallint' => 'integer', 'integer' => 'integer', 'bigint' => 'integer',
         'numeric' => 'decimal', 'double precision' => 'decimal', 'real' => 'decimal',
@@ -48,6 +51,8 @@ class DatasetRegistrar
             ],
         );
 
+        // Columns that are gone must not linger as fields: profiling and drift would read stale ones.
+        DatasetField::where('dataset_id', $dataset->id)->whereNotIn('name', array_map(fn ($c) => $c->column_name, $columns))->delete();
         foreach ($columns as $c) {
             DatasetField::updateOrCreate(
                 ['dataset_id' => $dataset->id, 'name' => $c->column_name],
@@ -59,10 +64,11 @@ class DatasetRegistrar
             );
         }
 
-        return $this->profile($dataset->fresh('fields'));
+        return $this->profile($dataset->fresh('fields'), 'load');
     }
 
-    public function profile(Dataset $dataset): Dataset
+    /** @param  'load'|'profile'  $trigger  why it is being profiled, recorded with the trust snapshot */
+    public function profile(Dataset $dataset, string $trigger = 'profile'): Dataset
     {
         $conn = DB::connection('analytics');
         $q = fn (string $id) => '"'.$id.'"';
@@ -123,6 +129,7 @@ class DatasetRegistrar
             'freshness_at' => $freshness,
             'profile' => ['profiled_at' => now()->toIso8601String(), 'issues' => $issues, 'column_count' => $dataset->fields->count(), 'duplicate_rows' => $duplicateRows],
         ]);
+        $this->monitor->record($dataset, $trigger);
 
         return $dataset;
     }

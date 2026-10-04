@@ -75,13 +75,18 @@
         @if (s.last_error) {
           <p class="neg small">{{ s.last_error }}</p>
         }
-        @if (s.datasets_count) {
-          <div class="row">
+        <div class="row">
+          @if (s.datasets_count) {
             <a class="btn sm ai" [routerLink]="['/data/sources', s.id, 'auto-bi']"
               ><app-icon name="ai" [size]="14" /> Design with Auto BI</a
             >
-          </div>
-        }
+          }
+          @if (auth.can('data.manage')) {
+            <button class="btn sm ghost" (click)="askRemove(s)" [attr.aria-label]="'Remove ' + s.name">
+              <app-icon name="trash" [size]="14" /> Remove
+            </button>
+          }
+        </div>
         @if (auth.can('data.manage') && !['csv', 'excel', 'json'].includes(s.connector_key)) {
           <div class="row">
             <button class="btn sm" (click)="test(s)">Test connection</button>
@@ -150,6 +155,82 @@
       </button>
     }
   </div>
+
+  @if (removing(); as r) {
+    <div class="scrim" appScrim (dismiss)="removing.set(null)"></div>
+    <div
+      class="modal panel fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="remove-title"
+      cdkTrapFocus
+      [cdkTrapFocusAutoCapture]="true"
+    >
+      <h3 id="remove-title">Remove {{ r.source.name }}?</h3>
+      @if (r.impact; as i) {
+        @if (i.can_delete) {
+          <p>This permanently removes:</p>
+          <ul class="impact">
+            @for (d of i.datasets; track d.id) {
+              <li>
+                <b>{{ d.label }}</b> · {{ compact(d.rows) }} rows ·
+                <span class="mono small">{{ d.table }}</span>
+                {{ d.drops_table ? '(table deleted)' : '(table kept: AIXBI did not create it)' }}
+              </li>
+            }
+            @for (m of i.models; track m.key) {
+              <li>
+                Data model <b>{{ m.name }}</b> and its {{ m.metrics }} metrics, with their history
+              </li>
+            }
+            @if (!i.datasets.length && !i.models.length) {
+              <li>Only the connection itself; no data was loaded through it.</li>
+            }
+          </ul>
+        } @else {
+          <p>This source can't be removed yet. Remove or repoint what uses its data first:</p>
+          <ul class="impact">
+            @for (x of i.blocking.dashboards; track x.id) {
+              <li>
+                Dashboard <a [routerLink]="['/dashboards', x.id]">{{ x.title }}</a>
+              </li>
+            }
+            @for (x of i.blocking.reports; track x.id) {
+              <li>
+                Report <a [routerLink]="['/reports', x.id]">{{ x.title }}</a>
+              </li>
+            }
+            @for (x of i.blocking.alerts; track x.id) {
+              <li>
+                Alert <a routerLink="/alerts">{{ x.title }}</a>
+              </li>
+            }
+            @for (x of i.blocking.models; track x.key) {
+              <li>
+                Data model <b>{{ x.name }}</b> joins to these tables
+              </li>
+            }
+            @if (i.blocking.hidden) {
+              <li>{{ i.blocking.hidden }} more you don't have access to</li>
+            }
+          </ul>
+        }
+      } @else {
+        <p class="muted">Checking what uses this source…</p>
+      }
+      @if (removeError(); as message) {
+        <p class="neg" role="alert">{{ message }}</p>
+      }
+      <div class="row end">
+        <button class="btn ghost" (click)="removing.set(null)">Cancel</button>
+        @if (r.impact?.can_delete) {
+          <button class="btn primary danger" (click)="remove(r.source)" [disabled]="busyRemove()">
+            Remove permanently
+          </button>
+        }
+      </div>
+    </div>
+  }
 
   @if (connector(); as c) {
     <div class="scrim" appScrim (dismiss)="closeConnector()"></div>

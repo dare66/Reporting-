@@ -17,8 +17,11 @@ use App\Models\User;
  */
 class MetricUsage
 {
-    /** @return array<string, Usage> keyed by metric ref "model.metric" */
-    public function index(User $user): array
+    /**
+     * @param  User|null  $user  whose access decides what is named; null for a system view that names everything
+     * @return array<string, Usage> keyed by metric ref "model.metric"
+     */
+    public function index(?User $user): array
     {
         $usage = [];
         $seen = [];
@@ -37,7 +40,7 @@ class MetricUsage
         };
 
         foreach (Dashboard::with('widgets:id,dashboard_id,query')->get(['id', 'title', 'visibility', 'owner_id']) as $d) {
-            $visible = $d->visibility === 'organisation' || $d->owner_id === $user->id;
+            $visible = $user === null || $d->visibility === 'organisation' || $d->owner_id === $user->id;
             foreach ($d->widgets as $w) {
                 foreach ((array) ($w->query['metrics'] ?? []) as $metric) {
                     if (isset($w->query['model'])) {
@@ -47,7 +50,7 @@ class MetricUsage
             }
         }
 
-        $allReports = $user->hasPermission('reports.publish');
+        $allReports = $user === null || $user->hasPermission('reports.publish');
         foreach (Report::with('sections:id,report_id,content')->get(['id', 'title', 'status', 'owner_id']) as $r) {
             $visible = $allReports || $r->owner_id === $user->id || in_array($r->status, ['published', 'archived'], true);
             foreach ($r->sections as $s) {
@@ -60,7 +63,7 @@ class MetricUsage
 
         foreach (AlertRule::with('semanticModel:id,key')->get(['id', 'name', 'metric_key', 'semantic_model_id']) as $a) {
             if ($a->semanticModel) {
-                $add("{$a->semanticModel->key}.{$a->metric_key}", 'alerts', $a->id, $a->name, $user->hasPermission('alerts.view'));
+                $add("{$a->semanticModel->key}.{$a->metric_key}", 'alerts', $a->id, $a->name, $user === null || $user->hasPermission('alerts.view'));
             }
         }
 
