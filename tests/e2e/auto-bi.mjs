@@ -35,6 +35,8 @@ await page.evaluate(async () => {
 });
 
 let sourceId = '';
+let dashboardUrl = '';
+let reportUrl = '';
 try {
   await step('a workbook upload lands in the Auto BI Designer', async () => {
     await page.goto(BASE + '/data');
@@ -73,8 +75,6 @@ try {
     await shot('auto-bi-3-design');
   });
 
-  let dashboardUrl = '';
-  let reportUrl = '';
   await step('publishing builds the model, dashboard and report', async () => {
     await page.getByRole('button', { name: 'Publish model, dashboard and report' }).click();
     await page.getByText('Published.').waitFor({ timeout: 120000 });
@@ -104,7 +104,9 @@ try {
   assert.deepEqual(problems, []);
 } finally {
   if (sourceId) {
-    await page.evaluate(async (id) => {
+    // What Auto BI published uses the source, so it goes first; otherwise the source is protected.
+    const published = [dashboardUrl, reportUrl].filter(Boolean).map((u) => '/api/v1' + u);
+    await page.evaluate(async ([id, published]) => {
       const refresh = await (
         await fetch('/api/v1/auth/refresh', {
           method: 'POST',
@@ -113,8 +115,9 @@ try {
         })
       ).json();
       localStorage.setItem('aixbi.refresh', refresh.refresh_token);
+      for (const path of published) await fetch(path, { method: 'DELETE', headers: { Authorization: `Bearer ${refresh.access_token}` } });
       await fetch(`/api/v1/data-sources/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${refresh.access_token}` } });
-    }, sourceId);
+    }, [sourceId, published]);
   }
   await browser.close();
 }

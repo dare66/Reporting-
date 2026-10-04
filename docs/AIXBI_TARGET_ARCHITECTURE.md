@@ -25,9 +25,9 @@ Delivery     REST API (OpenAPI) · embedded SDK · MCP · webhooks
 | 2 | **Auto BI Designer**: understanding, relationships, KPI discovery, trust score, dashboard + report design, publish | semantic importer, report builder | ✅ done (v1) |
 | 3 | EMGS branding: logo, colour tokens, export theme | design tokens, `Theme` | ⏭ waiting on logo and colour codes |
 | 4 | Metric store: proposed → approved → certified lifecycle, owners, versions, diff/rollback | metrics table, versioning pattern from reports | ✅ done |
-| 5 | Data Trust Center: trust score history per load, schema-drift detection with impact (metrics, dashboards, reports affected via lineage) | `DataTrust`, `DataLineage` | ⏭ |
+| 5 | Data Trust Center: trust score history per load, schema-drift detection with impact (metrics, dashboards, reports affected via lineage) | `DataTrust`, `DataLineage` | ✅ done |
 | 6 | Executive home v2: "what should I know now" from KPI changes, anomalies, forecast risk and alerts, with Investigate / Act | KPI, anomaly, forecast, alert services | ⏭ |
-| 7 | Source deletion cleanup (drop analytical tables, retire dependent models) and multi-hop relationships | ingestion, importer | ⏭ |
+| 7 | Source deletion cleanup (drop analytical tables, retire dependent models) and multi-hop relationships | ingestion, importer | ✅ cleanup done; multi-hop ⏭ |
 | 8 | Action engine v1: approved actions (email, Teams/Slack webhook, ticket via REST) from alerts and AI, with approval and audit | notifier, alerts | ⏭ |
 | 9 | AI gateway: provider abstraction (Anthropic, OpenAI, Azure, Bedrock, local), routing by task and data sensitivity, cost budgets | AI service `llm.py` | ⏭ |
 | 10 | AI evaluation lab: benchmark questions with expected governed results, run in CI | planner tests | ⏭ |

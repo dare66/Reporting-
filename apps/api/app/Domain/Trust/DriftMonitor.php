@@ -41,7 +41,7 @@ class DriftMonitor
     public function record(Dataset $dataset, string $trigger): DatasetSnapshot
     {
         $dataset->loadMissing('fields');
-        $previous = DatasetSnapshot::where('dataset_id', $dataset->id)->latest('taken_at')->first();
+        $previous = DatasetSnapshot::where('dataset_id', $dataset->id)->orderByDesc('taken_at')->orderByDesc('id')->first();
         $columns = $this->snapshots->columns($dataset->fields->map(fn ($f) => ['name' => $f->name, 'data_type' => $f->data_type, 'profile' => $f->profile ?? []]));
         $snapshot = DatasetSnapshot::create([
             'organisation_id' => $dataset->organisation_id, 'dataset_id' => $dataset->id, 'trigger' => $trigger,

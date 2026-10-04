@@ -19,28 +19,31 @@ class TrustController extends Controller
 
     public function index(): JsonResponse
     {
-        $datasets = Dataset::with('dataSource:id,name,connector_key')->orderBy('label')->get();
+        $datasets = Dataset::with(['dataSource:id,name,connector_key,last_sync_at', 'fields'])->orderBy('label')->get();
         $snapshots = DatasetSnapshot::whereIn('dataset_id', $datasets->pluck('id'))->whereNotNull('trust_score')
-            ->orderByDesc('taken_at')->get(['dataset_id', 'trust_score', 'taken_at'])->groupBy('dataset_id');
+            ->orderByDesc('taken_at')->orderByDesc('id')->get(['id', 'dataset_id', 'trust_score', 'taken_at'])->groupBy('dataset_id');
         $open = DriftEvent::where('status', 'open')->selectRaw('dataset_id, severity, COUNT(*) AS n')->groupBy('dataset_id', 'severity')->get()->groupBy('dataset_id');
 
         $rows = $datasets->map(function (Dataset $d) use ($snapshots, $open) {
             $history = $snapshots[$d->id] ?? collect();
             $drift = ($open[$d->id] ?? collect())->pluck('n', 'severity');
 
+            // A dataset with no scored snapshot yet (e.g. only the baseline from an upgrade) is scored now.
+            $score = $history->first()->trust_score ?? $this->trust->assess($d)['score'];
+
             return [
                 'id' => $d->id, 'label' => $d->label, 'source' => $d->dataSource?->name, 'connector' => $d->dataSource?->connector_key,
-                'rows' => (int) $d->row_count, 'score' => $history->first()?->trust_score, 'previous_score' => $history->get(1)?->trust_score,
-                'history' => $history->take(12)->reverse()->pluck('trust_score')->values(), 'checked_at' => $history->first()?->taken_at,
+                'rows' => (int) $d->row_count, 'score' => $score, 'previous_score' => $history->get(1)?->trust_score,
+                'history' => $history->take(12)->reverse()->pluck('trust_score')->values(),
+                'checked_at' => $history->first()->taken_at ?? ($d->profile['profiled_at'] ?? null),
                 'open_drift' => ['critical' => (int) ($drift['critical'] ?? 0), 'warning' => (int) ($drift['warning'] ?? 0), 'info' => (int) ($drift['info'] ?? 0)],
             ];
         })->values();
-        $scored = $rows->whereNotNull('score');
 
         return response()->json(['data' => $rows, 'summary' => [
             'datasets' => $rows->count(),
-            'average' => $scored->isEmpty() ? null : round((float) $scored->avg('score'), 1),
-            'attention' => $rows->filter(fn ($r) => ($r['score'] !== null && $r['score'] < 75) || $r['open_drift']['critical'] > 0)->count(),
+            'average' => $rows->isEmpty() ? null : round((float) $rows->avg('score'), 1),
+            'attention' => $rows->filter(fn ($r) => $r['score'] < 75 || $r['open_drift']['critical'] > 0)->count(),
             'open_critical' => $rows->sum(fn ($r) => $r['open_drift']['critical']),
         ]]);
     }
@@ -55,7 +58,7 @@ class TrustController extends Controller
             'id' => $dataset->id, 'label' => $dataset->label, 'table' => "{$dataset->physical_schema}.{$dataset->physical_table}",
             'source' => $dataset->dataSource?->only(['id', 'name', 'connector_key', 'last_sync_at']), 'rows' => (int) $dataset->row_count,
             'trust' => $this->trust->assess($dataset),
-            'history' => DatasetSnapshot::where('dataset_id', $id)->latest('taken_at')->limit(30)->get(['id', 'trigger', 'row_count', 'trust_score', 'taken_at'])->reverse()->values(),
+            'history' => DatasetSnapshot::where('dataset_id', $id)->orderByDesc('taken_at')->orderByDesc('id')->limit(30)->get(['id', 'trigger', 'row_count', 'trust_score', 'taken_at'])->reverse()->values(),
             'drift' => $events->map(fn (DriftEvent $e) => $e->only(['id', 'kind', 'column', 'severity', 'message', 'before', 'after', 'status', 'detected_at', 'acknowledged_at'])
                 + ['acknowledged_by' => $e->acknowledger?->name, 'impact' => $e->column !== null || $e->kind === 'row_count_dropped'
                     ? $this->monitor->impact($dataset, $e->kind === 'column_renamed' ? ($e->before['name'] ?? $e->column) : $e->column, $user) : null]),

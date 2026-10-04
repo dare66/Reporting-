@@ -1,6 +1,6 @@
 # AIXBI — current-state audit
 
-Audited against the repository at commit `9dcc494` (October 2026). The repository is the source of truth; where this document and the code disagree, the code wins and this document is wrong.
+Audited against the repository at commit `9dcc494` (October 2026). This is a point-in-time record: findings fixed since are marked, and current status is in [`AIXBI_IMPLEMENTATION_STATUS.md`](../AIXBI_IMPLEMENTATION_STATUS.md). The repository is the source of truth; where this document and the code disagree, the code wins and this document is wrong.
 
 Legend: ✅ works end to end and is tested · 🟡 works but partial · 🔴 missing · ⚠️ risk
 

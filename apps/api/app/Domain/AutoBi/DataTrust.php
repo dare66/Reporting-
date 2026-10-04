@@ -68,7 +68,7 @@ class DataTrust
      */
     private function stability(Dataset $dataset): array
     {
-        $snapshots = DatasetSnapshot::where('dataset_id', $dataset->id)->latest('taken_at')->limit(2)->get();
+        $snapshots = DatasetSnapshot::where('dataset_id', $dataset->id)->orderByDesc('taken_at')->orderByDesc('id')->limit(2)->get();
         if ($snapshots->count() < 2) {
             return ['key' => 'stability', 'label' => 'Schema stability', 'score' => null, 'detail' => 'Measured from the second load onwards.'];
         }

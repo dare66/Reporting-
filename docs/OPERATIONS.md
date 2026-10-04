@@ -16,7 +16,7 @@ php artisan schedule:work             # alerts, anomaly scans, insights, report 
 
 ## Containers
 
-`docker compose up --build` then `docker compose run --rm api php artisan migrate --seed --force` → http://localhost:8080.
+`start.bat` / `./start.sh` (or `docker compose up -d --build`) → http://localhost:8080. The `setup` service applies migrations on every start and loads the demo data only on first run. See [AIXBI_DEPLOYMENT.md](AIXBI_DEPLOYMENT.md).
 
 ## Tests
 
@@ -25,7 +25,7 @@ php artisan schedule:work             # alerts, anomaly scans, insights, report 
 | API: style, static analysis, tests | `cd apps/api && composer check` |
 | AI service | `cd services/ai && ruff format --check . && ruff check . && mypy && python -m pytest -q` |
 | Web: format, lint, build, tests | `cd apps/web && npm run check` |
-| E2E (running stack) | `cd tests/e2e && npm test` (smoke journey + route sweep) |
+| E2E (running stack) | `cd tests/e2e && npm test` (7 journeys; see [AIXBI_TESTING.md](AIXBI_TESTING.md)) |
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the conventions behind these gates.
 

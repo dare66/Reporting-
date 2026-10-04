@@ -11,7 +11,9 @@ The live tracker for the transformation brief. ✅ works end to end on real data
 | Auto BI: data understanding | ✅ | `Domain/AutoBi/DataUnderstanding.php` | `AutoBiTest` | Reads profiles only | Role, concept, confidence and reasons for each column; domain detection |
 | Auto BI: relationship discovery | ✅ | `RelationshipDiscovery.php` | `AutoBiTest` (100% coverage asserted) | Read-only analytical role | Value-verified, one hop |
 | Auto BI: KPI discovery | ✅ | `KpiDiscovery.php` | `AutoBiTest` | — | Volume, money, durations, rates, status outcome rates, yes/no shares |
-| Data trust score | 🟡 | `DataTrust.php` | `AutoBiTest` | — | Score per load; history and schema drift are next |
+| Data trust score | ✅ | `DataTrust.php` | `AutoBiTest`, `DataTrustTest` | — | Completeness, uniqueness, validity, freshness, schema stability |
+| Data Trust Center: history and schema drift | ✅ | `Domain/Trust/`, `TrustController.php`, `features/trust/`, migration `2026_10_05_000200` | `DataTrustTest`, `tests/e2e/trust.mjs` | Impact lists never name private items the viewer cannot open | Removed, renamed, retyped and new columns; rising nulls; out-of-range values; new categories; row drops. Owners and data team notified |
+| Safe data source removal | ✅ | `Domain/Data/SourceRemoval.php` | `DataTrustTest`, `trust.mjs` | Refused while dashboards, reports, alerts or other models use the data; drops only tables AIXBI created | Impact preview before deleting |
 | Auto BI: dashboard and report design | ✅ | `AutoBiDesigner.php` | `AutoBiTest` checks every widget returns data; `auto-bi.mjs` checks rendering | Publishing needs four manage permissions; audited | Executive and operations audiences |
 | Auto BI screen | ✅ | `apps/web/src/app/features/data/auto-bi/` | `tests/e2e/auto-bi.mjs` | Publish is hidden or disabled without permission | Understand → approve KPIs → design → publish |
 | Metric store: lifecycle and four-eyes certification | ✅ | `Domain/Metrics/MetricStore.php`, migration `2026_10_05_000100` | `MetricStoreTest` (6), `tests/e2e/metrics.mjs` | Approve, certify, revoke, deprecate each permission-checked; certifier ≠ approver; audited | `docs/AIXBI_METRIC_STORE.md` |
@@ -22,9 +24,11 @@ The live tracker for the transformation brief. ✅ works end to end on real data
 | EMGS branding | ⏭ | — | — | — | Needs the official logo and colour codes |
 | Everything else in the brief | ⏭ | — | — | — | See backlog |
 
-## Verification (latest change: metric store)
+## Verification (latest change: Data Trust Center)
 
-- API: 112 tests, 604 assertions; Pint and Larastan level 6 clean. The migration was also run on a database that already had data.
+- API: 114 tests, 656 assertions; Pint and Larastan level 6 clean. Both new migrations were also run on a database that already had data.
 - AI service: 27 tests; ruff and strict mypy clean.
 - Web: 31 unit tests; ESLint, Prettier and the production build clean.
-- Browser (Playwright, against a running stack): smoke, every route, Widget Studio, administration, Auto BI and metric store journeys all pass.
+- Browser (Playwright, against a running stack): smoke, every route, Widget Studio, administration, Auto BI, metric store and Data Trust journeys all pass.
+
+The documents required by brief §82 are in `docs/` (`AIXBI_*.md`); [AIXBI_ROADMAP.md](docs/AIXBI_ROADMAP.md) maps every phase and acceptance test to its status.
