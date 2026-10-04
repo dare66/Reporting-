@@ -299,8 +299,10 @@ function treemap(c: Ctx): Option {
         roam: false,
         nodeClick: false,
         breadcrumb: { show: false },
-        width: '100%',
-        height: '100%',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         itemStyle: { borderColor: c.bg, borderWidth: 2, gapWidth: 2, borderRadius: 4 },
         label: {
           show: true,

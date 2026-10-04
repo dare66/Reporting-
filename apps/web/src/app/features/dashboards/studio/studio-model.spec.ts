@@ -103,6 +103,14 @@ describe('Widget Studio model', () => {
     expect(pie.dropped).toEqual(['category', 'break by', '1 value(s)']);
     expect(pie.draft.subtype).toBe('classic');
 
+    // A moving average needs time; on a treemap it falls back to the plain value, and says so.
+    const tree = changeKind(
+      draft({ category: TIME, values: [{ metric: 'n', fn: 'moving_average', window: 3 }] }),
+      'treemap',
+    );
+    expect(tree.draft.values).toEqual([{ metric: 'n' }]);
+    expect(tree.dropped).toEqual(['category', 'moving average on n']);
+
     const heat = changeKind(draft({ category: 'country' }), 'heatmap');
     expect(heat.draft.category).toBe(TIME);
 

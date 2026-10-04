@@ -274,8 +274,19 @@ export function changeKind(d: StudioDraft, kind: StudioKind): { draft: StudioDra
   if (kind === 'heatmap' && category === null) category = TIME;
   const breakBy = fits('breakBy', fromBreakBy);
   const valuesWell = def.wells.find((w) => w.key === 'values');
-  const values = d.values.slice(0, valuesWell?.max ?? 0);
-  if (values.length < d.values.length) dropped.push(`${d.values.length - values.length} value(s)`);
+  const kept = d.values.slice(0, valuesWell?.max ?? 0);
+  if (kept.length < d.values.length) dropped.push(`${d.values.length - kept.length} value(s)`);
+  // Quick functions that lost what they need (a time axis, a dimension to rank) fall back to the plain value.
+  const hasTime = category === TIME || breakBy === TIME;
+  const hasDimension = [category, breakBy].some((x) => x !== null && x !== TIME);
+  const values = kept.map((v) => {
+    const fits = !v.fn || ((!NEEDS_TIME.includes(v.fn) || hasTime) && (v.fn !== 'rank' || hasDimension));
+    if (fits) return v;
+    dropped.push(
+      `${QUICK_FUNCTIONS.find((q) => q.fn === v.fn)?.label.toLowerCase() ?? v.fn} on ${v.metric.replace(/_/g, ' ')}`,
+    );
+    return { metric: v.metric };
+  });
   return {
     draft: {
       ...d,
