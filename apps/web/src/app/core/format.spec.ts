@@ -1,4 +1,4 @@
-import { compact, fmt, fmtChange, fmtWith } from './format';
+import { compact, fmt, fmtChange, fmtDate, fmtWith, setDateFormat } from './format';
 
 describe('executive formatting', () => {
   it('compacts large numbers the same way as the API', () => {
@@ -27,5 +27,15 @@ describe('executive formatting', () => {
     expect(fmtWith(15_913, 'number', { ...auto, decimals: 2 })).toBe('15.91K');
     expect(fmtWith(2500, 'number', { ...auto, style: 'currency', abbreviate: 'K' })).toBe('RM 2.5K');
     expect(fmtWith(null, 'number', { ...auto, decimals: 2 })).toBe('—');
+  });
+
+  it('formats dates in the order a person chose, without shifting the day', () => {
+    setDateFormat('iso');
+    expect(fmtDate('2026-10-04')).toBe('2026-10-04');
+    expect(fmtDate('2026-10-04', 'month')).toBe('2026-10');
+    setDateFormat('month_day');
+    expect(fmtDate('2026-10-04')).toBe('Oct 4');
+    setDateFormat('day_month');
+    expect(fmtDate('2026-10-04')).toBe('4 Oct');
   });
 });

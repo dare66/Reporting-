@@ -30,7 +30,8 @@ export class Home implements OnInit {
   readonly ranges = RANGES.filter((r) =>
     ['last_7_days', 'last_30_days', 'this_month', 'this_quarter', 'year_to_date'].includes(r.key),
   );
-  readonly range = signal('last_30_days');
+  /** Starts on the person's preferred range (Settings → Preferences). */
+  readonly range = signal<string>(this.auth.user()?.preferences.default_range ?? 'last_30_days');
   readonly data = signal<HomeData | null>(null);
   readonly error = signal<string | null>(null);
   readonly stale = signal<string | null>(null);

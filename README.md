@@ -1,5 +1,7 @@
 # AIXBI — AI Enterprise Intelligence Platform
 
+Built by **Scicom (MSC) Berhad** for **EMGS**.
+
 An AI-native BI platform. You ask a business question; a governed AI analyst plans it against a semantic model, runs it under your permissions, and returns an evidence-backed answer. Every number in that answer can be traced to the query that produced it.
 
 ![Command Centre](docs/images/home.png)
@@ -30,7 +32,10 @@ An AI-native BI platform. You ask a business question; a governed AI analyst pla
   - JWT with rotating refresh tokens and reuse detection, plus TOTP MFA.
   - RBAC, ABAC row-level security, and column masking.
   - Append-only audit log.
+  - Organisation security policy (minimum password length, required MFA, allowed email domains), enforced by the API on every request.
   - AI governance: a model registry, run traces, and optional Langfuse.
+- **Administration:** people (search and filters, a detail drawer with sessions and activity, one-time password resets, MFA reset, sign-out everywhere, data scope), custom roles with a permission editor, the security policy, branding, feature flags and live system health.
+- **Personal settings:** profile, password, two-factor, devices, per-category email and push notifications, and preferences (theme, accent, date order, default range) that follow the person to any device.
 - **Design system "Signal":** designed dark and light themes, a validated colour-blind-safe chart palette, table views for every chart, and contextual loading, empty and error states.
 
 ## Repository map
@@ -85,10 +90,10 @@ The seeded data contains a real SLA squeeze at three strained institutions and a
 
 | Suite | Command | Status |
 |---|---|---|
-| API (PostgreSQL) | `cd apps/api && composer check` | Pint ✓ · Larastan level 6 ✓ · 95 tests passing |
+| API (PostgreSQL) | `cd apps/api && composer check` | Pint ✓ · Larastan level 6 ✓ · 103 tests passing |
 | AI service | `cd services/ai && ruff check . && mypy && pytest -q` | ruff ✓ · mypy --strict ✓ · 25 tests passing |
-| Web | `cd apps/web && npm run check` | Prettier ✓ · ESLint ✓ · strict build ✓ · 30 tests passing |
-| E2E (stack running) | `cd tests/e2e && npm i && npm test` | smoke journey (7 steps) + all routes × 2 personas + Widget Studio journey |
+| Web | `cd apps/web && npm run check` | Prettier ✓ · ESLint ✓ · strict build ✓ · 31 tests passing |
+| E2E (stack running) | `cd tests/e2e && npm i && npm test` | smoke journey (7 steps), all routes × 2 personas, Widget Studio journey, administration journey; `npm run screens` captures every screen |
 
 Code standards and the gates behind them are described in [CONTRIBUTING.md](CONTRIBUTING.md).
 

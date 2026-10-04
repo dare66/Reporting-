@@ -19,6 +19,7 @@ import { Auth } from '../core/auth.service';
 import { AppNotification, SearchResult } from '../core/models';
 import { notificationIcon } from '../core/notifications';
 import { ago, setCurrencySymbol } from '../core/format';
+import { Preferences } from '../core/preferences.service';
 import { Theme } from '../core/theme.service';
 import { Icon } from '../shared/icon';
 import { Scrim } from '../shared/scrim';
@@ -28,7 +29,7 @@ interface NavItem {
   label: string;
   icon: string;
   perm?: string[];
-  group: 'primary' | 'intelligence' | 'platform';
+  group: 'primary' | 'intelligence' | 'platform' | 'account';
 }
 
 const NAV: NavItem[] = [
@@ -54,9 +55,17 @@ const NAV: NavItem[] = [
     label: 'Administration',
     icon: 'admin',
     perm: ['admin.users', 'admin.system', 'admin.org'],
-    group: 'platform',
+    group: 'account',
   },
+  { path: '/settings', label: 'Settings', icon: 'user', group: 'account' },
 ];
+
+const GROUP_LABELS: Record<NavItem['group'], string> = {
+  primary: '',
+  intelligence: 'Intelligence',
+  platform: 'Platform',
+  account: 'Account',
+};
 
 /** Executives get a focused surface: platform plumbing stays out of their way. */
 const EXECUTIVE_HIDDEN = new Set(['/semantic', '/data']);
@@ -71,6 +80,8 @@ const EXECUTIVE_HIDDEN = new Set(['/semantic', '/data']);
 export class Shell implements OnInit, OnDestroy {
   readonly auth = inject(Auth);
   readonly theme = inject(Theme);
+  /** Applies the signed-in person's saved preferences (theme, accent, date order). */
+  private preferences = inject(Preferences);
   private api = inject(Api);
   private router = inject(Router);
 
@@ -80,8 +91,8 @@ export class Shell implements OnInit, OnDestroy {
     return NAV.filter((n) => (!n.perm || this.auth.canAny(...n.perm)) && !(exec && EXECUTIVE_HIDDEN.has(n.path)));
   });
   readonly groups = computed(() =>
-    (['primary', 'intelligence', 'platform'] as const)
-      .map((g) => ({ g, items: this.nav().filter((n) => n.group === g) }))
+    (['primary', 'intelligence', 'platform', 'account'] as const)
+      .map((g) => ({ g, label: GROUP_LABELS[g], items: this.nav().filter((n) => n.group === g) }))
       .filter((x) => x.items.length),
   );
   readonly mobileTabs = computed(() =>

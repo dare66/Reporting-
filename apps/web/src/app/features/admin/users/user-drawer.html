@@ -1,0 +1,199 @@
+<div class="scrim" appScrim (dismiss)="dismiss.emit()"></div>
+<aside
+  class="drawer fade-in"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="drawer-title"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  @if (user(); as u) {
+    <header class="head">
+      <span class="avatar">{{ u.first_name.charAt(0) }}{{ u.name.split(' ').at(-1)?.charAt(0) }}</span>
+      <div class="who">
+        <h2 id="drawer-title">{{ u.name }}</h2>
+        <span class="muted">{{ u.email }}</span>
+        <span class="tags">
+          <span class="badge" [class.good]="u.status === 'active'" [class.critical]="u.status !== 'active'">{{
+            u.status
+          }}</span>
+          @if (u.must_change_password) {
+            <span class="badge warning">password change pending</span>
+          }
+          @if (isSelf()) {
+            <span class="badge">you</span>
+          }
+        </span>
+      </div>
+      <button class="btn icon sm ghost" (click)="dismiss.emit()" aria-label="Close">
+        <app-icon name="close" [size]="16" />
+      </button>
+    </header>
+
+    <div class="scroll">
+      @if (notice(); as n) {
+        <p class="notice" role="status">{{ n }}</p>
+      }
+      @if (error(); as e) {
+        <p class="err" role="alert">{{ e }}</p>
+      }
+      @if (temporaryPassword(); as pw) {
+        <app-one-time-secret [value]="pw" heading="Temporary password" />
+      }
+
+      <section>
+        <h3>Profile</h3>
+        <div class="grid">
+          <label class="field"
+            >Full name<input class="input" [ngModel]="name()" (ngModelChange)="name.set($event)"
+          /></label>
+          <label class="field"
+            >Job title<input class="input" [ngModel]="title()" (ngModelChange)="title.set($event)"
+          /></label>
+          <label class="field"
+            >Email<input class="input" type="email" [ngModel]="email()" (ngModelChange)="email.set($event)"
+          /></label>
+          <label class="field"
+            >Department
+            <select class="select" [ngModel]="departmentId()" (ngModelChange)="departmentId.set($event)">
+              <option value="">None</option>
+              @for (d of departments(); track d.id) {
+                <option [value]="d.id">{{ d.name }}</option>
+              }
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h3>Roles</h3>
+        <div class="roles" role="group" aria-label="Roles">
+          @for (r of roles(); track r.id) {
+            <label class="role" [class.on]="roleKeys().includes(r.key)">
+              <input type="checkbox" [checked]="roleKeys().includes(r.key)" (change)="toggleRole(r.key)" />
+              <span
+                ><b>{{ r.name }}</b
+                ><small class="muted">{{ r.description }}</small></span
+              >
+            </label>
+          }
+        </div>
+      </section>
+
+      <section>
+        <h3>Data access</h3>
+        <app-scope-editor [scope]="scope()" (scopeChange)="scope.set($event)" />
+        <p class="muted small">Enforced by row-level security on every query, export and AI answer.</p>
+      </section>
+
+      <div class="save">
+        <span class="spacer"></span>
+        <button class="btn signal" (click)="save()" [disabled]="!dirty() || busy() || !roleKeys().length">
+          Save changes
+        </button>
+      </div>
+
+      <section>
+        <h3>Security</h3>
+        <div class="action">
+          <div>
+            <b>Password</b>
+            <span class="muted small">{{
+              u.must_change_password ? 'Waiting for them to choose a new one' : 'Set by them'
+            }}</span>
+          </div>
+          @if (!isSelf()) {
+            <button
+              class="btn sm"
+              [class.danger]="pending() === 'password'"
+              (click)="confirm('password')"
+              [disabled]="busy()"
+            >
+              {{ pending() === 'password' ? 'Confirm reset' : 'Reset password' }}
+            </button>
+          }
+        </div>
+        <div class="action">
+          <div>
+            <b>Two-factor authentication</b>
+            <span class="muted small">{{ u.mfa_enabled ? 'On — authenticator app' : 'Off' }}</span>
+          </div>
+          @if (u.mfa_enabled) {
+            <button class="btn sm" [class.danger]="pending() === 'mfa'" (click)="confirm('mfa')" [disabled]="busy()">
+              {{ pending() === 'mfa' ? 'Confirm reset' : 'Reset' }}
+            </button>
+          }
+        </div>
+        <div class="action">
+          <div>
+            <b>Signed-in devices</b>
+            <span class="muted small">{{ u.sessions.length }} active</span>
+          </div>
+          @if (u.sessions.length) {
+            <button
+              class="btn sm"
+              [class.danger]="pending() === 'sessions'"
+              (click)="confirm('sessions')"
+              [disabled]="busy()"
+            >
+              {{ pending() === 'sessions' ? 'Confirm sign-out' : 'Sign out everywhere' }}
+            </button>
+          }
+        </div>
+        @for (s of u.sessions.slice(0, 5); track s.id) {
+          <div class="device muted small">
+            {{ s.device?.slice(0, 70) ?? 'Unknown device' }} · {{ s.ip_address }} ·
+            {{ ago(s.last_used_at ?? s.created_at) }}
+          </div>
+        }
+        @if (u.sessions.length > 5) {
+          <div class="device muted small">+{{ u.sessions.length - 5 }} more signed-in devices</div>
+        }
+        @if (!isSelf()) {
+          <div class="action">
+            <div>
+              <b>Account</b>
+              <span class="muted small">{{
+                u.status === 'active' ? 'Can sign in' : 'Suspended — cannot sign in'
+              }}</span>
+            </div>
+            <button
+              class="btn sm"
+              [class.danger]="pending() === 'status'"
+              (click)="confirm('status')"
+              [disabled]="busy()"
+            >
+              {{ pending() === 'status' ? 'Confirm' : u.status === 'active' ? 'Suspend' : 'Reactivate' }}
+            </button>
+          </div>
+        }
+        @if (pending()) {
+          <p class="muted small">
+            Click again to confirm, or <button class="link" (click)="pending.set(null)">cancel</button>.
+          </p>
+        }
+      </section>
+
+      <section>
+        <h3>Recent activity</h3>
+        <ol class="activity">
+          @for (a of u.activity; track a.id) {
+            <li [class.denied]="a.decision === 'deny'">
+              <span>{{ activityLabel(a) }}</span>
+              <span class="muted small">{{ date(a.created_at) }}{{ a.ip_address ? ' · ' + a.ip_address : '' }}</span>
+            </li>
+          } @empty {
+            <li class="muted">No recorded activity yet.</li>
+          }
+        </ol>
+        <p class="muted small">
+          Joined {{ u.created_at ? date(u.created_at) : '—' }} · last sign-in {{ ago(u.last_login_at) }}
+        </p>
+      </section>
+    </div>
+  } @else if (error(); as e) {
+    <p class="err pad" role="alert">{{ e }}</p>
+  } @else {
+    <div class="skeleton pad-fill"></div>
+  }
+</aside>

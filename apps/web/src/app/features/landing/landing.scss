@@ -364,3 +364,16 @@ h1 span {
     margin-right: 12px;
   }
 }
+
+.credit {
+  position: relative;
+  z-index: 1;
+  padding: 28px 48px 32px;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.credit b {
+  color: var(--ink-2);
+  font-weight: 600;
+}

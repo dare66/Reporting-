@@ -128,3 +128,13 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.sub {
+  margin: 24px 0 12px;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.page-head .seg {
+  flex-wrap: wrap;
+}

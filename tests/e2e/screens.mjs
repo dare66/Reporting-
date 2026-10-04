@@ -106,14 +106,38 @@ await visit('/data', 'data-platform', null, 3000);
 await visit('/semantic', 'semantic-model', null, 3000);
 await visit('/governance', 'governance', null, 3000);
 
-// Administration tabs
-await visit('/admin', 'admin-users', 'table', 2500);
-for (const tab of ['Roles', 'Organisation', 'System health']) {
+// Administration
+await visit('/admin', 'admin-people', 'table', 2500);
+await page.getByRole('button', { name: 'Manage Priya Nair' }).click();
+await page.getByRole('dialog', { name: 'Priya Nair' }).getByText('Recent activity').waitFor();
+await settle(1000);
+await shot('admin-person-drawer');
+await page.getByRole('dialog', { name: 'Priya Nair' }).locator('.scroll').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+await settle(600);
+await shot('admin-person-drawer-security');
+await page.getByRole('button', { name: 'Close' }).click();
+await page.getByRole('button', { name: 'Add person' }).click();
+await settle(800);
+await shot('admin-add-person');
+await page.getByRole('dialog', { name: 'Add a person' }).getByRole('button', { name: 'Cancel' }).click();
+await page.getByRole('button', { name: 'Roles & permissions' }).click();
+await settle(1500);
+await page.getByRole('button', { name: /^Analyst/ }).click();
+await settle(800);
+await shot('admin-roles');
+for (const [tab, name] of [
+  ['Security policy', 'admin-security-policy'],
+  ['Organisation', 'admin-organisation'],
+  ['System health', 'admin-system-health'],
+]) {
   await page.getByRole('button', { name: tab, exact: true }).click();
   await settle(2500);
-  await shot('admin-' + tab.toLowerCase().replace(' ', '-'));
+  await shot(name);
 }
-await visit('/settings', 'settings', null, 2500);
+await visit('/settings', 'settings-profile-security', null, 2500);
+await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Notifications' }).click();
+await settle(1200);
+await shot('settings-notifications-preferences');
 
 // Light theme
 await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));

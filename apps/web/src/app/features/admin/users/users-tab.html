@@ -1,0 +1,145 @@
+<div class="summary">
+  <span
+    ><b>{{ summary().total }}</b> people</span
+  >
+  <span
+    ><b>{{ summary().withoutMfa }}</b> without two-factor</span
+  >
+  <span
+    ><b>{{ summary().pending }}</b> awaiting a new password</span
+  >
+  <span
+    ><b>{{ summary().suspended }}</b> suspended</span
+  >
+</div>
+
+<div class="toolbar">
+  <label class="search">
+    <app-icon name="search" [size]="15" />
+    <input
+      [ngModel]="q()"
+      (ngModelChange)="search($event)"
+      placeholder="Search name, email or title"
+      aria-label="Search people"
+    />
+  </label>
+  <select class="select" [ngModel]="role()" (ngModelChange)="setFilter('role', $event)" aria-label="Filter by role">
+    <option value="">All roles</option>
+    @for (r of roles(); track r.id) {
+      <option [value]="r.key">{{ r.name }}</option>
+    }
+  </select>
+  <select
+    class="select"
+    [ngModel]="department()"
+    (ngModelChange)="setFilter('department', $event)"
+    aria-label="Filter by department"
+  >
+    <option value="">All departments</option>
+    @for (d of departments(); track d.id) {
+      <option [value]="d.id">{{ d.name }}</option>
+    }
+  </select>
+  <select
+    class="select"
+    [ngModel]="status()"
+    (ngModelChange)="setFilter('status', $event)"
+    aria-label="Filter by status"
+  >
+    <option value="">Any status</option>
+    <option value="active">Active</option>
+    <option value="suspended">Suspended</option>
+  </select>
+  <span class="spacer"></span>
+  <button class="btn signal" (click)="inviting.set(true)"><app-icon name="plus" [size]="16" /> Add person</button>
+</div>
+
+@if (error(); as e) {
+  <p class="err" role="alert">{{ e }}</p>
+}
+
+<section class="panel scroll-x" [class.busy]="loading()">
+  <table class="table people">
+    <thead>
+      <tr>
+        <th scope="col">Person</th>
+        <th scope="col">Role</th>
+        <th scope="col">Department</th>
+        <th scope="col">Data access</th>
+        <th scope="col">Security</th>
+        <th scope="col">Last sign-in</th>
+        <th scope="col"><span class="visually-hidden">Open</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (u of users(); track u.id) {
+        <tr (click)="openId.set(u.id)" [class.off]="u.status !== 'active'">
+          <td>
+            <div class="person">
+              <span class="avatar">{{ initials(u.name) }}</span>
+              <div>
+                <b>{{ u.name }}</b>
+                <div class="muted small">{{ u.email }}{{ u.title ? ' · ' + u.title : '' }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            @for (r of u.roles; track r.key) {
+              <span class="badge">{{ r.name }}</span>
+            }
+          </td>
+          <td class="small">{{ u.department ?? '—' }}</td>
+          <td class="small">{{ u.data_scope?.country_codes?.join(', ') ?? 'All data' }}</td>
+          <td class="small">
+            <span class="sec">
+              @if (u.mfa_enabled) {
+                <span class="badge good">2FA</span>
+              } @else {
+                <span class="badge">no 2FA</span>
+              }
+              @if (u.must_change_password) {
+                <span class="badge warning">new password due</span>
+              }
+              @if (u.status !== 'active') {
+                <span class="badge critical">suspended</span>
+              }
+            </span>
+          </td>
+          <td class="muted small">{{ ago(u.last_login_at) }}</td>
+          <td class="r">
+            <button
+              class="btn sm ghost"
+              (click)="$event.stopPropagation(); openId.set(u.id)"
+              [attr.aria-label]="'Manage ' + u.name"
+            >
+              Manage <app-icon name="arrowRight" [size]="13" />
+            </button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="7" class="muted">{{ loading() ? 'Loading people…' : 'Nobody matches these filters.' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</section>
+
+@if (inviting()) {
+  <app-invite-dialog
+    [roles]="roles()"
+    [departments]="departments()"
+    [policy]="policy()"
+    (created)="added()"
+    (dismiss)="inviting.set(false)"
+  />
+}
+@if (openId(); as id) {
+  <app-user-drawer
+    [userId]="id"
+    [roles]="roles()"
+    [departments]="departments()"
+    (changed)="replace($event)"
+    (dismiss)="openId.set(null)"
+  />
+}

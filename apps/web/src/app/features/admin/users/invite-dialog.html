@@ -1,0 +1,105 @@
+<div class="scrim" appScrim (dismiss)="dismiss.emit()"></div>
+<div
+  class="dialog panel fade-in"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="invite-title"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <header class="head">
+    <h2 id="invite-title">Add a person</h2>
+    <button class="btn icon sm ghost" (click)="dismiss.emit()" aria-label="Close">
+      <app-icon name="close" [size]="16" />
+    </button>
+  </header>
+
+  @if (done(); as d) {
+    <div class="body">
+      <p>
+        <b>{{ d.user.name }}</b> can now sign in as <b>{{ d.user.email }}</b
+        >.
+      </p>
+      <app-one-time-secret [value]="d.password" heading="Initial password" />
+    </div>
+    <footer class="foot">
+      <span class="spacer"></span>
+      <button class="btn signal" (click)="dismiss.emit()">Done</button>
+    </footer>
+  } @else {
+    <form class="body grid" (submit)="$event.preventDefault(); create()">
+      <label class="field"
+        >Full name<input
+          class="input"
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+          name="name"
+          required
+          autocomplete="off"
+      /></label>
+      <label class="field"
+        >Work email<input
+          class="input"
+          type="email"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+          name="email"
+          required
+          autocomplete="off"
+        />
+        @if (domainHint()) {
+          <span class="muted small">{{ domainHint() }}</span>
+        }
+      </label>
+      <label class="field"
+        >Job title<input class="input" [ngModel]="title()" (ngModelChange)="title.set($event)" name="title"
+      /></label>
+      <label class="field"
+        >Department
+        <select class="select" [ngModel]="departmentId()" (ngModelChange)="departmentId.set($event)" name="department">
+          <option value="">None</option>
+          @for (d of departments(); track d.id) {
+            <option [value]="d.id">{{ d.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="field wide"
+        >Role
+        <select class="select" [ngModel]="role()" (ngModelChange)="role.set($event)" name="role">
+          @for (r of roles(); track r.id) {
+            <option [value]="r.key">{{ r.name }}{{ r.description ? ' — ' + r.description : '' }}</option>
+          }
+        </select>
+      </label>
+      <div class="field wide">
+        <span>Data access</span>
+        <app-scope-editor [scope]="scope()" (scopeChange)="scope.set($event)" />
+      </div>
+      <div class="field wide">
+        <span
+          >Initial password <span class="muted small">(at least {{ minLength() }} characters)</span></span
+        >
+        <div class="pw">
+          <input
+            class="input mono"
+            [ngModel]="password()"
+            (ngModelChange)="password.set($event)"
+            name="password"
+            autocomplete="new-password"
+            aria-label="Initial password"
+          />
+          <button type="button" class="btn sm" (click)="regenerate()">Generate</button>
+        </div>
+        <span class="muted small">Shown once after you add them. They choose their own password at first sign-in.</span>
+      </div>
+      @if (error(); as e) {
+        <p class="err wide" role="alert">{{ e }}</p>
+      }
+      <footer class="foot wide">
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" (click)="dismiss.emit()">Cancel</button>
+        <button class="btn signal" [disabled]="!valid() || saving()">{{ saving() ? 'Adding…' : 'Add person' }}</button>
+      </footer>
+    </form>
+  }
+</div>

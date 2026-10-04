@@ -1,74 +1,308 @@
-<div class="page">
-  <header class="page-head">
-    <div>
-      <div class="eyebrow signal">Profile &amp; settings</div>
-      <h1>{{ auth.user()?.name }}</h1>
-      <p class="lede">{{ auth.user()?.title }} · {{ auth.user()?.department }} · {{ roles() }}</p>
-    </div>
-    <button class="btn" (click)="auth.logout()"><app-icon name="logout" [size]="16" /> Sign out</button>
-  </header>
-  <div class="cols">
-    <section class="panel pad">
-      <h3>Appearance</h3>
-      <div class="seg">
-        @for (m of ['dark', 'light', 'system']; track m) {
-          <button [class.on]="theme.mode() === m" (click)="theme.setMode($any(m))">
-            {{ m === 'dark' ? 'Dark intelligence' : m === 'light' ? 'Light intelligence' : 'System' }}
-          </button>
-        }
-      </div>
-      <div class="row wrap">
-        @for (a of accents; track a) {
-          <button class="chip" [class.on]="theme.accent() === a" (click)="theme.setAccent(a)">{{ a }}</button>
-        }
-      </div>
-      <p class="muted small">
-        Data colours stay constant across themes: they are validated for colour-blind separation and contrast.
-      </p>
-      <h3 style="margin-top: 12px">Your data access</h3>
-      @if (auth.user()?.data_scope?.['country_codes']; as cc) {
-        <p>
-          Row-level security limits you to: <b>{{ cc.join(', ') }}</b>
-        </p>
-      } @else {
-        <p class="muted">You see all rows permitted by your role.</p>
-      }
-    </section>
-    <section class="panel pad">
-      <h3>Two-factor authentication</h3>
-      @if (auth.user()?.mfa_enabled) {
-        <p><span class="badge good">✓ enabled</span> Your account requires an authenticator code at sign-in.</p>
-        <button class="btn ghost" (click)="disable()">Disable</button>
-      } @else if (secret()) {
-        <p>Add this key to your authenticator app, then enter the 6-digit code.</p>
-        <code class="mono key">{{ secret() }}</code>
-        <div class="row">
-          <input
-            class="input"
-            inputmode="numeric"
-            maxlength="6"
-            [ngModel]="code()"
-            (ngModelChange)="code.set($event)"
-            placeholder="123456"
-            style="max-width: 140px"
-          /><button class="btn signal" (click)="enable()">Verify</button>
+@if (user(); as u) {
+  <div class="page">
+    <header class="page-head">
+      <div class="who">
+        <span class="avatar">{{ u.first_name.charAt(0) }}{{ u.name.split(' ').at(-1)?.charAt(0) }}</span>
+        <div>
+          <div class="eyebrow signal">Your account</div>
+          <h1>{{ u.name }}</h1>
+          <p class="lede">{{ u.title }}{{ u.department ? ' · ' + u.department : '' }} · {{ roles() }}</p>
         </div>
-      } @else {
-        <button class="btn signal" (click)="setup()"><app-icon name="lock" [size]="16" /> Set up authenticator</button>
-      }
-      @if (msg()) {
-        <p class="small" [class.neg]="msgErr()">{{ msg() }}</p>
-      }
-      <h3 style="margin-top: 12px">Active sessions</h3>
-      @for (s of sessions(); track s.id) {
-        <div class="sess">
-          <div>
-            <b>{{ s.device?.slice(0, 60) ?? 'Unknown device' }}</b>
-            <div class="muted small">{{ s.ip_address }} · started {{ ago(s.created_at) }}</div>
+      </div>
+      <button class="btn" (click)="auth.logout()"><app-icon name="logout" [size]="16" /> Sign out</button>
+    </header>
+
+    @if (hold(); as h) {
+      <div class="hold" role="alert">
+        <app-icon name="lock" [size]="20" />
+        <div>
+          <b>{{
+            h === 'password' ? 'Choose a new password to continue' : 'Set up two-factor authentication to continue'
+          }}</b>
+          <span>{{
+            h === 'password'
+              ? 'An administrator set your current password. Replace it with one only you know.'
+              : 'Your organisation requires an authenticator app for your account.'
+          }}</span>
+        </div>
+      </div>
+    }
+
+    <div class="layout">
+      <nav class="toc" aria-label="Settings sections">
+        @for (s of sections; track s.key) {
+          <button (click)="jump(s.key)"><app-icon [name]="s.icon" [size]="15" />{{ s.label }}</button>
+        }
+      </nav>
+
+      <div class="sections">
+        <!-- Profile -->
+        <section id="s-profile" class="panel card">
+          <h2>Profile</h2>
+          <div class="grid">
+            <label class="field"
+              >Full name<input class="input" [ngModel]="name()" (ngModelChange)="name.set($event)"
+            /></label>
+            <label class="field"
+              >Job title<input class="input" [ngModel]="title()" (ngModelChange)="title.set($event)"
+            /></label>
+            <div class="field">
+              Email<span class="value">{{ u.email }}</span>
+            </div>
+            <div class="field">
+              Department<span class="value">{{ u.department ?? '—' }}</span>
+            </div>
           </div>
-          <button class="btn sm ghost" (click)="revoke(s)">Revoke</button>
-        </div>
-      }
-    </section>
+          <p class="muted small">Email, department and roles are managed by your administrator.</p>
+          @if (noticeFor('profile'); as n) {
+            <p class="note" [class.bad]="n.error" role="status">{{ n.text }}</p>
+          }
+          <div class="foot">
+            <button class="btn signal" (click)="saveProfile()" [disabled]="!profileDirty() || name().trim().length < 2">
+              Save profile
+            </button>
+          </div>
+        </section>
+
+        <!-- Password -->
+        <section id="s-password" class="panel card" [class.focus]="hold() === 'password'">
+          <h2>Password</h2>
+          <form class="grid" (submit)="$event.preventDefault(); changePassword()">
+            <label class="field wide"
+              >Current password<input
+                class="input"
+                type="password"
+                [ngModel]="current()"
+                (ngModelChange)="current.set($event)"
+                name="current"
+                autocomplete="current-password"
+            /></label>
+            <label class="field"
+              >New password<input
+                class="input"
+                type="password"
+                [ngModel]="next()"
+                (ngModelChange)="next.set($event)"
+                name="next"
+                autocomplete="new-password"
+            /></label>
+            <label class="field"
+              >Confirm new password<input
+                class="input"
+                type="password"
+                [ngModel]="confirm()"
+                (ngModelChange)="confirm.set($event)"
+                name="confirm"
+                autocomplete="new-password"
+            /></label>
+            <div class="wide strength" [attr.data-score]="strength().score">
+              <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="small">{{ next() ? strength().label : 'At least ' + minLength() + ' characters' }}</span>
+              @if (confirm() && confirm() !== next()) {
+                <span class="small bad">· passwords do not match</span>
+              }
+            </div>
+            @if (noticeFor('password'); as n) {
+              <p class="note wide" [class.bad]="n.error" role="status">{{ n.text }}</p>
+            }
+            <div class="foot wide">
+              <button class="btn signal" [disabled]="!passwordReady()">Change password</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Two-factor -->
+        <section id="s-mfa" class="panel card" [class.focus]="hold() === 'mfa'">
+          <h2>Two-factor authentication</h2>
+          @if (u.mfa_enabled) {
+            <p><span class="badge good">On</span> Sign-in asks for a code from your authenticator app.</p>
+            @if (mfaRequired()) {
+              <p class="muted small">Required by your organisation, so it cannot be turned off.</p>
+            } @else {
+              <div class="foot"><button class="btn ghost" (click)="disable()">Turn off</button></div>
+            }
+          } @else if (secret(); as s) {
+            <ol class="steps">
+              <li>
+                Open your authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…) and add an
+                account with this key:
+                <code class="mono key">{{ s.secret }}</code>
+                <a class="small" [href]="s.uri">Open in an authenticator on this device</a>
+              </li>
+              <li>
+                Enter the 6-digit code it shows:
+                <div class="code">
+                  <input
+                    class="input"
+                    inputmode="numeric"
+                    maxlength="6"
+                    [ngModel]="code()"
+                    (ngModelChange)="code.set($event)"
+                    placeholder="123456"
+                    aria-label="Authenticator code"
+                  />
+                  <button class="btn signal" (click)="enable()" [disabled]="code().length !== 6">
+                    Verify and turn on
+                  </button>
+                </div>
+              </li>
+            </ol>
+          } @else {
+            <p class="muted">Protect your account with a code from an authenticator app at every sign-in.</p>
+            <div class="foot">
+              <button class="btn signal" (click)="setup()">
+                <app-icon name="lock" [size]="16" /> Set up authenticator
+              </button>
+            </div>
+          }
+          @if (noticeFor('mfa'); as n) {
+            <p class="note" [class.bad]="n.error" role="status">{{ n.text }}</p>
+          }
+        </section>
+
+        <!-- Devices -->
+        <section id="s-sessions" class="panel card">
+          <h2>Signed-in devices</h2>
+          @for (s of sessions(); track s.id) {
+            <div class="device">
+              <app-icon name="mobile" [size]="18" />
+              <div>
+                <b>{{ s.device?.slice(0, 70) ?? 'Unknown device' }}</b>
+                <div class="muted small">
+                  {{ s.ip_address }} · signed in {{ ago(s.created_at) }} · last active
+                  {{ ago(s.last_used_at ?? s.created_at) }}
+                </div>
+              </div>
+              <span class="spacer"></span>
+              <button class="btn sm ghost" (click)="revoke(s)">Sign out</button>
+            </div>
+          } @empty {
+            <p class="muted">No other signed-in devices.</p>
+          }
+          @if (noticeFor('sessions'); as n) {
+            <p class="note" [class.bad]="n.error" role="status">{{ n.text }}</p>
+          }
+        </section>
+
+        <!-- Notifications -->
+        <section id="s-notifications" class="panel card">
+          <h2>Notifications</h2>
+          <p class="muted small">
+            In-app notifications are always kept so nothing is lost. Choose where else each kind reaches you.
+          </p>
+          <table class="table notif">
+            <thead>
+              <tr>
+                <th scope="col">What</th>
+                <th scope="col" class="c">In-app</th>
+                <th scope="col" class="c">Email</th>
+                <th scope="col" class="c">Mobile push</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of categories; track c.key) {
+                <tr>
+                  <td>
+                    <b>{{ c.label }}</b>
+                    <div class="muted small">{{ c.hint }}</div>
+                  </td>
+                  <td class="c">
+                    <input type="checkbox" checked disabled [attr.aria-label]="c.label + ' in-app (always on)'" />
+                  </td>
+                  <td class="c">
+                    <input
+                      type="checkbox"
+                      [checked]="channel(c.key, 'email')"
+                      (change)="setChannel(c.key, 'email', !channel(c.key, 'email'))"
+                      [attr.aria-label]="c.label + ' by email'"
+                    />
+                  </td>
+                  <td class="c">
+                    <input
+                      type="checkbox"
+                      [checked]="channel(c.key, 'push')"
+                      (change)="setChannel(c.key, 'push', !channel(c.key, 'push'))"
+                      [attr.aria-label]="c.label + ' by mobile push'"
+                    />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (noticeFor('notifications'); as n) {
+            <p class="note" [class.bad]="n.error" role="status">{{ n.text }}</p>
+          }
+        </section>
+
+        <!-- Preferences -->
+        <section id="s-preferences" class="panel card">
+          <h2>Preferences</h2>
+          <div class="pref">
+            <span class="pl">Theme</span>
+            <div class="seg">
+              @for (m of modes; track m.key) {
+                <button [class.on]="theme.mode() === m.key" (click)="setMode(m.key)">{{ m.label }}</button>
+              }
+            </div>
+          </div>
+          <div class="pref">
+            <span class="pl">Accent</span>
+            <div class="row wrap">
+              @for (a of accents; track a) {
+                <button class="chip" [class.on]="theme.accent() === a" (click)="setAccent(a)">{{ a }}</button>
+              }
+            </div>
+          </div>
+          <div class="pref">
+            <span class="pl">Dates</span>
+            <div>
+              <div class="seg">
+                @for (f of dateFormats; track f.key) {
+                  <button
+                    [class.on]="(u.preferences.date_format ?? 'day_month') === f.key"
+                    (click)="setPref({ date_format: f.key })"
+                  >
+                    {{ f.label }}
+                  </button>
+                }
+              </div>
+              <div class="muted small example">Today reads as {{ today() }}</div>
+            </div>
+          </div>
+          <div class="pref">
+            <span class="pl">Command Centre opens on</span>
+            <div class="seg">
+              @for (r of ranges; track r.key) {
+                <button
+                  [class.on]="(u.preferences.default_range ?? 'last_30_days') === r.key"
+                  (click)="setPref({ default_range: r.key })"
+                >
+                  {{ r.label }}
+                </button>
+              }
+            </div>
+          </div>
+          <p class="muted small">
+            Chart colours stay constant across themes: they are validated for colour-blind separation and contrast.
+          </p>
+          @if (noticeFor('preferences'); as n) {
+            <p class="note" [class.bad]="n.error" role="status">{{ n.text }}</p>
+          }
+        </section>
+
+        <!-- Data access -->
+        <section id="s-access" class="panel card">
+          <h2>Your data access</h2>
+          @if (u.data_scope?.country_codes; as cc) {
+            <p>
+              Row-level security limits every query, export and AI answer you see to: <b>{{ cc.join(', ') }}</b>
+            </p>
+          } @else {
+            <p>You see all rows your role permits.</p>
+          }
+          <p class="muted small">Roles: {{ roles() }}. Ask your administrator if you need more access.</p>
+        </section>
+      </div>
+    </div>
   </div>
-</div>
+}

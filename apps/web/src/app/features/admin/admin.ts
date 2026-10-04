@@ -1,26 +1,27 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api, errorMessage } from '../../core/api.service';
-import { AdminUser, Envelope, FeatureFlag, Organisation, Permission, Role, SystemHealth } from '../../core/models';
+import {
+  Department,
+  Envelope,
+  FeatureFlag,
+  Organisation,
+  Permission,
+  Role,
+  SecurityPolicy,
+  SystemHealth,
+} from '../../core/models';
 import { Auth } from '../../core/auth.service';
 import { ago } from '../../core/format';
 import { ACCENTS, Theme } from '../../core/theme.service';
-import { Icon } from '../../shared/icon';
 import { ErrorState } from '../../shared/states';
+import { RolesTab } from './roles/roles-tab';
+import { SecurityTab } from './security/security-tab';
+import { UsersTab } from './users/users-tab';
+
+type Tab = 'users' | 'roles' | 'security' | 'org' | 'health';
 
 const DEFAULT_ACCENT = '#e8b04b';
-
-interface NewUserForm {
-  name: string;
-  email: string;
-  title: string;
-  password: string;
-  role: string;
-  /** Comma-separated country codes limiting the user's rows (attribute-based access). */
-  scope: string;
-}
-
-const EMPTY_USER: NewUserForm = { name: '', email: '', title: '', password: '', role: 'viewer', scope: '' };
 
 interface OrganisationForm {
   name: string;
@@ -32,7 +33,7 @@ interface OrganisationForm {
 @Component({
   selector: 'app-admin',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, Icon, ErrorState],
+  imports: [FormsModule, ErrorState, UsersTab, RolesTab, SecurityTab],
   templateUrl: './admin.html',
   styleUrl: './admin.scss',
 })
@@ -41,27 +42,30 @@ export class Admin implements OnInit, OnDestroy {
   readonly auth = inject(Auth);
   readonly theme = inject(Theme);
   readonly accents = ACCENTS;
-  readonly tabs = computed(() => [
+  readonly tabs = computed<{ key: Tab; label: string }[]>(() => [
     ...(this.auth.can('admin.users')
       ? [
-          { key: 'users', label: 'Users' },
-          { key: 'roles', label: 'Roles' },
+          { key: 'users' as const, label: 'People' },
+          { key: 'roles' as const, label: 'Roles & permissions' },
         ]
       : []),
-    ...(this.auth.can('admin.org') ? [{ key: 'org', label: 'Organisation' }] : []),
-    ...(this.auth.can('admin.system') ? [{ key: 'health', label: 'System health' }] : []),
+    ...(this.auth.can('admin.org')
+      ? [
+          { key: 'security' as const, label: 'Security policy' },
+          { key: 'org' as const, label: 'Organisation' },
+        ]
+      : []),
+    ...(this.auth.can('admin.system') ? [{ key: 'health' as const, label: 'System health' }] : []),
   ]);
-  readonly tab = signal('users');
-  readonly users = signal<AdminUser[]>([]);
+  readonly tab = signal<Tab>('users');
   readonly roles = signal<Role[]>([]);
   readonly permissions = signal<Permission[]>([]);
+  readonly departments = signal<Department[]>([]);
+  readonly policy = signal<SecurityPolicy | null>(null);
   readonly flags = signal<FeatureFlag[]>([]);
   readonly health = signal<SystemHealth | null>(null);
-  readonly q = signal('');
-  readonly newUser = signal(false);
   readonly saved = signal(false);
   readonly error = signal<string | null>(null);
-  u: NewUserForm = { ...EMPTY_USER };
   org: OrganisationForm = { name: '', currency: '', timezone: '', accent: DEFAULT_ACCENT };
   private timer?: ReturnType<typeof setInterval>;
   ago = ago;
@@ -92,22 +96,11 @@ export class Admin implements OnInit, OnDestroy {
     clearInterval(this.timer);
   }
 
-  async go(t: string) {
+  async go(t: Tab) {
     this.tab.set(t);
     clearInterval(this.timer);
     try {
-      if (t === 'users') {
-        await this.loadUsers();
-        this.roles.set((await this.api.get<Envelope<Role[]>>('/admin/roles')).data);
-      }
-      if (t === 'roles') {
-        const [r, p] = await Promise.all([
-          this.api.get<Envelope<Role[]>>('/admin/roles'),
-          this.api.get<Envelope<Permission[]>>('/admin/permissions'),
-        ]);
-        this.roles.set(r.data);
-        this.permissions.set(p.data);
-      }
+      if (t === 'users' || t === 'roles') await this.loadDirectory();
       if (t === 'org') {
         const o = (await this.api.get<Envelope<Organisation>>('/admin/organisation')).data;
         this.org = {
@@ -127,55 +120,26 @@ export class Admin implements OnInit, OnDestroy {
       this.error.set(errorMessage(e));
     }
   }
-  async loadUsers() {
-    this.users.set((await this.api.get<Envelope<AdminUser[]>>('/admin/users', { q: this.q() })).data);
+
+  /** Roles, permissions, departments and the policy: shared by the People and Roles tabs. */
+  async loadDirectory() {
+    const [roles, permissions, departments] = await Promise.all([
+      this.api.get<Envelope<Role[]>>('/admin/roles'),
+      this.api.get<Envelope<Permission[]>>('/admin/permissions'),
+      this.api.get<Envelope<Department[]>>('/admin/departments'),
+    ]);
+    this.roles.set(roles.data);
+    this.permissions.set(permissions.data);
+    this.departments.set(departments.data);
+    if (this.auth.can('admin.org') && !this.policy()) {
+      this.policy.set((await this.api.get<Envelope<SecurityPolicy>>('/admin/security-policy')).data);
+    }
+  }
+  async reloadRoles() {
+    this.roles.set((await this.api.get<Envelope<Role[]>>('/admin/roles')).data);
   }
   async loadFlags() {
     this.flags.set((await this.api.get<Envelope<FeatureFlag[]>>('/admin/feature-flags')).data);
-  }
-  has(r: Role, key: string) {
-    return r.permissions.some((p) => p.key === key || p.key === '*');
-  }
-  async setRole(x: AdminUser, role: string) {
-    try {
-      await this.api.patch(`/admin/users/${x.id}`, { roles: [role] });
-      this.loadUsers();
-    } catch (e) {
-      this.error.set(errorMessage(e));
-    }
-  }
-  async toggleStatus(x: AdminUser) {
-    try {
-      await this.api.patch(`/admin/users/${x.id}`, { status: x.status === 'active' ? 'suspended' : 'active' });
-      this.loadUsers();
-    } catch (e) {
-      this.error.set(errorMessage(e));
-    }
-  }
-  async createUser() {
-    try {
-      const scope = this.u.scope
-        ? {
-            country_codes: String(this.u.scope)
-              .split(',')
-              .map((s) => s.trim().toUpperCase())
-              .filter(Boolean),
-          }
-        : {};
-      await this.api.post('/admin/users', {
-        name: this.u.name,
-        email: this.u.email,
-        title: this.u.title,
-        password: this.u.password,
-        roles: [this.u.role],
-        attributes: scope,
-      });
-      this.u = { ...EMPTY_USER };
-      this.newUser.set(false);
-      this.loadUsers();
-    } catch (e) {
-      this.error.set(errorMessage(e));
-    }
   }
   async saveOrg() {
     try {
@@ -190,6 +154,9 @@ export class Admin implements OnInit, OnDestroy {
     } catch (e) {
       this.error.set(errorMessage(e));
     }
+  }
+  flagChanged(f: FeatureFlag, e: Event) {
+    this.setFlag(f, (e.target as HTMLInputElement).checked);
   }
   async setFlag(f: FeatureFlag, enabled: boolean) {
     try {

@@ -1,0 +1,86 @@
+<section class="panel policy">
+  @if (notice(); as n) {
+    <p class="notice" role="status">{{ n }}</p>
+  }
+  @if (error(); as e) {
+    <p class="err" role="alert">{{ e }}</p>
+  }
+
+  <div class="policy-rule">
+    <div class="label">
+      <b>Minimum password length</b>
+      <span class="muted small">Applies to new accounts, resets and password changes.</span>
+    </div>
+    <div class="control">
+      <input
+        type="range"
+        min="12"
+        max="64"
+        [ngModel]="minLength()"
+        (ngModelChange)="minLength.set(+$event)"
+        aria-label="Minimum password length"
+      />
+      <b class="num">{{ minLength() }}</b
+      ><span class="muted small">characters</span>
+    </div>
+  </div>
+
+  <div class="policy-rule">
+    <div class="label">
+      <b>Two-factor authentication</b>
+      <span class="muted small">People it applies to are guided to set it up before they can continue.</span>
+    </div>
+    <div class="control options" role="radiogroup" aria-label="Who must use two-factor authentication">
+      @for (m of modes; track m.key) {
+        <label class="option" [class.on]="mfa() === m.key">
+          <input type="radio" name="mfa" [value]="m.key" [checked]="mfa() === m.key" (change)="mfa.set(m.key)" />
+          <span
+            ><b>{{ m.label }}</b
+            ><small class="muted">{{ m.hint }}</small></span
+          >
+        </label>
+      }
+      @if (selfBlocked()) {
+        <p class="warn small">
+          <app-icon name="warning" [size]="13" /> Set up two-factor on your own account first (Settings → Security).
+        </p>
+      }
+    </div>
+  </div>
+
+  <div class="policy-rule">
+    <div class="label">
+      <b>Allowed email domains</b>
+      <span class="muted small">New accounts must use one of these. Leave empty to allow any domain.</span>
+    </div>
+    <div class="control">
+      <div class="chips">
+        @for (d of domains(); track d) {
+          <span class="chip on"
+            >{{ d }}<button (click)="removeDomain(d)" [attr.aria-label]="'Remove ' + d">×</button></span
+          >
+        } @empty {
+          <span class="muted small">Any domain</span>
+        }
+      </div>
+      <div class="add">
+        <input
+          class="input"
+          [ngModel]="domainDraft()"
+          (ngModelChange)="domainDraft.set($event)"
+          (keydown.enter)="addDomain()"
+          placeholder="e.g. emgs.com.my"
+          aria-label="Add an email domain"
+        />
+        <button class="btn sm" (click)="addDomain()" [disabled]="!domainValid()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span class="spacer"></span>
+    <button class="btn signal" (click)="save()" [disabled]="!dirty() || saving() || selfBlocked()">
+      {{ saving() ? 'Saving…' : 'Save policy' }}
+    </button>
+  </div>
+</section>

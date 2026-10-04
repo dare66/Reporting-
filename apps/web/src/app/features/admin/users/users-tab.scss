@@ -1,0 +1,91 @@
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-bottom: 14px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.summary b {
+  color: var(--ink-1);
+  font-size: 18px;
+  margin-right: 4px;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.toolbar .select {
+  width: auto;
+  min-width: 150px;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  min-width: 260px;
+  color: var(--ink-3);
+}
+.search input {
+  border: 0;
+  background: transparent;
+  color: var(--ink-1);
+  outline: none;
+  flex: 1;
+  font: inherit;
+}
+.busy {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.people tbody tr {
+  cursor: pointer;
+}
+.people tbody tr:hover {
+  background: var(--bg-2);
+}
+.people tr.off {
+  opacity: 0.6;
+}
+.person {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-3);
+  color: var(--ink-1);
+  flex: none;
+}
+.sec {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.sec .badge,
+td .badge {
+  white-space: nowrap;
+}
+.r {
+  text-align: right;
+}
+.small {
+  font-size: 12px;
+}
+.err {
+  color: var(--neg);
+}

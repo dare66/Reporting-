@@ -1,0 +1,105 @@
+.policy {
+  padding: 8px 24px 20px;
+}
+.policy-rule {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.label {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.control input[type='range'] {
+  width: 260px;
+  accent-color: var(--accent);
+}
+.num {
+  font-size: 22px;
+  min-width: 34px;
+  text-align: right;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.option.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.option span {
+  display: grid;
+  gap: 2px;
+}
+.option small {
+  font-size: 12px;
+}
+.warn {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--warning);
+  margin: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+.chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  margin-left: 4px;
+}
+.add {
+  display: flex;
+  gap: 8px;
+}
+.add .input {
+  width: 240px;
+}
+.foot {
+  display: flex;
+  padding-top: 16px;
+}
+.notice {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--pos-soft);
+}
+.err {
+  margin: 16px 0 0;
+  color: var(--neg);
+}
+.small {
+  font-size: 12px;
+}
+@media (max-width: 960px) {
+  .policy-rule,
+  .options {
+    grid-template-columns: 1fr;
+  }
+}

@@ -175,7 +175,7 @@
     <section>
       <h4>Conditional colour</h4>
       @for (r of v.conditional ?? []; track $index; let i = $index) {
-        <div class="rule">
+        <div class="color-rule">
           <select
             class="select"
             [ngModel]="r.op"

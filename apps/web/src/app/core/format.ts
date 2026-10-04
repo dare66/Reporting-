@@ -1,4 +1,4 @@
-import type { NumberFormat } from './models';
+import type { NumberFormat, Preferences } from './models';
 
 /** Executive formatting — identical rules to the API and AI service. */
 let currency = 'RM';
@@ -71,9 +71,20 @@ export function fmtChange(
   return `${sign}${compact(Math.abs(change))}`;
 }
 
+/** The person's chosen date order (Settings → Preferences). */
+let dateFormat: NonNullable<Preferences['date_format']> = 'day_month';
+export const setDateFormat = (f: Preferences['date_format']) => (dateFormat = f ?? 'day_month');
+
 export function fmtDate(d: string | null | undefined, style: 'short' | 'month' | 'long' | 'time' = 'short'): string {
   if (!d) return '—';
   const date = new Date(d.length === 10 ? d + 'T00:00:00' : d);
+  if (dateFormat === 'iso') {
+    // Local date parts: toISOString() would shift to UTC and change the day east of Greenwich.
+    const two = (n: number) => String(n).padStart(2, '0');
+    const day = `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+    if (style === 'month') return day.slice(0, 7);
+    return style === 'time' ? `${day} ${two(date.getHours())}:${two(date.getMinutes())}` : day;
+  }
   const o: Intl.DateTimeFormatOptions =
     style === 'month'
       ? { month: 'short', year: '2-digit' }
@@ -82,7 +93,7 @@ export function fmtDate(d: string | null | undefined, style: 'short' | 'month' |
         : style === 'time'
           ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
           : { day: 'numeric', month: 'short' };
-  return date.toLocaleDateString('en-GB', o);
+  return date.toLocaleDateString(dateFormat === 'month_day' ? 'en-US' : 'en-GB', o);
 }
 
 export function ago(d: string | null | undefined): string {

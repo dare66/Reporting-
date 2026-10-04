@@ -126,9 +126,8 @@ class AuthController extends Controller
             'preferences' => 'required|array',
             'preferences.theme' => 'sometimes|in:dark,light,system',
             'preferences.accent' => 'sometimes|string|max:30',
-            'preferences.home_dashboard' => 'sometimes|nullable|uuid',
             'preferences.date_format' => 'sometimes|in:day_month,month_day,iso',
-            'preferences.default_range' => 'sometimes|in:last_7_days,last_30_days,last_90_days,this_month,this_quarter,last_12_months',
+            'preferences.default_range' => 'sometimes|in:last_7_days,last_30_days,this_month,this_quarter,year_to_date',
             'preferences.notifications' => 'sometimes|array',
             'preferences.notifications.*' => 'array',
             'preferences.notifications.*.email' => 'sometimes|boolean',
@@ -136,7 +135,7 @@ class AuthController extends Controller
         ]);
         // Validated data keeps only keys with rules, so unknown keys are checked on the raw input.
         $raw = (array) $request->input('preferences');
-        $unknown = array_diff(array_keys($raw), ['theme', 'accent', 'home_dashboard', 'date_format', 'default_range', 'notifications']);
+        $unknown = array_diff(array_keys($raw), ['theme', 'accent', 'date_format', 'default_range', 'notifications']);
         abort_if($unknown !== [], 422, 'Unknown preference: '.implode(', ', $unknown).'.');
         $categories = array_diff(array_keys((array) ($raw['notifications'] ?? [])), Notifier::CATEGORIES);
         abort_if($categories !== [], 422, 'Unknown notification category: '.implode(', ', $categories).'.');

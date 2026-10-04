@@ -1,0 +1,136 @@
+<div class="layout">
+  <aside class="list panel" aria-label="Roles">
+    <div class="list-head">
+      <b>Roles</b><span class="spacer"></span>
+      @if (canEdit()) {
+        <button class="btn sm signal" (click)="startNew()"><app-icon name="plus" [size]="14" /> New role</button>
+      }
+    </div>
+    @for (r of roles(); track r.id) {
+      <button class="item" [class.on]="selectedId() === r.id" (click)="select(r)">
+        <span class="name"
+          ><b>{{ r.name }}</b>
+          @if (r.is_system) {
+            <span class="badge">platform</span>
+          } @else {
+            <span class="badge ai">custom</span>
+          }
+        </span>
+        <span class="muted small"
+          >{{ r.users_count }} {{ r.users_count === 1 ? 'person' : 'people' }} ·
+          {{ r.permissions_count }} permissions</span
+        >
+      </button>
+    }
+  </aside>
+
+  <section class="editor panel">
+    @if (draft(); as d) {
+      <div class="editor-head">
+        @if (editable()) {
+          <input
+            class="input name"
+            [ngModel]="d.name"
+            (ngModelChange)="edit({ name: $event })"
+            placeholder="Role name"
+            aria-label="Role name"
+          />
+        } @else {
+          <h2>{{ d.name }}</h2>
+        }
+        <span class="spacer"></span>
+        @if (selected()?.is_system && canEdit()) {
+          <button class="btn sm" (click)="startNew(selected())">Duplicate as custom role</button>
+        }
+      </div>
+      @if (selected()?.is_system) {
+        <p class="muted small locked">
+          <app-icon name="lock" [size]="13" /> Platform role: its meaning is shared by every organisation, so it cannot
+          be changed. Duplicate it to tailor a version for your organisation.
+        </p>
+      }
+      @if (notice(); as n) {
+        <p class="notice" role="status">{{ n }}</p>
+      }
+      @if (error(); as e) {
+        <p class="err" role="alert">{{ e }}</p>
+      }
+
+      <div class="meta">
+        <label class="field"
+          >Description
+          <input
+            class="input"
+            [ngModel]="d.description"
+            (ngModelChange)="edit({ description: $event })"
+            [disabled]="!editable()"
+          />
+        </label>
+        <label class="field"
+          >Experience
+          <select
+            class="select"
+            [ngModel]="d.experience"
+            (ngModelChange)="edit({ experience: $event })"
+            [disabled]="!editable()"
+          >
+            @for (x of experiences; track x.key) {
+              <option [value]="x.key">{{ x.label }} — {{ x.hint }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <div class="perms">
+        @for (g of groups(); track g.group) {
+          @let state = groupState(g.items);
+          <fieldset class="group">
+            <legend>
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="state === 'all'"
+                  [indeterminate]="state === 'some'"
+                  (change)="toggleGroup(g.items, state !== 'all')"
+                  [disabled]="!editable()"
+                />
+                {{ g.group }}
+              </label>
+            </legend>
+            @for (p of g.items; track p.id) {
+              <label class="perm">
+                <input type="checkbox" [checked]="has(p.key)" (change)="toggle(p.key)" [disabled]="!editable()" />
+                <span
+                  ><b class="mono">{{ p.key }}</b
+                  ><small class="muted">{{ p.description }}</small></span
+                >
+              </label>
+            }
+          </fieldset>
+        }
+      </div>
+
+      @if (editable()) {
+        <div class="foot">
+          @if (d.id) {
+            <button class="btn ghost" [class.danger]="confirmDelete()" (click)="remove()">
+              {{ confirmDelete() ? 'Confirm delete' : 'Delete role' }}
+            </button>
+          }
+          <span class="spacer"></span>
+          <button class="btn signal" (click)="save()" [disabled]="saving() || d.name.trim().length < 2">
+            {{ saving() ? 'Saving…' : d.id ? 'Save role' : 'Create role' }}
+          </button>
+        </div>
+      }
+    } @else {
+      <div class="empty">
+        <app-icon name="governance" [size]="36" />
+        <p>Select a role to see exactly what it allows{{ canEdit() ? ', or create a custom role' : '' }}.</p>
+        @if (notice(); as n) {
+          <p class="notice" role="status">{{ n }}</p>
+        }
+      </div>
+    }
+  </section>
+</div>

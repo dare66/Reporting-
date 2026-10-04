@@ -17,8 +17,8 @@
     <div class="org">{{ user()?.organisation?.name }}</div>
     <nav>
       @for (grp of groups(); track grp.g) {
-        @if (grp.g !== 'primary') {
-          <div class="group">{{ grp.g === 'intelligence' ? 'Intelligence' : 'Platform' }}</div>
+        @if (grp.label) {
+          <div class="group">{{ grp.label }}</div>
         }
         @for (n of grp.items; track n.path) {
           <a [routerLink]="n.path" routerLinkActive="on" class="nav-item" [class.ai]="n.path === '/ai'">
@@ -28,6 +28,7 @@
       }
     </nav>
     <div class="spacer"></div>
+    <p class="credit">Built by Scicom (MSC) Berhad for EMGS</p>
     <a routerLink="/settings" class="me">
       <span class="avatar">{{ initials(user()?.name) }}</span>
       <span class="who"

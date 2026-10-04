@@ -1,0 +1,61 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 70;
+}
+.dialog {
+  position: fixed;
+  z-index: 71;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+.head,
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+}
+.head {
+  border-bottom: 1px solid var(--line);
+}
+.head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.body {
+  padding: 18px 20px;
+  display: grid;
+  gap: 14px;
+}
+.grid {
+  grid-template-columns: 1fr 1fr;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.foot {
+  padding: 4px 0 0;
+}
+.pw {
+  display: flex;
+  gap: 8px;
+}
+.small {
+  font-size: 12px;
+  font-weight: 400;
+}
+.err {
+  color: var(--neg);
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

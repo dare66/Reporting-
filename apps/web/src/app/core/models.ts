@@ -966,14 +966,19 @@ export interface RoleRef {
   name: string;
 }
 
+export type Experience = 'executive' | 'analyst' | 'engineer' | 'admin';
+
 export interface Role {
   id: string;
   key: string;
   name: string;
   description: string | null;
-  experience: string;
+  experience: Experience;
   is_system: boolean;
+  /** Null for platform roles shared by every tenant. */
+  organisation_id: string | null;
   permissions_count: number;
+  users_count: number;
   permissions: { id: string; key: string }[];
 }
 
@@ -1004,6 +1009,55 @@ export interface AdminUser {
   data_scope: DataScope | null;
   mfa_enabled: boolean;
   last_login_at: string | null;
+  must_change_password: boolean;
+  department_id: string | null;
+  team_id: string | null;
+  /** Present on the admin list (signed-in devices). */
+  active_sessions?: number;
+  created_at: string | null;
+}
+
+/** An audit event shown on a person's activity timeline. */
+export interface ActivityEntry {
+  id: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  decision: string;
+  result: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+/** The admin user detail: the person plus their sessions and recent activity. */
+export interface AdminUserDetail extends AdminUser {
+  sessions: Pick<Session, 'id' | 'device' | 'ip_address' | 'created_at' | 'last_used_at'>[];
+  activity: ActivityEntry[];
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  users_count: number;
+}
+
+/** The organisation's sign-in and account rules (enforced by the API). */
+export interface SecurityPolicy {
+  password_min_length: number;
+  require_mfa: 'none' | 'admins' | 'all';
+  allowed_email_domains: string[];
+}
+
+export type NotificationCategory = 'alert' | 'anomaly' | 'report' | 'mention';
+
+/** A person's own settings, stored on their profile. */
+export interface Preferences {
+  theme?: 'dark' | 'light' | 'system';
+  accent?: string;
+  date_format?: 'day_month' | 'month_day' | 'iso';
+  default_range?: 'last_7_days' | 'last_30_days' | 'this_month' | 'this_quarter' | 'year_to_date';
+  notifications?: Partial<Record<NotificationCategory, { email?: boolean; push?: boolean }>>;
 }
 
 export interface Organisation {

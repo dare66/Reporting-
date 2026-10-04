@@ -12,7 +12,7 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 | GET | `/me` | profile, permissions, experience tier, data scope, `must_change_password`, `security.{mfa_required, password_min_length}` |
 | PATCH | `/me` | own name and title |
 | POST | `/me/password` | `{current_password, password, password_confirmation, refresh_token?}` under the organisation's policy; ends every other session |
-| PATCH | `/me/preferences` | known keys only: `theme`, `accent`, `home_dashboard`, `date_format`, `default_range`, `notifications.{alert,anomaly,report,mention}.{email,push}`. In-app notifications are always kept. |
+| PATCH | `/me/preferences` | known keys only: `theme`, `accent`, `date_format` (day_month, month_day or iso), `default_range` (the Command Centre's starting range), `notifications.{alert,anomaly,report,mention}.{email,push}`. In-app notifications are always kept. |
 | POST | `/me/mfa/setup` · `/me/mfa/enable` · DELETE `/me/mfa` | |
 | GET/DELETE | `/me/sessions[/{id}]` | session management |
 

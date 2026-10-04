@@ -75,14 +75,14 @@ h4 {
   font-size: 10px;
   font-weight: 700;
 }
-.rule {
+.color-rule {
   display: grid;
   grid-template-columns: 56px 1fr 96px 28px;
   gap: 6px;
   align-items: center;
 }
-.rule .select,
-.rule .input {
+.color-rule .select,
+.color-rule .input {
   height: 32px;
   padding: 0 8px;
 }

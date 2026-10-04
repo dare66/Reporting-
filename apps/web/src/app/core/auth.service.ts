@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { API } from './api.service';
-import { DataScope } from './models';
+import { DataScope, Preferences } from './models';
 
 export interface User {
   id: string;
@@ -16,11 +16,18 @@ export interface User {
   experience: 'executive' | 'analyst' | 'engineer' | 'admin';
   organisation: { id: string; name: string; currency: string; timezone: string; branding: { accent?: string } };
   data_scope?: DataScope | null;
-  preferences: { theme?: string; accent?: string; [key: string]: unknown };
+  preferences: Preferences;
   mfa_enabled: boolean;
   department?: string;
   team?: string;
+  /** An administrator set or reset the password; a new one must be chosen first. */
+  must_change_password: boolean;
+  /** What the organisation's security policy asks of this account. */
+  security?: { mfa_required: boolean; password_min_length: number };
 }
+
+/** Why the account is held on the settings page until it complies with policy. */
+export type Hold = 'password' | 'mfa' | null;
 
 interface TokenPair {
   access_token: string;
@@ -50,6 +57,12 @@ export class Auth {
   readonly user = signal<User | null>(null);
   readonly accessToken = signal<string | null>(null);
   readonly isAuthenticated = computed(() => !!this.user());
+  readonly hold = computed<Hold>(() => {
+    const u = this.user();
+    if (!u) return null;
+    if (u.must_change_password) return 'password';
+    return u.security?.mfa_required && !u.mfa_enabled ? 'mfa' : null;
+  });
   private refreshing: Promise<boolean> | null = null;
 
   can(permission: string): boolean {
@@ -113,6 +126,11 @@ export class Auth {
 
   async reloadProfile(): Promise<void> {
     this.user.set((await firstValueFrom(this.http.get<{ data: User }>(`${API}/me`))).data);
+  }
+
+  /** The stored refresh token, so a password change can keep this session signed in. */
+  currentRefreshToken(): string | null {
+    return this.storedRefresh();
   }
 
   private accept(res: SignedIn): void {

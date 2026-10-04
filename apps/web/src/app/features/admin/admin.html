@@ -3,7 +3,7 @@
     <div>
       <div class="eyebrow signal">Administration</div>
       <h1>{{ auth.user()?.organisation?.name }}</h1>
-      <p class="lede">People, roles, branding and platform health for your organisation.</p>
+      <p class="lede">People, roles, security policy, branding and platform health for your organisation.</p>
     </div>
     <div class="seg">
       @for (t of tabs(); track t.key) {
@@ -15,141 +15,16 @@
     <app-error [message]="message" (retry)="error.set(null)" />
   }
 
-  @if (tab() === 'users') {
-    <div class="row wrap" style="margin-bottom: 12px">
-      <input
-        class="input"
-        style="max-width: 280px"
-        placeholder="Search people"
-        [ngModel]="q()"
-        (ngModelChange)="q.set($event); loadUsers()"
-      />
-      <span class="spacer"></span
-      ><button class="btn signal" (click)="newUser.set(!newUser())">
-        <app-icon name="plus" [size]="16" /> Invite user
-      </button>
-    </div>
-    @if (newUser()) {
-      <form class="panel form" (submit)="$event.preventDefault(); createUser()">
-        <input class="input" placeholder="Full name" [(ngModel)]="u.name" name="n" required /><input
-          class="input"
-          type="email"
-          placeholder="Email"
-          [(ngModel)]="u.email"
-          name="e"
-          required
-        />
-        <input class="input" placeholder="Title" [(ngModel)]="u.title" name="t" /><input
-          class="input"
-          type="password"
-          placeholder="Initial password (12+ chars)"
-          [(ngModel)]="u.password"
-          name="p"
-          required
-          minlength="12"
-        />
-        <select class="select" [(ngModel)]="u.role" name="r">
-          @for (r of roles(); track r.id) {
-            <option [value]="r.key">{{ r.name }}</option>
-          }
-        </select>
-        <input
-          class="input"
-          placeholder="Data scope: country codes, e.g. CN, IN (optional)"
-          [(ngModel)]="u.scope"
-          name="s"
-        />
-        <button class="btn signal">Create</button>
-      </form>
+  @switch (tab()) {
+    @case ('users') {
+      <app-users-tab [roles]="roles()" [departments]="departments()" [policy]="policy()" />
     }
-    <section class="panel scroll-x">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Person</th>
-            <th>Role</th>
-            <th>Experience</th>
-            <th>Data scope</th>
-            <th>MFA</th>
-            <th>Last sign-in</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (x of users(); track x.id) {
-            <tr>
-              <td>
-                <b>{{ x.name }}</b>
-                <div class="muted small">{{ x.email }} · {{ x.title }}</div>
-              </td>
-              <td>
-                <select class="select sm-sel" [ngModel]="x.roles[0]?.key" (ngModelChange)="setRole(x, $event)">
-                  @for (r of roles(); track r.id) {
-                    <option [value]="r.key">{{ r.name }}</option>
-                  }
-                </select>
-              </td>
-              <td>
-                <span class="badge">{{ x.experience }}</span>
-              </td>
-              <td class="small">{{ x.data_scope?.country_codes?.join(', ') ?? 'All data' }}</td>
-              <td>
-                @if (x.mfa_enabled) {
-                  <span class="badge good">✓ on</span>
-                } @else {
-                  <span class="muted small">off</span>
-                }
-              </td>
-              <td class="muted small">{{ ago(x.last_login_at) }}</td>
-              <td>
-                <button
-                  class="btn sm"
-                  [class.ghost]="x.status === 'active'"
-                  (click)="toggleStatus(x)"
-                  [disabled]="x.id === auth.user()?.id"
-                >
-                  {{ x.status === 'active' ? 'Suspend' : 'Reactivate' }}
-                </button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
-  }
-
-  @if (tab() === 'roles') {
-    <section class="panel scroll-x">
-      <table class="table matrix">
-        <thead>
-          <tr>
-            <th>Permission</th>
-            @for (r of roles(); track r.id) {
-              <th class="c">{{ r.name }}</th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (p of permissions(); track p.id) {
-            <tr>
-              <td>
-                <b class="mono">{{ p.key }}</b>
-                <div class="muted small">{{ p.description }}</div>
-              </td>
-              @for (r of roles(); track r.id) {
-                <td class="c">
-                  @if (has(r, p.key)) {
-                    <span class="yes" aria-label="granted">●</span>
-                  } @else {
-                    <span class="no">·</span>
-                  }
-                </td>
-              }
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
+    @case ('roles') {
+      <app-roles-tab [roles]="roles()" [permissions]="permissions()" (rolesChange)="reloadRoles()" />
+    }
+    @case ('security') {
+      <app-security-tab />
+    }
   }
 
   @if (tab() === 'org') {
@@ -158,7 +33,7 @@
       <label class="field">Currency<input class="input" [(ngModel)]="org.currency" maxlength="3" /></label>
       <label class="field">Time zone<input class="input" [(ngModel)]="org.timezone" /></label>
       <label class="field">Brand accent<input class="input" type="color" [(ngModel)]="org.accent" /></label>
-      <div class="field" style="grid-column: 1/-1">
+      <div class="field wide">
         Platform theme
         <div class="row wrap">
           @for (a of accents; track a) {
@@ -166,7 +41,7 @@
           }
         </div>
       </div>
-      <div class="row" style="grid-column: 1/-1">
+      <div class="row wide">
         <span class="spacer"></span>
         @if (saved()) {
           <span class="small ok">✓ saved</span>
@@ -174,17 +49,14 @@
         <button class="btn signal" (click)="saveOrg()">Save</button>
       </div>
     </section>
-    <h3 style="margin: 24px 0 12px">Feature flags</h3>
+    <h3 class="sub">Feature flags</h3>
     <section class="panel">
       @for (f of flags(); track f.key) {
         <div class="flag">
           <span class="mono">{{ f.key }}</span
           ><span class="spacer"></span
           ><label class="switch"
-            ><input
-              type="checkbox"
-              [checked]="f.enabled"
-              (change)="setFlag(f, $any($event.target).checked)" /><span></span
+            ><input type="checkbox" [checked]="f.enabled" (change)="flagChanged(f, $event)" /><span></span
           ></label>
         </div>
       }
@@ -209,7 +81,7 @@
         </div>
       }
     </div>
-    <h3 style="margin: 24px 0 12px">Query performance (last hour)</h3>
+    <h3 class="sub">Query performance (last hour)</h3>
     <section class="tiles panel">
       <span
         >Queries<b>{{ h.query_performance.last_hour_queries }}</b></span
