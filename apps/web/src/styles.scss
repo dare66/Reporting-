@@ -704,3 +704,38 @@ label.field {
 .fade-in {
   animation: fade-in 0.25s var(--ease) both;
 }
+
+/* Metric lifecycle status, shared by the metric store and anywhere a metric is shown. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  &[data-status='certified'] {
+    color: var(--good);
+    border-color: color-mix(in srgb, var(--good) 45%, transparent);
+  }
+  &[data-status='approved'] {
+    color: var(--series-1);
+    border-color: color-mix(in srgb, var(--series-1) 45%, transparent);
+  }
+  &[data-status='proposed'] {
+    color: var(--warning);
+    border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  }
+  &[data-status='deprecated'] {
+    color: var(--ink-3);
+  }
+}

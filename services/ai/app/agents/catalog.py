@@ -64,6 +64,7 @@ class MetricInfo:
     synonyms: list[str]
     description: str | None
     is_kpi: bool
+    status: str = "approved"  # proposed | approved | certified (deprecated metrics are never indexed)
 
 
 @dataclass
@@ -80,6 +81,9 @@ class CatalogIndex:
             models[m["key"]] = m
             dims[m["key"]] = {d["key"]: d for d in m["dimensions"] if d.get("accessible", True)}
             for x in m["metrics"]:
+                # A deprecated metric keeps existing dashboards working but is never chosen for new answers.
+                if x.get("status") == "deprecated":
+                    continue
                 metrics[x["ref"]] = MetricInfo(
                     x["ref"],
                     m["key"],
@@ -91,6 +95,7 @@ class CatalogIndex:
                     x.get("synonyms") or [],
                     x.get("description"),
                     x.get("is_kpi", False),
+                    x.get("status", "approved"),
                 )
         return cls(models, metrics, dims)
 
@@ -128,8 +133,10 @@ class CatalogIndex:
                 if p:
                     pattern = rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])"
                     candidates.extend((match.start(), match.end(), ref) for match in re.finditer(pattern, t))
-        # Prefer longer spans; KPI metrics win ties (e.g. "applications").
-        candidates.sort(key=lambda c: (-(c[1] - c[0]), not self.metrics[c[2]].is_kpi))
+        # Prefer longer spans; certified, then KPI metrics win ties (e.g. "applications").
+        candidates.sort(
+            key=lambda c: (-(c[1] - c[0]), self.metrics[c[2]].status != "certified", not self.metrics[c[2]].is_kpi)
+        )
         taken: list[tuple[int, int]] = []
         found: list[tuple[int, str]] = []
         for s, e, ref in candidates:

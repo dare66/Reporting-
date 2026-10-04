@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Domain\Audit\AuditLogger;
+use App\Domain\Metrics\MetricStore;
 use App\Domain\Query\QueryService;
 use App\Domain\Semantic\Catalog;
 use App\Domain\Semantic\CatalogRepository;
@@ -51,7 +52,7 @@ class SemanticModelController extends Controller
             'key' => 'required|regex:/^[a-z_][a-z0-9_]*$/', 'name' => 'required|string', 'base' => 'required|string',
             'dimensions' => 'required|array', 'measures' => 'required|array|min:1', 'metrics' => 'required|array|min:1',
         ]) + $request->all();
-        $model = app(SemanticModelImporter::class)->import($request->user()->organisation_id, $def);
+        $model = app(SemanticModelImporter::class)->import($request->user()->organisation_id, $def, $request->user());
         $this->catalogs->forget();
         $this->audit->record('semantic.import', ['resource_type' => 'semantic_model', 'resource_id' => $model->id], ['version' => $model->version]);
 
@@ -66,12 +67,10 @@ class SemanticModelController extends Controller
             'is_kpi' => 'sometimes|boolean', 'higher_is_better' => 'sometimes|boolean', 'owner' => 'sometimes|nullable|string|max:120',
         ]);
         $model = SemanticModel::where('key', $key)->firstOrFail();
-        $metric = $model->metrics()->where('key', $metricKey)->firstOrFail();
-        $metric->update($data);
-        $model->increment('version');
-        $this->audit->record('semantic.metric_updated', ['resource_type' => 'metric', 'resource_id' => "{$key}.{$metricKey}"], $data);
+        // Kept for existing clients; edits go through the metric store so they are versioned and governed.
+        $metric = app(MetricStore::class)->update($model->metrics()->where('key', $metricKey)->firstOrFail(), $data, $request->user());
 
-        return response()->json(['data' => $metric->fresh()]);
+        return response()->json(['data' => $metric]);
     }
 
     /** Values of one dimension for filter pickers, limited by the caller's row-level security. */
@@ -124,7 +123,7 @@ class SemanticModelController extends Controller
             'metrics' => array_values(array_map(fn ($m) => [
                 'key' => $m['key'], 'ref' => $c->key.'.'.$m['key'], 'label' => $m['label'], 'description' => $m['description'], 'format' => $m['format'],
                 'higher_is_better' => $m['higher_is_better'], 'target' => $m['target'], 'synonyms' => $m['synonyms'], 'is_kpi' => $m['is_kpi'],
-                'owner' => $m['owner'], 'expression' => $showTech ? $m['expression'] : null, 'additive' => $c->isAdditive($m['key']),
+                'owner' => $m['owner'], 'expression' => $showTech ? $m['expression'] : null, 'additive' => $c->isAdditive($m['key']), 'status' => $m['status'],
             ], $c->metrics)),
             'hierarchies' => $c->hierarchies,
         ];

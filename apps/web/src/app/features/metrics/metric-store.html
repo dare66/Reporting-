@@ -1,0 +1,91 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Governance</div>
+      <h1>Metric Store</h1>
+      <p class="lede">
+        One definition for every number. Dashboards, reports, alerts and the AI analyst all use these metrics; certified
+        ones have been checked by a second person, and any change to how they are calculated sends them back for review.
+      </p>
+    </div>
+  </header>
+
+  @if (error(); as message) {
+    <app-error [message]="message" (retry)="load()" />
+  }
+
+  @if (counts(); as c) {
+    <div class="filters">
+      <div class="seg" role="radiogroup" aria-label="Status">
+        <button role="radio" [attr.aria-checked]="!status()" [class.on]="!status()" (click)="status.set(null)">
+          All <span class="n">{{ total() }}</span>
+        </button>
+        @for (s of statuses; track s) {
+          <button role="radio" [attr.aria-checked]="status() === s" [class.on]="status() === s" (click)="status.set(s)">
+            {{ statusLabel[s] }} <span class="n">{{ c[s] }}</span>
+          </button>
+        }
+      </div>
+      <label class="kpi-only"
+        ><input type="checkbox" [ngModel]="kpiOnly()" (ngModelChange)="kpiOnly.set($event)" /> KPIs only</label
+      >
+      <label class="search">
+        <app-icon name="search" [size]="15" />
+        <input
+          type="search"
+          placeholder="Search metrics, definitions, models"
+          aria-label="Search metrics"
+          [ngModel]="text()"
+          (ngModelChange)="text.set($event)"
+        />
+      </label>
+    </div>
+
+    <section class="panel">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Status</th>
+            <th>Business owner</th>
+            <th>Data owner</th>
+            <th class="r">Version</th>
+            <th class="r">Used in</th>
+            <th>Changed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of shown(); track m.ref) {
+            <tr [class.deprecated]="m.status === 'deprecated'">
+              <td>
+                <button class="link" (click)="open.set(m)" [attr.aria-label]="'Open ' + m.label">
+                  <b>{{ m.label }}</b>
+                  @if (m.is_kpi) {
+                    <span class="badge">KPI</span>
+                  }
+                </button>
+                <div class="muted small mono">{{ m.ref }}</div>
+              </td>
+              <td>
+                <span class="status" [attr.data-status]="m.status">{{ statusLabel[m.status] }}</span>
+              </td>
+              <td>{{ m.business_owner?.name ?? '—' }}</td>
+              <td>{{ m.data_owner?.name ?? '—' }}</td>
+              <td class="r mono">v{{ m.version }}</td>
+              <td class="r">{{ m.usage || '—' }}</td>
+              <td class="muted small">{{ ago(m.updated_at) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="muted empty">No metrics match these filters.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</div>
+
+@if (open(); as m) {
+  <app-metric-drawer [metric]="m" [siblings]="siblings(m)" (changed)="load()" (dismiss)="open.set(null)" />
+}

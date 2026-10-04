@@ -267,6 +267,10 @@ export class WidgetStudio implements OnInit {
   readonly filterChips = computed(() =>
     this.draft().filters.map((f) => describeFilter(f, this.dimensionLabel(f.dimension), (k) => this.metricLabel(k))),
   );
+  readonly certifiedMetrics = computed(() => (this.model()?.metrics ?? []).filter((m) => m.status === 'certified'));
+  readonly otherMetrics = computed(() =>
+    (this.model()?.metrics ?? []).filter((m) => m.status !== 'certified' && m.status !== 'deprecated'),
+  );
   readonly rankMetrics = computed(() => (this.model()?.metrics ?? []).map((m) => ({ key: m.key, label: m.label })));
 
   startFilter(dimension: string, index: number | null = null) {

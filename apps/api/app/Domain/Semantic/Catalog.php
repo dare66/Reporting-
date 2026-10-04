@@ -20,7 +20,7 @@ use App\Models\SemanticModel;
  * @phpstan-type DatasetDef array{id: string, name: string, label: string, schema: string, table: string, fields: array<string, string>}
  * @phpstan-type DimensionDef array{key: string, label: string, dataset_id: string, field: string, type: string, is_sensitive: bool, synonyms: list<string>, description: ?string, root_cause_candidate: bool}
  * @phpstan-type MeasureDef array{key: string, label: string, aggregation: string, field: ?string, filters: list<array<string, mixed>>, description: ?string}
- * @phpstan-type MetricDef array{key: string, label: string, expression: string, format: string, higher_is_better: bool, target: ?float, synonyms: list<string>, is_kpi: bool, description: ?string, owner: ?string}
+ * @phpstan-type MetricDef array{key: string, label: string, expression: string, format: string, higher_is_better: bool, target: ?float, synonyms: list<string>, is_kpi: bool, description: ?string, owner: ?string, status: string}
  */
 final class Catalog
 {
@@ -97,7 +97,7 @@ final class Catalog
             metrics: $model->metrics->mapWithKeys(fn ($m) => [$m->key => [
                 'key' => $m->key, 'label' => $m->label, 'expression' => $m->expression, 'format' => $m->format,
                 'higher_is_better' => $m->higher_is_better, 'target' => $m->target, 'synonyms' => $m->synonyms ?? [],
-                'is_kpi' => $m->is_kpi, 'description' => $m->description, 'owner' => $m->owner,
+                'is_kpi' => $m->is_kpi, 'description' => $m->description, 'owner' => $m->owner, 'status' => $m->status,
             ]])->all(),
             relationships: $model->relationships->map(fn ($r) => $r->only(['from_dataset_id', 'from_field', 'to_dataset_id', 'to_field']))->all(),
             policies: $model->rowLevelPolicies->map(fn ($p) => [

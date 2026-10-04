@@ -102,7 +102,7 @@ class AutoBiDesigner
         $plan = ['fact' => ['label' => $fact->label], 'domain' => $a['domain'], 'window' => $a['window']];
 
         $definition = $this->definition($source, $a, $chosen);
-        $model = $this->importer->import($user->organisation_id, $definition);
+        $model = $this->importer->import($user->organisation_id, $definition, $user);
         $dashboardPlan = $this->dashboard($model->key, $chosen, $dims, $plan['window'], $audience);
         $reportPlan = $this->reportSections($model->key, $chosen, $dims, $plan['window']);
         $title = Str::headline(preg_replace('/\s*\(upload\)$/i', '', $source->name) ?? $source->name);
@@ -462,7 +462,8 @@ class AutoBiDesigner
             $measures[$m['key']] ??= $m;
         }
         $kpiMetrics = array_map(fn ($k) => [
-            'key' => $k['key'], 'label' => $k['label'], 'expression' => $k['expression'], 'format' => $k['format'], 'is_kpi' => true,
+            // The person publishing approved these KPIs on the way in; certification is a separate, second step.
+            'key' => $k['key'], 'label' => $k['label'], 'expression' => $k['expression'], 'format' => $k['format'], 'is_kpi' => true, 'status' => 'approved',
             'higher_is_better' => $k['higher_is_better'], 'synonyms' => [Str::lower($k['label'])],
             'description' => "{$k['formula']}. {$k['reason']}",
         ], $kpis);

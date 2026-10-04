@@ -41,6 +41,7 @@ class PlatformSeeder extends Seeder
         'admin.org' => ['admin', 'Manage organisation settings, branding and feature flags'],
         'admin.system' => ['admin', 'View system health'],
         'collab.comment' => ['collaboration', 'Comment, mention and annotate'],
+        'metrics.certify' => ['governance', 'Certify, revoke and deprecate governed metrics'],
     ];
 
     public const ROLES = [
@@ -63,7 +64,7 @@ class PlatformSeeder extends Seeder
         ]],
         'data_engineer' => ['Data Engineer', 'engineer', 'Owns connectors, ingestion and the semantic layer.', [
             'dashboards.view', 'reports.view', 'query.run', 'query.explain', 'data.view', 'data.manage', 'data.sensitive',
-            'semantic.view', 'semantic.manage', 'ai.use', 'governance.view', 'audit.view', 'admin.system', 'collab.comment',
+            'semantic.view', 'semantic.manage', 'ai.use', 'governance.view', 'audit.view', 'admin.system', 'collab.comment', 'metrics.certify',
         ]],
         'report_designer' => ['Report Designer', 'analyst', 'Designs report layouts and templates.', [
             'dashboards.view', 'dashboards.manage', 'reports.view', 'reports.manage', 'reports.publish', 'reports.export', 'query.run', 'semantic.view', 'ai.use', 'collab.comment',

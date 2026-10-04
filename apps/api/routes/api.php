@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\DataController;
 use App\Http\Controllers\Api\GovernanceController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\InsightController;
+use App\Http\Controllers\Api\MetricStoreController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\QueryController;
 use App\Http\Controllers\Api\ReportController;
@@ -50,6 +51,17 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::get('semantic-models/{key}', [SemanticModelController::class, 'show']);
         Route::get('semantic-models/{key}/metrics/{metric}/lineage', [SemanticModelController::class, 'lineage']);
         Route::get('semantic-models/{key}/dimensions/{dimension}/members', [SemanticModelController::class, 'members']);
+    });
+    // Metric store: lifecycle actions check their own permissions (approve, certify, deprecate differ).
+    Route::middleware('perm:semantic.view')->group(function () {
+        Route::get('metric-store', [MetricStoreController::class, 'index']);
+        Route::get('metric-store/{model}/{metric}', [MetricStoreController::class, 'show']);
+        Route::post('metric-store/{model}/{metric}/transitions', [MetricStoreController::class, 'transition']);
+    });
+    Route::middleware('perm:semantic.manage')->group(function () {
+        Route::get('metric-store-people', [MetricStoreController::class, 'people']);
+        Route::patch('metric-store/{model}/{metric}', [MetricStoreController::class, 'update']);
+        Route::post('metric-store/{model}/{metric}/versions/{version}/restore', [MetricStoreController::class, 'restore'])->whereNumber('version');
     });
     Route::middleware('perm:semantic.manage')->group(function () {
         Route::post('semantic-models/import', [SemanticModelController::class, 'import']);

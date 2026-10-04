@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Domain\Data\DatasetRegistrar;
+use App\Domain\Metrics\MetricStore;
 use App\Domain\Semantic\SemanticModelImporter;
 use App\Models\AlertRule;
 use App\Models\Dashboard;
@@ -26,7 +27,7 @@ class DemoTenantSeeder extends Seeder
 {
     public const PASSWORD = 'Demo@2026!';
 
-    public function run(DatasetRegistrar $registrar, SemanticModelImporter $importer): void
+    public function run(DatasetRegistrar $registrar, SemanticModelImporter $importer, MetricStore $store): void
     {
         $this->loadAnalyticsData();
 
@@ -96,6 +97,7 @@ class DemoTenantSeeder extends Seeder
         foreach (['applications', 'decisions', 'revenue', 'capacity'] as $key) {
             $importer->import($org->id, json_decode(file_get_contents(__DIR__."/semantic/{$key}.json"), true));
         }
+        $this->governMetrics($store, $users);
 
         $this->dashboards($org, $users['ceo'], $users['analyst']);
 
@@ -168,6 +170,29 @@ class DemoTenantSeeder extends Seeder
         ] as $i => [$type, $title, $query, $viz, [$x, $y, $width, $h]]) {
             $ops->widgets()->create(['type' => $type, 'title' => $title, 'section' => 'main', 'query' => $query, 'viz' => $viz,
                 'position' => ['x' => $x, 'y' => $y, 'w' => $width, 'h' => $h], 'priority' => ($i + 1) * 10]);
+        }
+    }
+
+    /**
+     * The curated demo metrics are governed: owners assigned, every metric
+     * approved by the data engineer, and the KPIs certified by a second person.
+     *
+     * @param  array<string, User>  $users  first user of each role
+     */
+    private function governMetrics(MetricStore $store, array $users): void
+    {
+        $cfo = User::where('email', 'cfo@emgs.demo')->firstOrFail();
+        $coo = User::where('email', 'coo@emgs.demo')->firstOrFail();
+        $engineer = $users['data_engineer'];
+        foreach (SemanticModel::with('metrics')->get() as $model) {
+            foreach ($model->metrics as $metric) {
+                $metric->forceFill(['business_owner_id' => $model->key === 'revenue' ? $cfo->id : $coo->id, 'data_owner_id' => $engineer->id, 'version' => $metric->version + 1])->save();
+                $store->recordVersion($metric, $engineer, 'Owners assigned.');
+                $metric->forceFill([
+                    'status' => $metric->is_kpi ? 'certified' : 'approved', 'approved_by' => $engineer->id, 'approved_at' => now()->subDays(30),
+                    'certified_by' => $metric->is_kpi ? $users['tenant_admin']->id : null, 'certified_at' => $metric->is_kpi ? now()->subDays(29) : null,
+                ])->save();
+            }
         }
     }
 }

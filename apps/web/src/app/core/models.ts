@@ -189,6 +189,102 @@ export interface CatalogMetric {
   expression: string;
   /** Built only from sum/count measures, so shares and running totals are meaningful. */
   additive: boolean;
+  status: MetricStatus;
+}
+
+// ── Metric store ──
+
+export type MetricStatus = 'proposed' | 'approved' | 'certified' | 'deprecated';
+export type MetricAction = 'approve' | 'certify' | 'revoke' | 'deprecate' | 'reinstate';
+
+export interface PersonRef {
+  id: string;
+  name: string;
+}
+
+export interface StoreMetric {
+  ref: string;
+  key: string;
+  label: string;
+  description: string | null;
+  format: Format;
+  is_kpi: boolean;
+  model: { key: string; name: string };
+  status: MetricStatus;
+  status_note: string | null;
+  replaced_by: string | null;
+  version: number;
+  owner: string | null;
+  business_owner: PersonRef | null;
+  data_owner: PersonRef | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  certified_by: string | null;
+  certified_at: string | null;
+  updated_at: string;
+  usage: number;
+}
+
+export interface MetricMeasure {
+  key: string;
+  aggregation: string;
+  field: string | null;
+  filters: { field: string; op: string; value?: unknown }[];
+}
+
+export interface MetricSnapshot {
+  label: string;
+  description: string | null;
+  expression: string;
+  format: Format;
+  higher_is_better: boolean;
+  target: number | null;
+  synonyms: string[];
+  is_kpi: boolean;
+  owner: string | null;
+  business_owner_id: string | null;
+  data_owner_id: string | null;
+  measures: MetricMeasure[];
+  base: string;
+}
+
+export interface MetricVersionEntry {
+  version: number;
+  summary: string;
+  by: string | null;
+  at: string;
+  definition: MetricSnapshot;
+  formula: string;
+  definition_hash: string;
+}
+
+export interface UsageItem {
+  id: string;
+  title: string;
+}
+
+export interface MetricDetail extends Omit<StoreMetric, 'usage'> {
+  expression: string;
+  formula: string;
+  measures: MetricMeasure[];
+  base: string;
+  synonyms: string[];
+  target: number | null;
+  higher_is_better: boolean;
+  available_measures: string[];
+  usage: { dashboards: UsageItem[]; reports: UsageItem[]; alerts: UsageItem[]; hidden: number; total: number };
+  versions: MetricVersionEntry[];
+  history: { action: string; by: string | null; at: string; meta: Record<string, unknown> }[];
+  allowed: {
+    edit: boolean;
+    approve: boolean;
+    certify: boolean;
+    certify_blocked: string;
+    revoke: boolean;
+    deprecate: boolean;
+    reinstate: boolean;
+    restore: boolean;
+  };
 }
 
 export interface CatalogModel {

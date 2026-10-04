@@ -1,0 +1,309 @@
+<div class="scrim" appScrim (dismiss)="dismiss.emit()"></div>
+<aside
+  class="drawer fade-in"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="metric-title"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <header class="head">
+    <div class="who">
+      <h2 id="metric-title">{{ detail()?.label ?? metric().label }}</h2>
+      <span class="muted mono small">{{ metric().ref }}</span>
+      @if (detail(); as d) {
+        <span class="tags">
+          <span class="status" [attr.data-status]="d.status">{{ statusLabel[d.status] }}</span>
+          <span class="badge mono">v{{ d.version }}</span>
+          @if (d.is_kpi) {
+            <span class="badge">KPI</span>
+          }
+          <span class="badge">{{ d.model.name }}</span>
+        </span>
+      }
+    </div>
+    <button class="btn icon sm ghost" (click)="dismiss.emit()" aria-label="Close">
+      <app-icon name="close" [size]="16" />
+    </button>
+  </header>
+
+  <div class="scroll">
+    @if (error(); as message) {
+      <p class="neg" role="alert">{{ message }}</p>
+    }
+    @if (notice(); as message) {
+      <p class="pos" role="status">{{ message }}</p>
+    }
+
+    @if (detail(); as d) {
+      @if (d.status_note) {
+        <p class="note" [class.deprecated]="d.status === 'deprecated'">
+          <app-icon name="info" [size]="15" />
+          <span>
+            {{ d.status_note }}
+            @if (d.replaced_by) {
+              Use <b class="mono">{{ d.replaced_by }}</b> instead.
+            }
+          </span>
+        </p>
+      }
+
+      <!-- Lifecycle -->
+      <section aria-labelledby="life">
+        <h3 id="life">Lifecycle</h3>
+        <ol class="life">
+          @for (s of steps; track s; let i = $index) {
+            <li [class.done]="reached() >= i" [class.now]="reached() === i">
+              <span class="dot"></span>
+              <b>{{ statusLabel[s] }}</b>
+              <span class="muted small">
+                @switch (s) {
+                  @case ('approved') {
+                    {{ d.approved_by ? d.approved_by + ' · ' + ago(d.approved_at) : '' }}
+                  }
+                  @case ('certified') {
+                    {{ d.certified_by ? d.certified_by + ' · ' + ago(d.certified_at) : '' }}
+                  }
+                }
+              </span>
+            </li>
+          }
+        </ol>
+        <div class="actions">
+          @if (d.allowed.approve) {
+            <button class="btn sm primary" (click)="act('approve')" [disabled]="busy()">Approve definition</button>
+          }
+          @if (d.allowed.certify) {
+            <button class="btn sm signal" (click)="act('certify')" [disabled]="busy()">Certify</button>
+          }
+          @if (d.allowed.certify_blocked) {
+            <span class="muted small">{{ d.allowed.certify_blocked }}</span>
+          }
+          @if (d.allowed.revoke) {
+            <button class="btn sm" (click)="pending.set('revoke')" [disabled]="busy()">Revoke certification</button>
+          }
+          @if (d.allowed.deprecate) {
+            <button class="btn sm ghost" (click)="pending.set('deprecate')" [disabled]="busy()">Deprecate</button>
+          }
+          @if (d.allowed.reinstate) {
+            <button class="btn sm" (click)="act('reinstate')" [disabled]="busy()">Reinstate</button>
+          }
+        </div>
+        @if (pending(); as p) {
+          <div class="confirm">
+            <label class="field">
+              <span>{{
+                p === 'revoke' ? 'Why is certification being revoked?' : 'Why is this metric being deprecated?'
+              }}</span>
+              <textarea rows="2" [(ngModel)]="note" maxlength="1000"></textarea>
+            </label>
+            @if (p === 'deprecate') {
+              <label class="field">
+                <span>Replaced by (optional)</span>
+                <select class="select" [(ngModel)]="replacement">
+                  <option value="">No replacement</option>
+                  @for (s of siblings(); track s.key) {
+                    <option [value]="s.key">{{ s.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+            <div class="actions">
+              <button class="btn sm ghost" (click)="pending.set(null)">Cancel</button>
+              <button class="btn sm primary" (click)="act(p)" [disabled]="busy() || !note.trim()">
+                {{ p === 'revoke' ? 'Revoke' : 'Deprecate' }}
+              </button>
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Definition -->
+      <section aria-labelledby="def">
+        <div class="row">
+          <h3 id="def" class="grow">Definition</h3>
+          @if (d.allowed.edit && !editing()) {
+            <button class="btn sm ghost" (click)="startEdit(d)"><app-icon name="edit" [size]="14" /> Edit</button>
+          }
+        </div>
+        @if (editing() && draft; as f) {
+          <div class="form">
+            <label class="field"><span>Name</span><input [(ngModel)]="f.label" maxlength="120" /></label>
+            <label class="field"
+              ><span>Business definition</span
+              ><textarea rows="3" [(ngModel)]="f.description" maxlength="2000"></textarea>
+            </label>
+            <label class="field">
+              <span>Calculation</span>
+              <input class="mono" [(ngModel)]="f.expression" maxlength="500" />
+              <small class="muted">
+                Arithmetic over measures: {{ d.available_measures.join(', ') }}. Changing the calculation sends the
+                metric back for approval.
+              </small>
+            </label>
+            <div class="two">
+              <label class="field">
+                <span>Format</span>
+                <select class="select" [(ngModel)]="f.format">
+                  <option value="number">Number</option>
+                  <option value="percent">Percent</option>
+                  <option value="currency">Currency</option>
+                  <option value="duration_days">Days</option>
+                </select>
+              </label>
+              <label class="field"><span>Target</span><input type="number" step="any" [(ngModel)]="f.target" /></label>
+            </div>
+            <div class="two">
+              <label class="field">
+                <span>Business owner</span>
+                <select class="select" [(ngModel)]="f.business_owner_id">
+                  <option value="">Nobody yet</option>
+                  @for (p of people(); track p.id) {
+                    <option [value]="p.id">{{ p.name }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field">
+                <span>Data owner</span>
+                <select class="select" [(ngModel)]="f.data_owner_id">
+                  <option value="">Nobody yet</option>
+                  @for (p of people(); track p.id) {
+                    <option [value]="p.id">{{ p.name }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+            <label class="field"
+              ><span>Synonyms (comma-separated, used by the AI analyst)</span><input [(ngModel)]="f.synonyms"
+            /></label>
+            <div class="checks">
+              <label><input type="checkbox" [(ngModel)]="f.higher_is_better" /> Higher is better</label>
+              <label><input type="checkbox" [(ngModel)]="f.is_kpi" /> KPI</label>
+            </div>
+            <div class="actions">
+              <button class="btn sm ghost" (click)="editing.set(false)">Cancel</button>
+              <button
+                class="btn sm primary"
+                (click)="save()"
+                [disabled]="busy() || !f.label.trim() || !f.expression.trim()"
+              >
+                Save new version
+              </button>
+            </div>
+          </div>
+        } @else {
+          <p>{{ d.description ?? 'No business definition yet.' }}</p>
+          <dl>
+            <dt>Calculation</dt>
+            <dd class="mono formula">{{ d.formula }}</dd>
+            <dt>Reads from</dt>
+            <dd class="mono">{{ d.base }}</dd>
+            <dt>Direction</dt>
+            <dd>{{ d.higher_is_better ? 'Higher is better' : 'Lower is better' }}</dd>
+            @if (d.target !== null) {
+              <dt>Target</dt>
+              <dd>{{ d.target }}</dd>
+            }
+            <dt>Business owner</dt>
+            <dd>{{ d.business_owner?.name ?? 'Nobody yet' }}</dd>
+            <dt>Data owner</dt>
+            <dd>{{ d.data_owner?.name ?? 'Nobody yet' }}</dd>
+            @if (d.synonyms.length) {
+              <dt>Synonyms</dt>
+              <dd>{{ d.synonyms.join(', ') }}</dd>
+            }
+          </dl>
+        }
+      </section>
+
+      <!-- Usage -->
+      <section aria-labelledby="use">
+        <h3 id="use">Used in</h3>
+        @if (d.usage.total) {
+          <ul class="usage">
+            @for (x of d.usage.dashboards; track x.id) {
+              <li>
+                <app-icon name="dashboard" [size]="14" /><a [routerLink]="['/dashboards', x.id]">{{ x.title }}</a>
+              </li>
+            }
+            @for (x of d.usage.reports; track x.id) {
+              <li>
+                <app-icon name="report" [size]="14" /><a [routerLink]="['/reports', x.id]">{{ x.title }}</a>
+              </li>
+            }
+            @for (x of d.usage.alerts; track x.id) {
+              <li>
+                <app-icon name="alert" [size]="14" /><a routerLink="/alerts">{{ x.title }}</a>
+              </li>
+            }
+          </ul>
+          @if (d.usage.hidden) {
+            <p class="muted small">…and {{ d.usage.hidden }} more you don't have access to.</p>
+          }
+        } @else {
+          <p class="muted">Not used in any dashboard, report or alert yet.</p>
+        }
+      </section>
+
+      <!-- Versions -->
+      <section aria-labelledby="ver">
+        <h3 id="ver">Versions</h3>
+        <ol class="versions">
+          @for (v of d.versions; track v.version; let i = $index) {
+            <li>
+              <div class="row">
+                <b class="mono">v{{ v.version }}</b>
+                <span class="grow">{{ v.summary }}</span>
+                @if (i > 0 && d.allowed.restore) {
+                  <button class="btn sm ghost" (click)="restore(v.version)" [disabled]="busy()">Restore</button>
+                }
+              </div>
+              <div class="muted small">{{ v.by ?? 'System' }} · {{ fmtDate(v.at, 'long') }}</div>
+              @if (i < d.versions.length - 1) {
+                <button class="link small" (click)="compare.set(compare() === v.version ? null : v.version)">
+                  {{ compare() === v.version ? 'Hide changes' : 'What changed' }}
+                </button>
+                @if (compare() === v.version) {
+                  <table class="diff">
+                    <tbody>
+                      @for (c of changes(d.versions, i); track c.field) {
+                        <tr>
+                          <th>{{ c.field }}</th>
+                          <td class="was">{{ c.before }}</td>
+                          <td class="now">{{ c.after }}</td>
+                        </tr>
+                      } @empty {
+                        <tr>
+                          <td class="muted">No change to the definition.</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              }
+            </li>
+          }
+        </ol>
+      </section>
+
+      @if (d.history.length) {
+        <section aria-labelledby="hist">
+          <h3 id="hist">Activity</h3>
+          <ul class="history">
+            @for (h of d.history; track $index) {
+              <li>
+                <b>{{ historyLabel[h.action] ?? h.action }}</b> by {{ h.by ?? 'system' }}
+                <span class="muted small">· {{ ago(h.at) }}</span>
+                @if (h.meta['note']) {
+                  <div class="muted small">“{{ h.meta['note'] }}”</div>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    } @else if (!error()) {
+      <div class="loading skeleton"></div>
+    }
+  </div>
+</aside>

@@ -24,7 +24,7 @@ Delivery     REST API (OpenAPI) · embedded SDK · MCP · webhooks
 | 1 | Audit, SSRF guard, Excel correctness (dates, all sheets), key-duplicate profiling | — | ✅ done |
 | 2 | **Auto BI Designer**: understanding, relationships, KPI discovery, trust score, dashboard + report design, publish | semantic importer, report builder | ✅ done (v1) |
 | 3 | EMGS branding: logo, colour tokens, export theme | design tokens, `Theme` | ⏭ waiting on logo and colour codes |
-| 4 | Metric store: proposed → approved → certified lifecycle, owners, versions, diff/rollback | metrics table, versioning pattern from reports | ⏭ |
+| 4 | Metric store: proposed → approved → certified lifecycle, owners, versions, diff/rollback | metrics table, versioning pattern from reports | ✅ done |
 | 5 | Data Trust Center: trust score history per load, schema-drift detection with impact (metrics, dashboards, reports affected via lineage) | `DataTrust`, `DataLineage` | ⏭ |
 | 6 | Executive home v2: "what should I know now" from KPI changes, anomalies, forecast risk and alerts, with Investigate / Act | KPI, anomaly, forecast, alert services | ⏭ |
 | 7 | Source deletion cleanup (drop analytical tables, retire dependent models) and multi-hop relationships | ingestion, importer | ⏭ |

@@ -2,21 +2,32 @@
 
 namespace App\Domain\Semantic;
 
+use App\Domain\Metrics\MetricStore;
 use App\Domain\Query\Expression\ExpressionParser;
 use App\Models\DataLineage;
 use App\Models\Dataset;
+use App\Models\Metric;
 use App\Models\SemanticModel;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
  * Creates or replaces a semantic model from its portable definition
  * ("semantic model as code"). Validates every reference before writing.
+ * Metrics are matched by key rather than replaced, so their lifecycle,
+ * owners and version history carry over; a metric whose calculation changes
+ * gets a new version and loses its approval (see MetricStore).
  */
 class SemanticModelImporter
 {
-    /** @param array<string, mixed> $def */
-    public function import(string $organisationId, array $def): SemanticModel
+    public function __construct(private readonly MetricStore $store) {}
+
+    /**
+     * @param  array<string, mixed>  $def  a metric may carry `status: approved` when a person approved it while defining it
+     * @param  User|null  $actor  who is importing; needed to record approvals
+     */
+    public function import(string $organisationId, array $def, ?User $actor = null): SemanticModel
     {
         $datasets = Dataset::withoutGlobalScopes()->with('fields')->where('organisation_id', $organisationId)->get()->keyBy('name');
         $ds = fn (string $name) => $datasets[$name] ?? throw new InvalidArgumentException("Dataset '{$name}' does not exist.");
@@ -38,7 +49,7 @@ class SemanticModelImporter
             $parser->parse($m['expression']);
         }
 
-        return DB::transaction(function () use ($organisationId, $def, $base, $ds, $assertField) {
+        return DB::transaction(function () use ($organisationId, $def, $base, $ds, $assertField, $actor) {
             $model = SemanticModel::withoutGlobalScopes()->firstOrNew(['organisation_id' => $organisationId, 'key' => $def['key']]);
             $isNew = ! $model->exists;
             $model->fill([
@@ -52,7 +63,7 @@ class SemanticModelImporter
                 'version' => $isNew ? 1 : $model->version + 1,
             ])->save();
 
-            foreach (['dimensions', 'measures', 'metrics', 'relationships', 'hierarchies', 'rowLevelPolicies'] as $rel) {
+            foreach (['dimensions', 'measures', 'relationships', 'hierarchies', 'rowLevelPolicies'] as $rel) {
                 $model->{$rel}()->delete();
             }
 
@@ -82,14 +93,7 @@ class SemanticModelImporter
                     'field' => $m['field'] ?? null, 'filters' => $m['filters'] ?? [], 'description' => $m['description'] ?? null,
                 ]);
             }
-            foreach ($def['metrics'] as $m) {
-                $model->metrics()->create([
-                    'key' => $m['key'], 'label' => $m['label'], 'expression' => $m['expression'],
-                    'description' => $m['description'] ?? null, 'format' => $m['format'] ?? 'number',
-                    'higher_is_better' => $m['higher_is_better'] ?? true, 'target' => $m['target'] ?? null,
-                    'synonyms' => $m['synonyms'] ?? [], 'is_kpi' => $m['is_kpi'] ?? false, 'owner' => $m['owner'] ?? null,
-                ]);
-            }
+            $this->syncMetrics($model, $def['metrics'], $actor);
             foreach ($def['hierarchies'] ?? [] as $h) {
                 $model->hierarchies()->create($h);
             }
@@ -103,6 +107,42 @@ class SemanticModelImporter
 
             return $model;
         });
+    }
+
+    /** @param  list<array<string, mixed>>  $defs */
+    private function syncMetrics(SemanticModel $model, array $defs, ?User $actor): void
+    {
+        $existing = $model->metrics()->get()->keyBy('key');
+        $incoming = array_column($defs, null, 'key');
+        foreach ($existing as $key => $metric) {
+            if (! isset($incoming[$key])) {
+                $metric->delete();
+            }
+        }
+        foreach ($defs as $m) {
+            $attrs = [
+                'label' => $m['label'], 'expression' => $m['expression'], 'description' => $m['description'] ?? null, 'format' => $m['format'] ?? 'number',
+                'higher_is_better' => $m['higher_is_better'] ?? true, 'target' => $m['target'] ?? null, 'synonyms' => $m['synonyms'] ?? [],
+                'is_kpi' => $m['is_kpi'] ?? false, 'owner' => $m['owner'] ?? null,
+            ];
+            /** @var Metric|null $metric */
+            $metric = $existing[$m['key']] ?? null;
+            if ($metric === null) {
+                $approved = ($m['status'] ?? null) === 'approved' && $actor !== null;
+                $metric = $model->metrics()->create($attrs + ['key' => $m['key'], 'version' => 1, 'status' => $approved ? 'approved' : 'proposed',
+                    'approved_by' => $approved ? $actor->id : null, 'approved_at' => $approved ? now() : null]);
+                $this->store->recordVersion($metric, $actor, 'Created by import.', isNew: true);
+
+                continue;
+            }
+            $metric->fill($attrs);
+            $calculationChanged = $metric->definition_hash !== $this->store->hashOf($metric);
+            if ($metric->isDirty() || $calculationChanged) {
+                $metric->version++;
+                $metric->save();
+                $this->store->recordVersion($metric, $actor, 'Updated by import.');
+            }
+        }
     }
 
     /** Source → table → field → aggregation → metric edges for the lineage graph. */

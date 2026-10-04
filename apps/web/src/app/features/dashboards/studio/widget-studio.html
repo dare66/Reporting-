@@ -143,9 +143,19 @@
                 aria-label="Add a value"
               >
                 <option value="" disabled selected>+ Add value</option>
-                @for (m of model()?.metrics ?? []; track m.key) {
-                  <option [value]="m.key">{{ m.label }}</option>
+                <!-- Certified metrics first; deprecated ones keep existing widgets working but are not offered. -->
+                @if (certifiedMetrics().length) {
+                  <optgroup label="Certified">
+                    @for (m of certifiedMetrics(); track m.key) {
+                      <option [value]="m.key">{{ m.label }}</option>
+                    }
+                  </optgroup>
                 }
+                <optgroup [label]="certifiedMetrics().length ? 'Other metrics' : 'Metrics'">
+                  @for (m of otherMetrics(); track m.key) {
+                    <option [value]="m.key">{{ m.label }}</option>
+                  }
+                </optgroup>
               </select>
             }
           } @else {
@@ -265,8 +275,11 @@
                 (ngModelChange)="updateHaving(i, { metric: $event })"
                 aria-label="Value"
               >
+                <!-- Deprecated metrics keep existing widgets working but are not offered for new ones. -->
                 @for (m of model()?.metrics ?? []; track m.key) {
-                  <option [value]="m.key">{{ m.label }}</option>
+                  @if (m.status !== 'deprecated') {
+                    <option [value]="m.key">{{ m.label }}{{ m.status === 'certified' ? ' ✓ certified' : '' }}</option>
+                  }
                 }
               </select>
               <select

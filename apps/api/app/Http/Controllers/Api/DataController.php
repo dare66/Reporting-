@@ -174,7 +174,7 @@ class DataController extends Controller
     public function createModel(Request $request, string $id, SemanticModelGenerator $generator, SemanticModelImporter $importer): JsonResponse
     {
         $proposal = $request->input('definition') ?? $generator->propose(Dataset::with('fields')->findOrFail($id));
-        $model = $importer->import($request->user()->organisation_id, $proposal);
+        $model = $importer->import($request->user()->organisation_id, $proposal, $request->user());
         $this->audit->record('semantic.generated', ['resource_type' => 'semantic_model', 'resource_id' => $model->id]);
 
         return response()->json(['data' => ['key' => $model->key, 'id' => $model->id]], 201);

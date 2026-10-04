@@ -92,6 +92,12 @@ export const routes: Routes = [
         title: 'Dataset · AIXBI',
       },
       {
+        path: 'metrics',
+        canActivate: [permissionGuard('semantic.view')],
+        loadComponent: () => import('./features/metrics/metric-store').then((m) => m.MetricStorePage),
+        title: 'Metric Store · AIXBI',
+      },
+      {
         path: 'semantic',
         canActivate: [permissionGuard('semantic.view')],
         loadComponent: () => import('./features/semantic/semantic').then((m) => m.Semantic),
