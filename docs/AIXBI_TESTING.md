@@ -9,7 +9,7 @@ CI (`.github/workflows/ci.yml`) runs the API, AI-service and web gates on every 
 | **API** (PHPUnit, PostgreSQL) | 114 tests: compiler, expressions, time ranges, authentication and MFA, cross-tenant isolation, roles, row- and column-level security, analytics correctness against hand-written SQL, reporting, ingestion, Widget Studio, administration, Auto BI, metric store, Data Trust Center, safe source removal, SSRF guard | `cd apps/api && composer check` (Pint, Larastan level 6, tests) |
 | **AI service** (pytest) | 27 tests: the analyst graph against a mocked API, planner, LLM guards (grounding, plan validation), forecasting and anomaly maths, governed-metric selection | `cd services/ai && ruff format --check . && ruff check . && mypy && python -m pytest -q` |
 | **Web** (Karma) | 31 tests: formatting, chart specifications, pivot, Widget Studio model | `cd apps/web && npm run check` (Prettier, ESLint, production build, tests) |
-| **Browser journeys** (Playwright, against a running stack) | 11 journeys, below | `cd tests/e2e && npm test` |
+| **Browser journeys** (Playwright, against a running stack) | 13 journeys, below | `cd tests/e2e && npm test` |
 
 ## Browser journeys
 
@@ -25,6 +25,7 @@ CI (`.github/workflows/ci.yml`) runs the API, AI-service and web gates on every 
 | `crossfilter.mjs` | Clicking a bar filters the other widgets, shows as a removable filter, and clearing it restores every value |
 | `projects.mjs` | A new project starts empty; switching to it from the top bar reopens the page inside it; an upload there is not in General; the choice survives a reload |
 | `actions.mjs` | Test 6: “Create an incident for the biggest issue” proposes one with evidence; nothing opens until it is approved; approval opens and verifies it; it is worked to resolved; asking again does not duplicate; a viewer has no access |
+| `mobile.mjs` | Test 10: at 390 px, home, a dashboard, a report, the AI analyst and Actions fit the screen with no sideways scrolling; charts full width; bottom navigation and More menu work |
 | `trust.mjs` | A reload with a broken schema is caught, with its impact; acknowledgement; removing a source shows its impact and cleans up |
 
 Each journey fails on any uncaught page error, console error or 5xx response, and cleans up the data it creates.
@@ -41,7 +42,6 @@ Each journey fails on any uncaught page error, console error or 5xx response, an
 |---|---|
 | Accessibility | axe-core checks inside the browser journeys, failing on serious violations |
 | Visual regression | Screenshot comparison of key pages in light and dark themes |
-| Phone-size journeys | Home, a dashboard and a report at a 390 px viewport |
 | AI benchmark suite | Questions with expected governed answers (metric, filters, numbers), run on every prompt or model change; the regression gate for the AI gateway |
 | Browser journeys in CI | Start the Docker stack in a CI job and run `npm test` in `tests/e2e` |
 | Load | `infra/load/k6-smoke.js` in CI with thresholds from the brief (cached dashboard under 2 s, query under 3 s) |

@@ -73,11 +73,11 @@ class DataController extends Controller
     public function load(Request $request, string $id, SourceLoader $loader): JsonResponse
     {
         $data = $request->validate(['tables' => 'sometimes|array|min:1', 'tables.*' => 'string|max:128|distinct',
-            'row_limit' => 'sometimes|integer|min:100|max:2000000']);
+            'row_limit' => 'sometimes|integer|min:100|max:2000000', 'mode' => 'sometimes|in:full,incremental']);
         $source = DataSource::findOrFail($id);
         abort_unless(in_array($source->connector_key, Connectors::DATABASES, true), 422, 'Only database sources load tables; upload files instead.');
         abort_if(in_array($source->load_progress['status'] ?? null, ['queued', 'running'], true), 409, 'A load is already in progress for this source.');
-        $load = $loader->queue($source, isset($data['tables']) ? array_values($data['tables']) : null, (int) ($data['row_limit'] ?? SourceLoader::DEFAULT_ROW_LIMIT), $request->user());
+        $load = $loader->queue($source, isset($data['tables']) ? array_values($data['tables']) : null, (int) ($data['row_limit'] ?? SourceLoader::DEFAULT_ROW_LIMIT), $request->user(), $data['mode'] ?? 'full');
         $this->audit->record('data_source.load_requested', ['resource_type' => 'data_source', 'resource_id' => $id], ['tables' => count($load['tables'])]);
         LoadSourceTablesJob::dispatch($source->id);
 

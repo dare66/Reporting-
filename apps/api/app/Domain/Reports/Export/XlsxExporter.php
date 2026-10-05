@@ -73,7 +73,7 @@ class XlsxExporter implements Exporter
      * @param  array<string, mixed>  $c  section content
      * @return array{header: array<int, array<string>>, data: array<int, array<mixed>>, formats: array<string, string>}|null
      */
-    private function rows(string $type, array $c): ?array
+    public function rows(string $type, array $c): ?array
     {
         $fmt = fn (?string $f) => match ($f) {
             'percent' => '0.0%', 'currency' => '"RM" #,##0', 'duration_days' => '0.0', default => '#,##0.##',

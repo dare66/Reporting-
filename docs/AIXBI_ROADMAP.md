@@ -41,16 +41,15 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 | 6 | "Create an incident" through an authorised action | ✅ | The AI proposes an incident with evidence; it opens only once someone with `actions.approve` approves; the run is checked and audited. `actions.mjs`, `ActionEngineTest`, `test_incident.py` |
 | 7 | One tenant cannot see another's data | ✅ | `SecurityTest::test_tenants_cannot_see_each_others_resources` |
 | 8 | Cross-filtering | ✅ | Clicking a bar, slice or region filters every widget whose data has that dimension (across data models); the clicked chart highlights its pick; a second click clears it. `crossfilter.mjs`. Forecast widgets do not follow dashboard filters yet |
-| 9 | PDF / PPTX / DOCX / XLSX | 🟡 | PDF, PPTX, XLSX, CSV, HTML built. DOCX missing |
-| 10 | Dashboard usable on a phone | 🟡 | Responsive reflow built; no phone-size automated test yet |
+| 9 | PDF / PPTX / DOCX / XLSX | ✅ | PDF, PPTX, DOCX, XLSX, CSV, HTML. `ReportingTest` |
+| 10 | Dashboard usable on a phone | ✅ | `mobile.mjs` at 390 px: no sideways scrolling, charts full width, bottom navigation |
 | 11 | Break the source schema → drift detected | ✅ | `trust.mjs`, `DataTrustTest` |
-| 12 | AI benchmark suite | ⏭ | Needs the evaluation lab |
+| 12 | AI benchmark suite | ✅ | 26 business questions with expected plans, run in CI (`test_benchmark.py`); `python -m benchmark.run --llm` scores the LLM planner |
 
 ## Next, in order
 
 1. **EMGS branding**, as soon as the logo and colour codes arrive.
-2. ~~Action engine v1 with approval and audit (Test 6)~~ done. Next for actions: multi-step workflows.
-3. **DOCX export** (completes Test 9) and a phone-size test pass (Test 10).
-4. **AI evaluation lab** (Test 12), then the **AI gateway**.
-5. **Executive home v2**: "what should I know right now".
-6. **Connector interface** with incremental (watermark) loads, then SQL Server.
+2. Multi-step action workflows; Jira and ServiceNow templates.
+3. More connectors (SQL Server first) behind a common connector interface.
+4. Scheduled incremental refresh of database sources.
+5. Browser journeys in CI.

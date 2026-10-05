@@ -36,6 +36,7 @@ import { Scrim } from '../../shared/scrim';
 const EXPORT_FORMATS: [ExportFormat, string, string][] = [
   ['pdf', 'PDF', 'Print-ready document'],
   ['pptx', 'PowerPoint', 'Editable native charts'],
+  ['docx', 'Word', 'Editable document with data tables'],
   ['xlsx', 'Excel', 'One sheet per section'],
   ['csv', 'CSV', 'Every number, long format'],
   ['html', 'Interactive HTML', 'Shareable page'],
@@ -78,7 +79,7 @@ export class ReportView implements OnInit {
   readonly themes = ['executive', 'corporate', 'financial', 'operations', 'government'];
   readonly accents = ACCENTS;
   readonly exportFormats: [ExportFormat, string, string][] = EXPORT_FORMATS;
-  readonly scheduleFormats: ExportFormat[] = ['pdf', 'pptx', 'xlsx'];
+  readonly scheduleFormats: ExportFormat[] = ['pdf', 'pptx', 'docx', 'xlsx'];
   readonly channels: ScheduleSettings['channels'] = ['email', 'push', 'in_app'];
   readonly sched = signal<ScheduleSettings>({
     frequency: 'monthly',

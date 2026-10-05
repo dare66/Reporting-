@@ -24,7 +24,7 @@
           <span class="mono grow">{{ t.table }}</span>
           @switch (t.status) {
             @case ('loaded') {
-              <span class="small">{{ t.rows | number }} rows</span>
+              <span class="small">{{ t.rows | number }} {{ t.mode === 'incremental' ? 'new rows' : 'rows' }}</span>
             }
             @case ('failed') {
               <span class="small neg" [title]="t.error ?? ''">{{ t.error }}</span>
@@ -77,6 +77,12 @@
         >
       </div>
       <p class="muted small">When a table has more rows than this, the most recent rows are loaded.</p>
+      @if (loadedBefore()) {
+        <label class="small incremental"
+          ><input type="checkbox" [(ngModel)]="onlyNew" name="onlyNew" /> Only rows added since the last load (tables
+          with a date column; others load in full)</label
+        >
+      }
       <ul class="tables">
         @for (t of tables(); track t.name) {
           <li>

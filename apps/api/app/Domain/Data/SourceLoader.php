@@ -4,6 +4,7 @@ namespace App\Domain\Data;
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Notifications\Notifier;
+use App\Models\Dataset;
 use App\Models\DataSource;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -38,7 +39,7 @@ class SourceLoader
      * @param  list<string>|null  $tables  null = every table and view
      * @return Load
      */
-    public function queue(DataSource $source, ?array $tables, int $rowLimit, User $by): array
+    public function queue(DataSource $source, ?array $tables, int $rowLimit, User $by, string $mode = 'full'): array
     {
         $available = array_column($this->connectors->tables($source), 'name');
         $tables ??= $available;
@@ -52,7 +53,9 @@ class SourceLoader
             throw new InvalidArgumentException('Not found in this database: '.implode(', ', $unknown).'.');
         }
         $load = [
-            'status' => 'queued', 'row_limit' => $rowLimit, 'requested_by' => $by->id, 'started_at' => now()->toIso8601String(), 'finished_at' => null,
+            'status' => 'queued', 'row_limit' => $rowLimit, 'requested_by' => $by->id, 'mode' => $mode,
+            // Kept from load to load: the newest value loaded per table, where the next incremental load starts.
+            'watermarks' => $source->load_progress['watermarks'] ?? [], 'started_at' => now()->toIso8601String(), 'finished_at' => null,
             'tables' => array_map(fn ($t) => ['table' => $t, 'status' => 'queued', 'rows' => null, 'dataset_id' => null, 'error' => null], $tables),
         ];
         $source->update(['load_progress' => $load]);
@@ -73,9 +76,36 @@ class SourceLoader
             $load['tables'][$i]['status'] = 'loading';
             $source->update(['load_progress' => $load]);
             try {
-                $result = $this->ingestor->ingest($source, $this->datasetName($source, $t['table']),
-                    $this->connectors->stream($source, $t['table'], (int) $load['row_limit']), 'full', Str::headline($t['table']));
-                $load['tables'][$i] = ['table' => $t['table'], 'status' => 'loaded', 'rows' => (int) $result['run']->records, 'dataset_id' => $result['dataset']->id, 'error' => null];
+                $mark = $load['watermarks'][$t['table']] ?? null;
+                $column = $this->connectors->watermarkColumn($source, $t['table']);
+                // Incremental only when this table was loaded before, by the same date column, into a dataset that still exists.
+                $incremental = ($load['mode'] ?? 'full') === 'incremental' && $mark !== null && $column !== null && $mark['column'] === $column
+                    && Dataset::whereKey($mark['dataset_id'] ?? '')->exists();
+                $newest = $incremental ? $mark['value'] : null;
+                $rows = $this->connectors->stream($source, $t['table'], (int) $load['row_limit'], $incremental ? ['column' => $column, 'value' => $mark['value']] : null);
+                // Notes the newest value of the date column as rows pass through, without holding them.
+                $tracked = (function () use ($rows, $column, &$newest) {
+                    foreach ($rows as $row) {
+                        $v = $column !== null && isset($row[$column]) ? (string) $row[$column] : null;
+                        if ($v !== null && ($newest === null || $v > $newest)) {
+                            $newest = $v;
+                        }
+                        yield $row;
+                    }
+                })();
+                if ($incremental && ! $tracked->valid()) {
+                    $datasetId = $mark['dataset_id'];
+                    $loaded = 0; // nothing new since the last load
+                } else {
+                    $result = $this->ingestor->ingest($source, $this->datasetName($source, $t['table']), $tracked, $incremental ? 'append' : 'full', Str::headline($t['table']));
+                    $datasetId = $result['dataset']->id;
+                    $loaded = (int) $result['run']->records;
+                }
+                if ($column !== null && $newest !== null) {
+                    $load['watermarks'][$t['table']] = ['column' => $column, 'value' => $newest, 'dataset_id' => $datasetId];
+                }
+                $load['tables'][$i] = ['table' => $t['table'], 'status' => 'loaded', 'mode' => $incremental ? 'incremental' : 'full',
+                    'rows' => $loaded, 'dataset_id' => $datasetId, 'error' => null];
             } catch (Throwable $e) {
                 $load['tables'][$i] = ['table' => $t['table'], 'status' => 'failed', 'rows' => null, 'dataset_id' => null,
                     'error' => Str::limit(preg_replace('/password=\S+/', 'password=***', $e->getMessage()) ?? 'Failed.', 300)];

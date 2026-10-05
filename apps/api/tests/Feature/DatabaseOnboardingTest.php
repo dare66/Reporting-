@@ -113,5 +113,21 @@ class DatabaseOnboardingTest extends TestCase
         $newest = TenantScopeBypass::run(fn () => \App\Models\Dataset::find($reloaded['dataset_id'])->freshness_at->toDateString());
         $this->assertSame(now()->toDateString(), $newest);
         $this->assertSame(2, TenantScopeBypass::run(fn () => DatasetSnapshot::where('dataset_id', $reloaded['dataset_id'])->count()));
+
+        // Incremental: only rows after the newest one loaded are fetched and appended.
+        $incremental = function () use ($id) {
+            $this->as(self::ENGINEER)->postJson("/api/v1/data-sources/{$id}/load", ['tables' => ['orders'], 'mode' => 'incremental'])->assertStatus(202);
+
+            return TenantScopeBypass::run(fn () => DataSource::find($id)->load_progress['tables'][0]);
+        };
+        $table = TenantScopeBypass::run(fn () => \App\Models\Dataset::find($reloaded['dataset_id'])->physical_table);
+        $nothing = $incremental();
+        $this->assertSame(['incremental', 0, $reloaded['dataset_id']], [$nothing['mode'], $nothing['rows'], $nothing['dataset_id']]);
+        DB::unprepared('INSERT INTO '.self::SCHEMA.".orders SELECT 'NEW-' || g, 1, current_date + 1, 'Completed', 99 FROM generate_series(1, 7) g");
+        $more = $incremental();
+        $this->assertSame(['incremental', 7], [$more['mode'], $more['rows']]);
+        $this->assertSame(107, DB::connection('analytics')->table("analytics.{$table}")->count());
+        $this->assertSame(7, DB::connection('analytics')->table("analytics.{$table}")->where('order_id', 'like', 'NEW-%')->count());
+        $this->assertSame(0, $incremental()['rows'], 'the watermark moved past the new rows');
     }
 }

@@ -6,6 +6,7 @@ use App\Models\AlertRule;
 use App\Models\AppNotification;
 use Illuminate\Support\Facades\Http;
 use Tests\SeededTestCase;
+use ZipArchive;
 
 class ReportingTest extends SeededTestCase
 {
@@ -44,6 +45,20 @@ class ReportingTest extends SeededTestCase
             $body = $this->as('ceo@emgs.demo')->get("/api/v1/report-exports/{$export['id']}/download")->assertOk()->streamedContent();
             $this->assertStringStartsWith($magic, $body, $format);
         }
+
+        // Word: a valid document holding the report's title, a heading per section and its data tables.
+        $export = $this->as('ceo@emgs.demo')->postJson("/api/v1/reports/{$id}/exports", ['format' => 'docx'])->assertStatus(202)->json('data');
+        $body = $this->as('ceo@emgs.demo')->get("/api/v1/report-exports/{$export['id']}/download")->assertOk()->streamedContent();
+        $file = tempnam(sys_get_temp_dir(), 'docx');
+        file_put_contents($file, $body);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($file) === true);
+        $xml = $zip->getFromName('word/document.xml');
+        $this->assertNotFalse(simplexml_load_string($xml), 'well-formed document');
+        $report = $this->as('ceo@emgs.demo')->getJson("/api/v1/reports/{$id}")->json('data');
+        $this->assertStringContainsString(htmlspecialchars($report['title'], ENT_XML1), $xml);
+        $this->assertSame(count($report['sections']), substr_count($xml, '<w:pStyle w:val="Heading1"/>'));
+        $this->assertStringContainsString('<w:tbl>', $xml);
     }
 
     public function test_versioning_publish_restore_compare(): void

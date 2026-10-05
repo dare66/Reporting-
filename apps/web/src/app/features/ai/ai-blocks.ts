@@ -36,7 +36,7 @@ export class AiBlockView {
   /** A follow-up question the viewer triggered from this block. */
   readonly ask = output<string>();
   readonly globe = signal(true);
-  readonly exportFormats: ExportFormat[] = ['pdf', 'pptx', 'xlsx'];
+  readonly exportFormats: ExportFormat[] = ['pdf', 'pptx', 'docx', 'xlsx'];
   readonly exporting = signal<ExportFormat | null>(null);
   readonly exportError = signal<string | null>(null);
   Math = Math;

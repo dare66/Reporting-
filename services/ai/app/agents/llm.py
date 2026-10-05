@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol
@@ -113,6 +114,40 @@ class LlmUnavailableError(Exception):
     """LLM could not produce a usable result; callers fall back to deterministic logic."""
 
 
+class Breaker:
+    """Gateway circuit breaker: after repeated provider failures, answers come from the
+    deterministic engine at once instead of waiting on timeouts, until the cool-down ends."""
+
+    def __init__(self) -> None:
+        self.failures = 0
+        self.open_until = 0.0
+
+    def is_open(self) -> bool:
+        return time.monotonic() < self.open_until
+
+    def failed(self) -> None:
+        self.failures += 1
+        if self.failures >= settings().breaker_failures:
+            self.open_until = time.monotonic() + settings().breaker_cooldown_s
+            self.failures = 0
+
+    def succeeded(self) -> None:
+        self.failures = 0
+        self.open_until = 0.0
+
+    def state(self) -> str:
+        return "open (using deterministic engine)" if self.is_open() else "closed"
+
+
+BREAKER = Breaker()
+
+
+def model_for(task: str) -> str:
+    """The model routed to a task: planner or narrator, else the default."""
+    s = settings()
+    return (s.planner_model if task == "planner" else s.narrator_model) or s.model
+
+
 def _client() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=settings().anthropic_api_key, max_retries=2, timeout=60)
 
@@ -123,9 +158,11 @@ async def plan(question: str, index: CatalogIndex, context: JSON, usage: Usage) 
         {k: context.get(k) for k in ("intent", "metrics", "dimension", "range", "report_id") if context.get(k)},
         sort_keys=True,
     )
+    if BREAKER.is_open():
+        raise LlmUnavailableError("provider circuit open")
     try:
         response = await _client().beta.messages.parse(
-            model=settings().model,
+            model=model_for("planner"),
             max_tokens=4000,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
@@ -135,7 +172,9 @@ async def plan(question: str, index: CatalogIndex, context: JSON, usage: Usage) 
             output_format=LlmPlan,
         )
     except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.APIStatusError) as e:
+        BREAKER.failed()
         raise LlmUnavailableError(f"planner call failed: {type(e).__name__}") from e
+    BREAKER.succeeded()
     usage.add(response, "planner")
     if response.stop_reason == "refusal" or response.parsed_output is None:
         raise LlmUnavailableError("planner declined or returned no plan")
@@ -209,9 +248,11 @@ async def narrate(
 ) -> tuple[str, str]:
     facts_text = "\n".join(f"[F{i + 1}] {f}" for i, f in enumerate(facts))
     tone = " Use the most concise board-level language." if executive else ""
+    if BREAKER.is_open():
+        return fallback, "deterministic (LLM provider unavailable; retrying shortly)"
     try:
         response = await _client().beta.messages.create(
-            model=settings().model,
+            model=model_for("narrator"),
             max_tokens=2000,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
@@ -220,7 +261,9 @@ async def narrate(
             messages=[{"role": "user", "content": f"QUESTION: {question}\n\nFACTS:\n{facts_text}"}],
         )
     except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.APIStatusError):
+        BREAKER.failed()
         return fallback, "deterministic (LLM unavailable)"
+    BREAKER.succeeded()
     usage.add(response, "narrative")
     if response.stop_reason == "refusal":
         return fallback, "deterministic (LLM declined)"

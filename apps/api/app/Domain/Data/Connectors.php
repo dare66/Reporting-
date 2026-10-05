@@ -136,7 +136,10 @@ class Connectors
      *
      * @return Generator<int, Record>
      */
-    public function stream(DataSource $source, string $table, int $limit): Generator
+    /**
+     * @param  array{column: string, value: string}|null  $since  incremental: only rows after this watermark, oldest first
+     */
+    public function stream(DataSource $source, string $table, int $limit, ?array $since = null): Generator
     {
         if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table)) {
             throw new InvalidArgumentException('Invalid table name.');
@@ -147,16 +150,34 @@ class Connectors
         }
         $q = $source->connector_key === 'postgresql' ? '"' : '`';
         $ref = $q.$this->schema($source).$q.'.'.$q.$table.$q;
-        // When the limit cuts a table short, the most recent rows are the ones worth reporting on.
-        $dated = $pdo->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?
-            AND data_type IN ('date', 'datetime', 'timestamp', 'timestamp without time zone', 'timestamp with time zone') ORDER BY ordinal_position LIMIT 1");
-        $dated->execute([$this->schema($source), $table]);
-        $latest = $dated->fetchColumn();
-        $order = is_string($latest) ? ' ORDER BY '.$q.$latest.$q.' DESC'.($source->connector_key === 'postgresql' ? ' NULLS LAST' : '') : '';
-        $stmt = $pdo->query("SELECT * FROM {$ref}{$order} LIMIT ".max(1, $limit));
+        if ($since !== null) {
+            if ($since['column'] !== $this->watermarkColumn($source, $table)) {
+                throw new InvalidArgumentException('The table changed since the last load; load it in full.');
+            }
+            // Only rows after the last load, oldest first, so a limit never leaves a gap.
+            $col = $q.$since['column'].$q;
+            $stmt = $pdo->prepare("SELECT * FROM {$ref} WHERE {$col} > ? ORDER BY {$col} ASC LIMIT ".max(1, $limit));
+            $stmt->execute([$since['value']]);
+        } else {
+            // When the limit cuts a table short, the most recent rows are the ones worth reporting on.
+            $latest = $this->watermarkColumn($source, $table);
+            $order = $latest !== null ? ' ORDER BY '.$q.$latest.$q.' DESC'.($source->connector_key === 'postgresql' ? ' NULLS LAST' : '') : '';
+            $stmt = $pdo->query("SELECT * FROM {$ref}{$order} LIMIT ".max(1, $limit));
+        }
         while (($row = $stmt->fetch()) !== false) {
             yield $row;
         }
+    }
+
+    /** The table's first date or time column: what "newest" means for it, and its incremental watermark. */
+    public function watermarkColumn(DataSource $source, string $table): ?string
+    {
+        $dated = $this->pdo($source)->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?
+            AND data_type IN ('date', 'datetime', 'timestamp', 'timestamp without time zone', 'timestamp with time zone') ORDER BY ordinal_position LIMIT 1");
+        $dated->execute([$this->schema($source), $table]);
+        $column = $dated->fetchColumn();
+
+        return is_string($column) ? $column : null;
     }
 
     private function schema(DataSource $source): string

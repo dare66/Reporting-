@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import observability
-from .agents import graph
+from .agents import graph, llm
 from .analytics import anomalies as anomaly_engine
 from .analytics import forecast as forecast_engine
 from .api_client import AixbiApi, ApiError
@@ -62,6 +62,11 @@ async def health() -> JSON:
         if s.llm_available
         else "deterministic semantic planner",
         "langfuse": observability.enabled(),
+        "gateway": {
+            "planner_model": llm.model_for("planner") if s.llm_available else None,
+            "narrator_model": llm.model_for("narrator") if s.llm_available else None,
+            "circuit": llm.BREAKER.state(),
+        },
     }
 
 

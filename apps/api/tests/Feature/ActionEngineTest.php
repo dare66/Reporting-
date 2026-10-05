@@ -124,4 +124,14 @@ class ActionEngineTest extends SeededTestCase
         $this->as('coo@emgs.demo')->postJson("/api/v1/alert-rules/{$rule->id}/evaluate")->assertJsonPath('data.fired', true);
         $this->assertSame(1, ActionRequest::withoutGlobalScopes()->where('source_ref', $rule->id)->count());
     }
+
+    public function test_home_puts_decisions_first(): void
+    {
+        $this->as('analyst@emgs.demo')->postJson('/api/v1/actions', ['kind' => 'incident', 'title' => 'Backlog in Penang'])->assertCreated();
+        $first = $this->as('ceo@emgs.demo')->getJson('/api/v1/home')->assertOk()->json('data.attention.0');
+        $this->assertSame(['approval', 'critical', '/actions'], [$first['kind'], $first['severity'], $first['action']['link']]);
+        $this->assertSame('Backlog in Penang', $first['detail']);
+        $viewer = $this->as('viewer@emgs.demo')->getJson('/api/v1/home')->assertOk()->json('data.attention');
+        $this->assertNotContains('approval', array_column($viewer, 'kind'));
+    }
 }

@@ -792,7 +792,7 @@ export interface ReportVersion {
   created_at: string;
 }
 
-export type ExportFormat = 'pdf' | 'pptx' | 'xlsx' | 'csv' | 'html';
+export type ExportFormat = 'pdf' | 'pptx' | 'docx' | 'xlsx' | 'csv' | 'html';
 
 export interface ReportExport {
   id: string;
@@ -975,10 +975,14 @@ export interface SourceTable {
 export interface SourceLoad {
   status: 'queued' | 'running' | 'done';
   row_limit: number;
+  mode?: 'full' | 'incremental';
+  /** Per table, the newest value loaded: where the next incremental load starts. */
+  watermarks?: Record<string, { column: string; value: string; dataset_id: string }>;
   started_at: string;
   finished_at: string | null;
   tables: {
     table: string;
+    mode?: 'full' | 'incremental';
     status: 'queued' | 'loading' | 'loaded' | 'failed';
     rows: number | null;
     dataset_id: string | null;

@@ -136,7 +136,13 @@
               [disabled]="exporting() === fmtKey"
             >
               <app-icon name="download" [size]="14" />{{
-                exporting() === fmtKey ? 'Generating…' : fmtKey === 'pptx' ? 'PPT' : fmtKey.toUpperCase()
+                exporting() === fmtKey
+                  ? 'Generating…'
+                  : fmtKey === 'pptx'
+                    ? 'PPT'
+                    : fmtKey === 'docx'
+                      ? 'Word'
+                      : fmtKey.toUpperCase()
               }}
             </button>
           }

@@ -93,11 +93,15 @@ CATALOG = [
 ]
 
 
+# Live dimension values the planner matches names against ("China", "Meridian University").
+MEMBERS = {
+    "country": ["China", "India", "Indonesia"],
+    "institution": ["Meridian University", "Klang Valley Institute"],
+}
+
+
 @pytest.fixture
 def index() -> CatalogIndex:
     idx = CatalogIndex.from_catalog(CATALOG)
-    idx.members = {
-        "country": ["China", "India", "Indonesia"],
-        "institution": ["Meridian University", "Klang Valley Institute"],
-    }
+    idx.members = MEMBERS
     return idx

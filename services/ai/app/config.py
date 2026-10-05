@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")
     llm_enabled: bool = Field(True, alias="AIXBI_LLM_ENABLED")
     model: str = Field("claude-opus-5-5", alias="AIXBI_MODEL")
+    # Per-task routing: planning and narration can use different models; empty means AIXBI_MODEL.
+    planner_model: str | None = Field(None, alias="AIXBI_PLANNER_MODEL")
+    narrator_model: str | None = Field(None, alias="AIXBI_NARRATOR_MODEL")
+    # Circuit breaker: after this many provider failures in a row, skip the LLM for the cool-down.
+    breaker_failures: int = Field(3, alias="AIXBI_LLM_BREAKER_FAILURES")
+    breaker_cooldown_s: float = Field(60.0, alias="AIXBI_LLM_BREAKER_COOLDOWN")
     price_in_per_mtok: float = Field(4.0, alias="AIXBI_PRICE_IN")
     price_out_per_mtok: float = Field(20.0, alias="AIXBI_PRICE_OUT")
 

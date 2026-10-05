@@ -53,6 +53,9 @@ export class TableLoader implements OnInit, OnDestroy {
   readonly busy = signal(false);
   readonly limits = LIMITS;
   rowLimit = 200_000;
+  /** Only rows added since the last load; offered once the source has been loaded before. */
+  onlyNew = false;
+  readonly loadedBefore = computed(() => Object.keys(this.source().load_progress?.watermarks ?? {}).length > 0);
   compact = compact;
   private timer?: ReturnType<typeof setTimeout>;
 
@@ -103,6 +106,7 @@ export class TableLoader implements OnInit, OnDestroy {
       const res = await this.api.post<Envelope<SourceLoad>>(`/data-sources/${this.source().id}/load`, {
         tables: [...this.selected()],
         row_limit: this.rowLimit,
+        mode: this.onlyNew ? 'incremental' : 'full',
       });
       this.follow(res.data);
     } catch (e) {

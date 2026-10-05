@@ -12,7 +12,7 @@ connector (Connectors.php)  ─▶  TabularIngestor  ─▶  DatasetRegistrar  �
 
 | Connector | Test connection | Load | Notes |
 |---|---|---|---|
-| PostgreSQL, MySQL, MariaDB | ✅ lists tables and views with row estimates | ✅ **all chosen tables at once, in the background**, up to a row limit per table (newest rows first when a table has a date column); then straight into Auto BI | Read-only session; rows are streamed, not held in memory; credentials encrypted at rest |
+| PostgreSQL, MySQL, MariaDB | ✅ lists tables and views with row estimates | ✅ **all chosen tables at once, in the background**, up to a row limit per table (newest rows first when a table has a date column); then straight into Auto BI. **Incremental reloads**: only rows after the newest date already loaded are fetched and appended | Read-only session; rows are streamed, not held in memory; credentials encrypted at rest |
 | CSV, TSV, text | — | ✅ upload (up to 50 MB) | Separator (comma, semicolon, tab, pipe) and encoding (UTF-8, UTF-16, Windows-1252) detected |
 | Excel (.xlsx, .xls) | — | ✅ upload, **every sheet** becomes a dataset | Dates keep their type; formulas are never recalculated |
 

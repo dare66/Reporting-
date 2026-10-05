@@ -6,6 +6,7 @@ use App\Domain\Analytics\Format;
 use App\Domain\Analytics\InsightEngine;
 use App\Domain\Analytics\KpiService;
 use App\Http\Controllers\Controller;
+use App\Models\ActionRequest;
 use App\Models\AlertRule;
 use App\Models\Anomaly;
 use App\Models\AppNotification;
@@ -13,8 +14,11 @@ use App\Models\Bookmark;
 use App\Models\Dashboard;
 use App\Models\Dataset;
 use App\Models\DataSource;
+use App\Models\DriftEvent;
+use App\Models\Incident;
 use App\Models\Insight;
 use App\Models\Report;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -53,7 +57,7 @@ class HomeController extends Controller
             }
         }
 
-        $attention = $this->attention($pulse);
+        $attention = [...$this->decisions($user), ...$this->attention($pulse)];
 
         return response()->json(['data' => [
             'greeting' => $greeting,
@@ -75,6 +79,44 @@ class HomeController extends Controller
                 'failing_sources' => DataSource::where('status', 'error')->count(),
             ],
         ]]);
+    }
+
+    /**
+     * What needs this person's decision or follow-up right now, before the KPI signals:
+     * approvals waiting for them, serious open incidents, and unacknowledged breaking data changes.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function decisions(User $user): array
+    {
+        $items = [];
+        if ($user->hasPermission('actions.approve')) {
+            $waiting = ActionRequest::where('status', 'proposed')->where(fn ($q) => $q->whereNull('requested_by')->orWhere('requested_by', '!=', $user->id)
+                ->orWhereIn('kind', ['incident', 'notify']))->latest()->get(['id', 'title']);
+            if ($waiting->isNotEmpty()) {
+                $items[] = ['kind' => 'approval', 'severity' => 'critical',
+                    'title' => $waiting->count() === 1 ? 'An action is waiting for your approval' : "{$waiting->count()} actions are waiting for your approval",
+                    'detail' => $waiting->first()->title, 'action' => ['label' => 'Review', 'link' => '/actions']];
+            }
+        }
+        if ($user->hasPermission('actions.request') || $user->hasPermission('actions.approve')) {
+            foreach (Incident::whereIn('status', ['open', 'investigating'])->whereIn('severity', ['critical', 'high'])
+                // Approvers see every serious incident; others, theirs and the unassigned ones.
+                ->when(! $user->hasPermission('actions.approve'), fn ($q) => $q->where(fn ($q) => $q->where('assignee_id', $user->id)->orWhereNull('assignee_id')))
+                ->orderByDesc('number')->limit(2)->get() as $i) {
+                $items[] = ['kind' => 'incident', 'severity' => $i->severity === 'critical' ? 'critical' : 'warning', 'title' => "{$i->reference} {$i->status}",
+                    'detail' => $i->title, 'action' => ['label' => 'Open', 'link' => '/actions?incident='.$i->id]];
+            }
+        }
+        if ($user->hasPermission('data.view')) {
+            $drift = DriftEvent::where('status', 'open')->where('severity', 'critical')->count();
+            if ($drift > 0) {
+                $items[] = ['kind' => 'data', 'severity' => 'critical', 'title' => $drift === 1 ? 'A breaking data change needs a look' : "{$drift} breaking data changes need a look",
+                    'detail' => 'Dashboards or metrics may show wrong numbers until it is checked.', 'action' => ['label' => 'Open Trust Center', 'link' => '/trust']];
+            }
+        }
+
+        return $items;
     }
 
     /**

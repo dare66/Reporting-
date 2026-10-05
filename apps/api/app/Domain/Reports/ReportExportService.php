@@ -3,6 +3,7 @@
 namespace App\Domain\Reports;
 
 use App\Domain\Reports\Export\CsvExporter;
+use App\Domain\Reports\Export\DocxExporter;
 use App\Domain\Reports\Export\Exporter;
 use App\Domain\Reports\Export\HtmlExporter;
 use App\Domain\Reports\Export\PdfExporter;
@@ -16,13 +17,14 @@ use Throwable;
 
 class ReportExportService
 {
-    public const FORMATS = ['pdf', 'pptx', 'xlsx', 'csv', 'html'];
+    public const FORMATS = ['pdf', 'pptx', 'docx', 'xlsx', 'csv', 'html'];
 
     public function exporter(string $format): Exporter
     {
         return match ($format) {
             'pdf' => new PdfExporter,
             'pptx' => new PptxExporter,
+            'docx' => new DocxExporter,
             'xlsx' => new XlsxExporter,
             'csv' => new CsvExporter,
             'html' => new HtmlExporter,
