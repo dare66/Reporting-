@@ -21,27 +21,42 @@ class TabularIngestor
 
     public function __construct(private readonly DatasetRegistrar $registrar) {}
 
+    /** Records sampled to infer column types. */
+    private const SAMPLE = 2000;
+
+    /** @var array<string, array{0: int, 1: string}> values that did not fit their column's type in the current load: column → [count, type] */
+    private array $mismatches = [];
+
     /**
-     * @param  array<int, array<string, mixed>>  $rows  records keyed by column name
+     * @param  iterable<array<string, mixed>>  $rows  records keyed by column name; a generator is read once, in batches
      * @param  'full'|'append'  $mode
      * @param  string|null  $label  display name; defaults to the name
      * @return array{run: IngestionRun, dataset: Dataset}
      */
-    public function ingest(DataSource $source, string $name, array $rows, string $mode = 'full', ?string $label = null): array
+    public function ingest(DataSource $source, string $name, iterable $rows, string $mode = 'full', ?string $label = null): array
     {
+        $this->mismatches = [];
         $run = IngestionRun::create(['organisation_id' => $source->organisation_id, 'data_source_id' => $source->id, 'mode' => $mode, 'status' => 'running', 'started_at' => now()]);
         $started = microtime(true);
         $log = [];
         $warnings = 0;
 
         try {
-            if ($rows === []) {
+            // Types are inferred from a sample; the rest of the rows stream through in batches.
+            $iterator = (fn () => yield from $rows)();
+            $sample = [];
+            while ($iterator->valid() && count($sample) < self::SAMPLE) {
+                $sample[] = $iterator->current();
+                $iterator->next();
+            }
+            if ($sample === []) {
                 throw new InvalidArgumentException('The source returned no records.');
             }
-            $columns = $this->inferColumns($rows, $log, $warnings);
+            $columns = $this->inferColumns($sample, $log, $warnings);
             $table = $this->tableName($source->organisation_id, $name);
+            $count = 0;
 
-            DB::transaction(function () use ($table, $columns, $rows, $mode) {
+            DB::transaction(function () use ($table, $columns, $sample, $iterator, $mode, &$count) {
                 $q = fn ($id) => '"'.$id.'"';
                 $exists = DB::selectOne('SELECT to_regclass(?) AS t', ["analytics.{$table}"])->t !== null;
                 if ($mode === 'full' || ! $exists) {
@@ -50,14 +65,33 @@ class TabularIngestor
                     DB::statement("CREATE TABLE analytics.{$q($table)} ({$defs})");
                     DB::statement("GRANT SELECT ON analytics.{$q($table)} TO aixbi_reader");
                 }
-                foreach (array_chunk($rows, self::BATCH) as $chunk) {
+                $insert = function (array $chunk) use ($table, $columns, &$count) {
                     DB::table("analytics.{$table}")->insert(array_map(fn ($r) => $this->coerce($r, $columns), $chunk));
+                    $count += count($chunk);
+                };
+                foreach (array_chunk($sample, self::BATCH) as $chunk) {
+                    $insert($chunk);
+                }
+                $chunk = [];
+                for (; $iterator->valid(); $iterator->next()) {
+                    $chunk[] = $iterator->current();
+                    if (count($chunk) === self::BATCH) {
+                        $insert($chunk);
+                        $chunk = [];
+                    }
+                }
+                if ($chunk !== []) {
+                    $insert($chunk);
                 }
             });
+            foreach ($this->mismatches as $col => [$n, $type]) {
+                $warnings++;
+                $log[] = ['level' => 'warning', 'message' => "{$n} value(s) in {$col} did not fit its type ({$type}) and were left empty rather than changed."];
+            }
 
             $dataset = $this->registrar->register($source, 'analytics', $table, $label ?? Str::headline($name));
             $source->update(['status' => 'connected', 'last_sync_at' => now(), 'last_error' => null]);
-            $run->update(['status' => 'succeeded', 'records' => count($rows), 'warning_count' => $warnings, 'log' => $log,
+            $run->update(['status' => 'succeeded', 'records' => $count, 'warning_count' => $warnings, 'log' => $log,
                 'duration_ms' => (int) ((microtime(true) - $started) * 1000), 'finished_at' => now()]);
 
             return ['run' => $run->fresh(), 'dataset' => $dataset];
@@ -120,7 +154,28 @@ class TabularIngestor
             if (! isset($columns[$col])) {
                 continue;
             }
-            $out[$col] = ($v === '' || $v === null) ? null : match ($columns[$col]) {
+            if ($v === '' || $v === null) {
+                $out[$col] = null;
+
+                continue;
+            }
+            $type = $columns[$col];
+            // A value that does not fit the inferred type is left empty, never silently turned into 0 or a wrong date.
+            $fits = match ($type) {
+                'boolean' => is_bool($v) || in_array(strtolower((string) $v), ['true', 'false', '1', '0'], true),
+                'bigint' => is_int($v) || (bool) preg_match('/^-?\d{1,18}$/', (string) $v),
+                'double precision' => is_numeric($v),
+                'date' => (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v),
+                'timestamp' => (bool) preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', (string) $v),
+                default => true,
+            };
+            if (! $fits) {
+                $this->mismatches[$col] = [($this->mismatches[$col][0] ?? 0) + 1, $type];
+                $out[$col] = null;
+
+                continue;
+            }
+            $out[$col] = match ($type) {
                 'boolean' => filter_var($v, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
                 'bigint' => (int) $v,
                 'double precision' => (float) $v,

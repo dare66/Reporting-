@@ -211,7 +211,8 @@ class AutoBiDesigner
     private function fact(Collection $datasets, array $understood, array $relationships): Dataset
     {
         return $datasets->sortByDesc(fn (Dataset $d) => [
-            count(array_filter($relationships, fn ($r) => $r['from_dataset'] === $d->name)),
+            // Only many-to-one references make a fact; a one-to-one link is a subset or extension of another table.
+            count(array_filter($relationships, fn ($r) => $r['from_dataset'] === $d->name && $r['cardinality'] === 'many_to_one')),
             collect($understood[$d->name]['fields'])->contains('role', 'time') ? 1 : 0,
             (int) $d->row_count,
         ])->first();
@@ -506,7 +507,8 @@ class AutoBiDesigner
         foreach ($understood as $u) {
             foreach ($u['fields'] as $f) {
                 if ($f['confidence'] < 0.75 && $f['role'] !== 'ignored') {
-                    $q[] = "Is {$f['label']} a ".str_replace('_', ' ', $f['role']).'? '.($f['reasons'][0] ?? '');
+                    $role = str_replace('_', ' ', $f['role']);
+                    $q[] = "Is {$f['label']} ".(preg_match('/^[aeiou]/i', $role) ? 'an' : 'a')." {$role}? ".($f['reasons'][0] ?? '');
                 }
             }
         }

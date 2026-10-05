@@ -172,6 +172,7 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::get('data-sources', [DataController::class, 'sources']);
         Route::get('data-sources/{id}/runs', [DataController::class, 'runs']);
         Route::get('data-sources/{id}/impact', [DataController::class, 'sourceImpact']);
+        Route::get('data-sources/{id}/tables', [DataController::class, 'tables']);
         Route::get('trust', [TrustController::class, 'index']);
         Route::get('trust/datasets/{id}', [TrustController::class, 'show']);
         Route::get('datasets', [DataController::class, 'datasets']);
@@ -185,6 +186,7 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
         Route::delete('data-sources/{id}', [DataController::class, 'deleteSource']);
         Route::post('data-sources/{id}/test', [DataController::class, 'test']);
         Route::post('data-sources/{id}/sync', [DataController::class, 'sync']);
+        Route::post('data-sources/{id}/load', [DataController::class, 'load']);
         Route::post('data/upload', [DataController::class, 'upload']);
         Route::post('datasets/{id}/profile', [DataController::class, 'profile']);
         Route::post('datasets/{id}/semantic-model', [DataController::class, 'createModel'])->middleware('perm:semantic.manage');

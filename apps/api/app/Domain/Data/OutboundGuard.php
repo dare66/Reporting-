@@ -21,6 +21,10 @@ class OutboundGuard
         if ($host === '') {
             throw new InvalidArgumentException('A host is required.');
         }
+        // Hosts an operator has explicitly allowed (e.g. a database on the same machine during development).
+        if (in_array(strtolower($host), array_map('strtolower', (array) config('aixbi.connectors.allow_hosts', [])), true)) {
+            return;
+        }
         $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : $this->resolveHost($host);
         if ($ips === []) {
             throw new InvalidArgumentException("The host {$host} could not be resolved.");

@@ -1,0 +1,112 @@
+<div class="scrim" appScrim (dismiss)="running() ? null : closed.emit()"></div>
+<div
+  class="modal panel fade-in"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="loader-title"
+  cdkTrapFocus
+  [cdkTrapFocusAutoCapture]="true"
+>
+  <h3 id="loader-title">Load {{ source().name }}</h3>
+
+  @if (progress(); as p) {
+    <p class="muted">
+      @if (finished()) {
+        {{ loaded() }} of {{ p.tables.length }} loaded. Every loaded table was profiled and trust-scored.
+      } @else {
+        Loading in the background. You can close this; you'll be notified when it's done.
+      }
+    </p>
+    <ul class="progress" aria-live="polite">
+      @for (t of p.tables; track t.table) {
+        <li [attr.data-status]="t.status">
+          <span class="dot"></span>
+          <span class="mono grow">{{ t.table }}</span>
+          @switch (t.status) {
+            @case ('loaded') {
+              <span class="small">{{ t.rows | number }} rows</span>
+            }
+            @case ('failed') {
+              <span class="small neg" [title]="t.error ?? ''">{{ t.error }}</span>
+            }
+            @case ('loading') {
+              <span class="small muted">loading…</span>
+            }
+            @default {
+              <span class="small muted">waiting</span>
+            }
+          }
+        </li>
+      }
+    </ul>
+    <div class="row end">
+      @if (!running()) {
+        <button class="btn ghost" (click)="closed.emit()">Close</button>
+      } @else {
+        <button class="btn ghost" (click)="closed.emit()">Continue in background</button>
+      }
+      @if (finished() && loaded()) {
+        <button class="btn signal" (click)="design()">
+          <app-icon name="ai" [size]="15" /> Design dashboard &amp; report
+        </button>
+      }
+    </div>
+  } @else {
+    <p class="muted">
+      Choose what to load. AIXBI loads each table into its analytical store, profiles it, then designs the dashboard and
+      report from all of them together, including how the tables join.
+    </p>
+    @if (tables().length) {
+      <div class="row head">
+        <label class="small"
+          ><input
+            type="checkbox"
+            [checked]="selected().size === tables().length"
+            (change)="all(selected().size !== tables().length)"
+          />
+          {{ selected().size }} of {{ tables().length }} selected</label
+        >
+        <label class="small grow r"
+          >Up to
+          <select class="select" [(ngModel)]="rowLimit" aria-label="Rows per table">
+            @for (l of limits; track l) {
+              <option [ngValue]="l">{{ compact(l) }}</option>
+            }
+          </select>
+          rows per table</label
+        >
+      </div>
+      <p class="muted small">When a table has more rows than this, the most recent rows are loaded.</p>
+      <ul class="tables">
+        @for (t of tables(); track t.name) {
+          <li>
+            <label>
+              <input
+                type="checkbox"
+                [checked]="selected().has(t.name)"
+                (change)="toggle(t.name)"
+                [attr.aria-label]="'Load ' + t.name"
+              />
+              <span class="mono grow">{{ t.name }}</span>
+              @if (t.type === 'view') {
+                <span class="badge">view</span>
+              }
+              <span class="small muted">{{ t.rows === null ? '' : '≈ ' + compact(t.rows) + ' rows' }}</span>
+            </label>
+          </li>
+        }
+      </ul>
+    } @else if (!error()) {
+      <p class="muted">Reading the database…</p>
+    }
+    @if (error(); as message) {
+      <p class="neg" role="alert">{{ message }}</p>
+    }
+    <div class="row end">
+      <button class="btn ghost" (click)="closed.emit()">Not now</button>
+      <button class="btn primary" (click)="start()" [disabled]="busy() || !selected().size || selected().size > 50">
+        Load {{ selected().size }} {{ selected().size === 1 ? 'table' : 'tables' }}
+      </button>
+    </div>
+  }
+</div>

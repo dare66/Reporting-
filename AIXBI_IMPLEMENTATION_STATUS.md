@@ -21,6 +21,7 @@ The live tracker for the transformation brief. ✅ works end to end on real data
 | Metric store: owners and usage | ✅ | `MetricUsage.php`, `MetricStoreController.php` | `MetricStoreTest` | Usage counts private items but never names them | Business and data owner per metric |
 | Governed metrics in Studio and AI | ✅ | `widget-studio.html`, `services/ai/app/agents/catalog.py` | `test_governed_metrics.py` | Deprecated metrics are never chosen for new work | Certified metrics listed first and preferred |
 | Imports keep governance | ✅ | `SemanticModelImporter::syncMetrics` | `MetricStoreTest` | — | Sync by key replaces delete-and-recreate |
+| Database onboarding: connect → load all tables → Auto BI | ✅ | `SourceLoader.php`, `LoadSourceTablesJob.php`, `features/data/table-loader/` | `DatabaseOnboardingTest`, `tests/e2e/database.mjs` | Same SSRF guard; `CONNECTORS_ALLOW_HOSTS` exempts named hosts explicitly | Streams rows; newest rows first under a limit; values that don't fit a column's type are left empty and reported, never altered |
 | EMGS branding | ⏭ | — | — | — | Needs the official logo and colour codes |
 | Everything else in the brief | ⏭ | — | — | — | See backlog |
 

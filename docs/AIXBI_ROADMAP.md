@@ -34,7 +34,7 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 | # | Test | Status | Evidence or gap |
 |---|---|---|---|
 | 1 | Excel → profile, semantics, relationships, metrics, dashboard, report, narrative | ✅ | `auto-bi.mjs`, `AutoBiTest`. Automatic *cleaning* is limited to typing and header fixes |
-| 2 | Database → schema, model, dashboard | 🟡 | PostgreSQL/MySQL connect, list tables and load. Auto BI then works on the loaded tables. No automated test against an external database yet |
+| 2 | Database → schema, model, dashboard | ✅ | Connect → choose tables → background load → Auto BI. `DatabaseOnboardingTest` (real PostgreSQL connection), `database.mjs` |
 | 3 | "Why did revenue fall last month?" with evidence | ✅ | `smoke.mjs`, analyst graph tests |
 | 4 | Forecast with confidence | ✅ | Backtested forecasts with intervals |
 | 5 | Root cause with ranked drivers | ✅ | Counterfactual attribution; impacts sum to the total change (tested) |

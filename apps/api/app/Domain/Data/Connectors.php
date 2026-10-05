@@ -3,6 +3,7 @@
 namespace App\Domain\Data;
 
 use App\Models\DataSource;
+use Generator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
@@ -61,11 +62,13 @@ class Connectors
         };
     }
 
+    public const DATABASES = ['postgresql', 'mysql', 'mariadb'];
+
     /** @return list<Record> */
     public function pull(DataSource $source, ?string $table = null, int $limit = 200000): array
     {
         return match ($source->connector_key) {
-            'postgresql', 'mysql', 'mariadb' => $this->pullTable($source, $table ?? throw new InvalidArgumentException('Choose a table to ingest.'), $limit),
+            'postgresql', 'mysql', 'mariadb' => iterator_to_array($this->stream($source, $table ?? throw new InvalidArgumentException('Choose a table to ingest.'), $limit), false),
             'rest_api' => $this->pullApi($source),
             default => throw new InvalidArgumentException('This source is loaded by upload or webhook.'),
         };
@@ -91,9 +94,8 @@ class Connectors
     {
         try {
             $pdo = $this->pdo($source);
-            $schema = $source->config['schema'] ?? ($source->connector_key === 'postgresql' ? 'public' : $source->config['database']);
             $stmt = $pdo->prepare('SELECT table_name FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name LIMIT 500');
-            $stmt->execute([$schema]);
+            $stmt->execute([$this->schema($source)]);
 
             return ['ok' => true, 'message' => 'Connected successfully.', 'tables' => $stmt->fetchAll(PDO::FETCH_COLUMN)];
         } catch (Throwable $e) {
@@ -101,18 +103,70 @@ class Connectors
         }
     }
 
-    /** @return list<Record> */
-    private function pullTable(DataSource $source, string $table, int $limit): array
+    /**
+     * Tables and views of a database source, with the engine's own row estimate.
+     *
+     * @return list<array{name: string, type: string, rows: int|null}>
+     */
+    public function tables(DataSource $source): array
+    {
+        if (! in_array($source->connector_key, self::DATABASES, true)) {
+            throw new InvalidArgumentException('Only database sources have tables to discover.');
+        }
+        $pdo = $this->pdo($source);
+        $schema = $this->schema($source);
+        $sql = $source->connector_key === 'postgresql'
+            ? 'SELECT t.table_name AS name, t.table_type AS type, GREATEST(c.reltuples, -1)::bigint AS rows
+               FROM information_schema.tables t
+               LEFT JOIN pg_class c ON c.relname = t.table_name AND c.relnamespace = to_regnamespace(t.table_schema)::oid
+               WHERE t.table_schema = ? ORDER BY t.table_name LIMIT 500'
+            : 'SELECT table_name AS name, table_type AS type, table_rows AS `rows` FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name LIMIT 500';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$schema]);
+
+        return array_map(fn ($r) => [
+            'name' => (string) $r['name'],
+            'type' => str_contains(strtoupper((string) $r['type']), 'VIEW') ? 'view' : 'table',
+            'rows' => $r['rows'] === null || (int) $r['rows'] < 0 ? null : (int) $r['rows'],
+        ], $stmt->fetchAll());
+    }
+
+    /**
+     * Rows of one table, read one at a time so large tables never sit in memory whole.
+     *
+     * @return Generator<int, Record>
+     */
+    public function stream(DataSource $source, string $table, int $limit): Generator
     {
         if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table)) {
             throw new InvalidArgumentException('Invalid table name.');
         }
         $pdo = $this->pdo($source);
-        $schema = $source->config['schema'] ?? null;
+        if ($source->connector_key !== 'postgresql') {
+            $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+        }
         $q = $source->connector_key === 'postgresql' ? '"' : '`';
-        $ref = ($schema ? $q.$schema.$q.'.' : '').$q.$table.$q;
+        $ref = $q.$this->schema($source).$q.'.'.$q.$table.$q;
+        // When the limit cuts a table short, the most recent rows are the ones worth reporting on.
+        $dated = $pdo->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?
+            AND data_type IN ('date', 'datetime', 'timestamp', 'timestamp without time zone', 'timestamp with time zone') ORDER BY ordinal_position LIMIT 1");
+        $dated->execute([$this->schema($source), $table]);
+        $latest = $dated->fetchColumn();
+        $order = is_string($latest) ? ' ORDER BY '.$q.$latest.$q.' DESC'.($source->connector_key === 'postgresql' ? ' NULLS LAST' : '') : '';
+        $stmt = $pdo->query("SELECT * FROM {$ref}{$order} LIMIT ".max(1, $limit));
+        while (($row = $stmt->fetch()) !== false) {
+            yield $row;
+        }
+    }
 
-        return $pdo->query("SELECT * FROM {$ref} LIMIT ".(int) $limit)->fetchAll();
+    private function schema(DataSource $source): string
+    {
+        $schema = (string) ($source->config['schema'] ?? ($source->connector_key === 'postgresql' ? 'public' : $source->config['database'] ?? ''));
+        if (! preg_match('/^[A-Za-z_][A-Za-z0-9_$]*$/', $schema)) {
+            throw new InvalidArgumentException('Invalid schema name.');
+        }
+
+        return $schema;
     }
 
     /** @return ConnectionTest */

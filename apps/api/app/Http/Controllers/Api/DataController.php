@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Data\Connectors;
 use App\Domain\Data\DatasetRegistrar;
+use App\Domain\Data\SourceLoader;
 use App\Domain\Data\SourceRemoval;
 use App\Domain\Data\TabularIngestor;
 use App\Domain\Semantic\SemanticModelGenerator;
 use App\Domain\Semantic\SemanticModelImporter;
 use App\Http\Controllers\Controller;
+use App\Jobs\LoadSourceTablesJob;
 use App\Models\DataConnector;
 use App\Models\Dataset;
 use App\Models\DataSource;
@@ -32,7 +34,9 @@ class DataController extends Controller
     {
         $sources = DataSource::withCount('datasets')->with(['runs' => fn ($q) => $q->limit(1)])->orderBy('name')->get();
 
-        return response()->json(['data' => $sources->map(fn ($s) => $s->toArray() + ['last_run' => $s->runs->first(), 'config_keys' => array_keys($s->config ?? [])])]);
+        return response()->json(['data' => $sources->map(fn ($s) => $s->toArray() + ['last_run' => $s->runs->first(), 'config_keys' => array_keys($s->config ?? []),
+            // Managed sources (the demo warehouse) are fed by the platform, not loaded through a connection.
+            'is_database' => in_array($s->connector_key, Connectors::DATABASES, true) && empty($s->config['managed'])])]);
     }
 
     public function storeSource(Request $request): JsonResponse
@@ -53,6 +57,30 @@ class DataController extends Controller
         $ingest = $isWebhook ? ['url' => url("/api/v1/ingest/webhook/{$source->id}/{$source->config['token']}"), 'method' => 'POST'] : null;
 
         return response()->json(['data' => $source, 'ingest' => $ingest], 201);
+    }
+
+    /** Tables and views a database source offers, and which are already loaded. */
+    public function tables(string $id): JsonResponse
+    {
+        $source = DataSource::findOrFail($id);
+        $loaded = Dataset::where('data_source_id', $id)->get(['id', 'physical_table', 'row_count', 'updated_at']);
+
+        return response()->json(['data' => $this->connectors->tables($source), 'loaded' => $loaded, 'load' => $source->load_progress]);
+    }
+
+    /** Loads the chosen tables (default: all) in the background; progress is on the source's `load`. */
+    public function load(Request $request, string $id, SourceLoader $loader): JsonResponse
+    {
+        $data = $request->validate(['tables' => 'sometimes|array|min:1', 'tables.*' => 'string|max:128|distinct',
+            'row_limit' => 'sometimes|integer|min:100|max:2000000']);
+        $source = DataSource::findOrFail($id);
+        abort_unless(in_array($source->connector_key, Connectors::DATABASES, true), 422, 'Only database sources load tables; upload files instead.');
+        abort_if(in_array($source->load_progress['status'] ?? null, ['queued', 'running'], true), 409, 'A load is already in progress for this source.');
+        $load = $loader->queue($source, isset($data['tables']) ? array_values($data['tables']) : null, (int) ($data['row_limit'] ?? SourceLoader::DEFAULT_ROW_LIMIT), $request->user());
+        $this->audit->record('data_source.load_requested', ['resource_type' => 'data_source', 'resource_id' => $id], ['tables' => count($load['tables'])]);
+        LoadSourceTablesJob::dispatch($source->id);
+
+        return response()->json(['data' => $source->fresh()->load_progress], 202);
     }
 
     /** What deleting a source would remove, and what (if anything) stops it. */

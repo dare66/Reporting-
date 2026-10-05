@@ -81,6 +81,11 @@
               ><app-icon name="ai" [size]="14" /> Design with Auto BI</a
             >
           }
+          @if (s.is_database && auth.can('data.manage')) {
+            <button class="btn sm" (click)="loading.set(s)">
+              <app-icon name="table" [size]="14" /> {{ s.datasets_count ? 'Reload tables' : 'Load tables' }}
+            </button>
+          }
           @if (auth.can('data.manage')) {
             <button class="btn sm ghost" (click)="askRemove(s)" [attr.aria-label]="'Remove ' + s.name">
               <app-icon name="trash" [size]="14" /> Remove
@@ -155,6 +160,10 @@
       </button>
     }
   </div>
+
+  @if (loading(); as s) {
+    <app-table-loader [source]="s" (changed)="load()" (closed)="loading.set(null)" />
+  }
 
   @if (removing(); as r) {
     <div class="scrim" appScrim (dismiss)="removing.set(null)"></div>
@@ -271,7 +280,7 @@
         <label class="field">Name<input class="input" [(ngModel)]="form.name" name="name" required /></label>
         @for (f of c.config_schema; track f.key) {
           <label class="field"
-            >{{ f.key }}{{ f.required ? ' *' : ''
+            >{{ f.key | titlecase }}{{ f.required ? ' *' : ''
             }}<input
               class="input"
               [type]="f.type === 'secret' ? 'password' : f.type === 'integer' ? 'number' : 'text'"

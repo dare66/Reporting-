@@ -1,5 +1,6 @@
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { ChangeDetectionStrategy, Component, ElementRef, OnInit, inject, signal, viewChild } from '@angular/core';
+import { TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api.service';
@@ -23,11 +24,23 @@ import { Icon } from '../../shared/icon';
 import { ErrorState, Working } from '../../shared/states';
 import { ConnectorMark } from './connector-mark';
 import { Scrim } from '../../shared/scrim';
+import { TableLoader } from './table-loader/table-loader';
 
 @Component({
   selector: 'app-data',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CdkTrapFocus, Scrim, Icon, RouterLink, FormsModule, ConnectorMark, Working, ErrorState],
+  imports: [
+    CdkTrapFocus,
+    Scrim,
+    Icon,
+    RouterLink,
+    FormsModule,
+    TitleCasePipe,
+    ConnectorMark,
+    Working,
+    ErrorState,
+    TableLoader,
+  ],
   templateUrl: './data.html',
   styleUrl: './data.scss',
 })
@@ -51,6 +64,8 @@ export class DataPage implements OnInit {
   readonly removing = signal<{ source: DataSource; impact: SourceImpact | null } | null>(null);
   readonly removeError = signal<string | null>(null);
   readonly busyRemove = signal(false);
+  /** The database source whose tables are being chosen or loaded. */
+  readonly loading = signal<DataSource | null>(null);
   private ingestUrl = viewChild<ElementRef<HTMLInputElement>>('ingestUrl');
   form: { name: string; config: Record<string, string> } = { name: '', config: {} };
   ago = ago;
@@ -108,6 +123,14 @@ export class DataPage implements OnInit {
   async createSource() {
     const connector = this.connector();
     if (!connector) return;
+    // Nothing is created until the required details are filled in.
+    const missing = connector.config_schema.filter((f) => f.required && !String(this.form.config[f.key] ?? '').trim());
+    if (!this.form.name.trim() || missing.length) {
+      this.formError.set(
+        missing.length ? `Fill in ${missing.map((f) => f.key).join(', ')}.` : 'Give the source a name.',
+      );
+      return;
+    }
     try {
       const res = await this.api.post<CreatedSource>('/data-sources', {
         connector_key: connector.key,
@@ -127,7 +150,10 @@ export class DataPage implements OnInit {
         return;
       }
       this.closeConnector();
-      this.load();
+      await this.load();
+      // A database goes straight on to choosing and loading its tables, then Auto BI.
+      const created = this.sources().find((s) => s.id === res.data.id);
+      if (created?.is_database) this.loading.set(created);
     } catch (e) {
       this.formError.set(errorMessage(e));
     }

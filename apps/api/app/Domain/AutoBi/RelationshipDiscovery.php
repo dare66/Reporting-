@@ -67,8 +67,9 @@ class RelationshipDiscovery
 
     private function namesMatch(DatasetField $ref, DatasetField $key, Dataset $to): bool
     {
+        // A plain "id" says nothing about what it refers to; only "{entity}_id" can point at another table's id.
         if ($ref->name === $key->name) {
-            return true;
+            return $key->name !== 'id';
         }
         // students.id ← applications.student_id
         $words = explode('_', Str::snake(preg_replace('/^ds_[a-z0-9]+_/', '', $to->name) ?? ''));

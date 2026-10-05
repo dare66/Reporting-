@@ -960,6 +960,28 @@ export interface DataSource {
   datasets_count: number;
   last_run: IngestionRun | null;
   config_keys: string[];
+  is_database: boolean;
+  load_progress: SourceLoad | null;
+}
+
+export interface SourceTable {
+  name: string;
+  type: 'table' | 'view';
+  rows: number | null;
+}
+
+export interface SourceLoad {
+  status: 'queued' | 'running' | 'done';
+  row_limit: number;
+  started_at: string;
+  finished_at: string | null;
+  tables: {
+    table: string;
+    status: 'queued' | 'loading' | 'loaded' | 'failed';
+    rows: number | null;
+    dataset_id: string | null;
+    error: string | null;
+  }[];
 }
 
 export interface ConnectionTest {

@@ -8,6 +8,7 @@
     "studio": "node studio.mjs",
     "test": "node smoke.mjs && node routes.mjs && node studio.mjs && node admin.mjs && node auto-bi.mjs && node metrics.mjs && node trust.mjs && node crossfilter.mjs",
     "crossfilter": "node crossfilter.mjs",
+    "database": "node database.mjs",
     "trust": "node trust.mjs",
     "metrics": "node metrics.mjs",
     "auto-bi": "node auto-bi.mjs",

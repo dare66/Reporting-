@@ -86,6 +86,11 @@ class DataUnderstanding
             return array_merge($base, ['role' => 'time', 'concept' => $this->concept($f->label), 'confidence' => 0.99, 'reasons' => $reasons]);
         }
 
+        // The unique name or title of a small lookup table is its label, not an identifier.
+        if (! $numeric && $uniqueness >= 0.98 && $rows <= 1000 && preg_match('/(^|_)(name|title|label|description)$/', $name)) {
+            return array_merge($base, ['role' => 'dimension', 'concept' => $this->concept($f->label), 'confidence' => 0.85,
+                'reasons' => ["Every row has a different {$f->label}, which is how a lookup table names its members."], 'values' => $values]);
+        }
         $nameSaysId = (bool) preg_match(self::IDENTIFIER, $name);
         if ($nameSaysId || (! $numeric && $f->data_type !== 'boolean' && $rows > 20 && $uniqueness >= 0.98) || ($f->data_type === 'integer' && $rows > 20 && $uniqueness >= 0.999 && ! preg_match(self::CURRENCY, $name))) {
             $reasons = [];
@@ -173,8 +178,9 @@ class DataUnderstanding
     private function entity(Dataset $dataset, array $fields): string
     {
         // The most unique identifier names what one row is; otherwise the dataset name does.
-        // Only an identifier that is both named as one and unique reaches 0.98.
-        $ids = array_filter($fields, fn ($f) => $f['role'] === 'identifier' && $f['confidence'] >= 0.98);
+        // Only an identifier that is both named as one and unique reaches 0.98. A bare "id" names nothing,
+        // so then the table's own name says what one row is.
+        $ids = array_filter($fields, fn ($f) => $f['role'] === 'identifier' && $f['confidence'] >= 0.98 && $f['field'] !== 'id');
         if ($ids) {
             return array_values($ids)[0]['concept'];
         }

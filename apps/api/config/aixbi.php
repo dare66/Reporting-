@@ -26,6 +26,8 @@ return [
         // Loopback and link-local (cloud metadata) hosts are always refused.
         // Set to true to also refuse private networks, e.g. for a hosted multi-tenant deployment.
         'block_private' => (bool) env('CONNECTORS_BLOCK_PRIVATE', false),
+        // Comma-separated hosts exempt from the checks above, e.g. "127.0.0.1" to load a database on this machine.
+        'allow_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('CONNECTORS_ALLOW_HOSTS', ''))))),
     ],
 
     'streaming' => [

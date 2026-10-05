@@ -19,6 +19,7 @@ class DataSource extends Model
     {
         return [
             'config' => 'encrypted:array',
+            'load_progress' => 'array',
             'last_sync_at' => 'datetime',
         ];
     }

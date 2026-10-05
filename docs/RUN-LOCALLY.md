@@ -34,6 +34,14 @@ Every demo account uses the password **`Demo@2026!`**.
 | `engineer@emgs.demo` | Data platform and semantic model |
 | `viewer@emgs.demo` | Read-only |
 
+## Bring in your own data
+
+- **Excel, CSV or JSON:** open **Data** and drop the file. AIXBI reads every sheet and opens Auto BI, which explains the data, proposes KPIs, and designs a dashboard and an executive report for you to approve.
+- **A database (PostgreSQL, MySQL, MariaDB):** open **Data → PostgreSQL** (or MySQL) and enter the connection details. AIXBI lists the tables, loads the ones you choose in the background, and opens Auto BI on them.
+  - A database on **this computer**: use `host.docker.internal` as the host, not `localhost`. Inside Docker, `localhost` means the AIXBI container itself.
+  - A database elsewhere on your network: use its normal host name or IP address.
+- Add as many sources as you like. Each one gets its own data model, dashboard and report.
+
 ## Everyday commands
 
 | Task | Command |
