@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AI, Api, errorMessage } from '../../core/api.service';
 import { Auth } from '../../core/auth.service';
+import { ProjectScope } from '../../core/project-scope.service';
 import { AlertEvent, AlertRule, Envelope } from '../../core/models';
 import { ago, fmt } from '../../core/format';
 import { Icon } from '../../shared/icon';
@@ -18,6 +19,7 @@ import { ErrorState } from '../../shared/states';
 export class Alerts implements OnInit {
   private api = inject(Api);
   readonly auth = inject(Auth);
+  private scope = inject(ProjectScope);
   readonly rules = signal<AlertRule[]>([]);
   readonly history = signal<AlertEvent[]>([]);
   readonly busy = signal<string | null>(null);
@@ -74,7 +76,11 @@ export class Alerts implements OnInit {
   async conversational() {
     const res = await fetch(`${AI}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.auth.accessToken()}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.auth.accessToken()}`,
+        ...this.scope.headers(),
+      },
       body: JSON.stringify({ question: this.text() }),
     });
     const body = (await res.json()) as { intent?: string; answer?: string; detail?: string };

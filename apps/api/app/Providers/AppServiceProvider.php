@@ -17,6 +17,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(TenantContext::class);
+        $this->app->scoped(\App\Support\Projects\ProjectContext::class);
         $this->app->scoped(\App\Domain\Semantic\CatalogRepository::class);
         $this->app->singleton(JwtService::class, fn () => JwtService::fromConfig());
         $this->app->bind(\App\Domain\Notifications\PushGateway::class, \App\Domain\Notifications\LogPushGateway::class);

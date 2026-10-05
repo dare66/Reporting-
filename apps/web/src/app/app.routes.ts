@@ -122,6 +122,11 @@ export const routes: Routes = [
         title: 'Administration · AIXBI',
       },
       {
+        path: 'projects',
+        loadComponent: () => import('./features/projects/projects').then((m) => m.Projects),
+        title: 'Projects · AIXBI',
+      },
+      {
         path: 'notifications',
         loadComponent: () => import('./features/notifications/notifications').then((m) => m.Notifications),
         title: 'Notifications · AIXBI',

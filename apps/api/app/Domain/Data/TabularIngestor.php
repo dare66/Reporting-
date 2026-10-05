@@ -5,6 +5,7 @@ namespace App\Domain\Data;
 use App\Models\Dataset;
 use App\Models\DataSource;
 use App\Models\IngestionRun;
+use App\Models\Project;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -53,7 +54,7 @@ class TabularIngestor
                 throw new InvalidArgumentException('The source returned no records.');
             }
             $columns = $this->inferColumns($sample, $log, $warnings);
-            $table = $this->tableName($source->organisation_id, $name);
+            $table = $this->tableName($source, $name);
             $count = 0;
 
             DB::transaction(function () use ($table, $columns, $sample, $iterator, $mode, &$count) {
@@ -196,9 +197,16 @@ class TabularIngestor
         return substr($s, 0, 60);
     }
 
-    private function tableName(string $orgId, string $name): string
+    /**
+     * One analytical table per organisation, project and dataset name. The default project keeps the
+     * original naming, so tables loaded before projects existed are still found and reloaded in place.
+     */
+    private function tableName(DataSource $source, string $name): string
     {
-        return 'ds_'.substr(str_replace('-', '', $orgId), 0, 8).'_'.substr($this->sanitize($name), 0, 40);
+        $project = Project::withoutGlobalScopes()->find($source->project_id);
+        $scope = $project === null || $project->is_default ? '' : 'p'.substr(str_replace('-', '', strrev($project->id)), 0, 6).'_';
+
+        return 'ds_'.substr(str_replace('-', '', $source->organisation_id), 0, 8).'_'.$scope.substr($this->sanitize($name), 0, 40);
     }
 
     /** @param  array<mixed>  $values */

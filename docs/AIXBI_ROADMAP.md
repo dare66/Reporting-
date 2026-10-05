@@ -25,7 +25,7 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 | 15 | Real-time analytics | 🟡 | Webhook ingestion and live notifications. Missing: live dashboards, Kafka, CDC |
 | 16 | Embedded SDK | ⏭ | Design in [AIXBI_EMBEDDED_SDK.md](AIXBI_EMBEDDED_SDK.md) |
 | 17 | Mobile and voice | 🟡 | Responsive, installable web app. Missing: push delivery, native app, voice |
-| 18 | Enterprise security and governance | 🟡 | Strong core (see [AIXBI_SECURITY.md](AIXBI_SECURITY.md)). Missing: SSO, SCIM, API keys, workspaces, PII detection |
+| 18 | Enterprise security and governance | 🟡 | Strong core (see [AIXBI_SECURITY.md](AIXBI_SECURITY.md)). Projects inside a tenant are built. Missing: SSO, SCIM, API keys, PII detection |
 | 19 | Performance optimisation | 🟡 | Measured on the demo data; load tests not yet in CI |
 | 20 | Production hardening | 🟡 | One-command Docker install with in-place upgrades; Kubernetes baseline untested in a cluster; no OpenTelemetry yet |
 
@@ -49,8 +49,8 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 ## Next, in order
 
 1. **EMGS branding**, as soon as the logo and colour codes arrive.
-3. **Action engine v1** with approval and audit (Test 6).
-4. **Executive home v2**: "what should I know right now".
-5. **DOCX export** (completes Test 9) and a phone-size test pass (Test 10).
-6. **AI evaluation lab** (Test 12), then the **AI gateway**.
-7. **Connector interface** with streamed and incremental loads, and an automated test against a real database (Test 2).
+2. **Action engine v1** with approval and audit (Test 6).
+3. **DOCX export** (completes Test 9) and a phone-size test pass (Test 10).
+4. **AI evaluation lab** (Test 12), then the **AI gateway**.
+5. **Executive home v2**: "what should I know right now".
+6. **Connector interface** with incremental (watermark) loads, then SQL Server.

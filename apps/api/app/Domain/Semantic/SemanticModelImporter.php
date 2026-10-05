@@ -38,6 +38,10 @@ class SemanticModelImporter
         };
 
         $base = $ds($def['base']);
+        // A model lives in its base dataset's project and may only use that project's datasets.
+        $ds = fn (string $name) => ($datasets[$name] ?? throw new InvalidArgumentException("Dataset '{$name}' does not exist."))->project_id === $base->project_id
+            ? $datasets[$name]
+            : throw new InvalidArgumentException("Dataset '{$name}' belongs to another project.");
         foreach ($def['measures'] as $m) {
             $assertField($def['base'], $m['field'] ?? null);
             foreach ($m['filters'] ?? [] as $f) {
@@ -51,10 +55,14 @@ class SemanticModelImporter
 
         return DB::transaction(function () use ($organisationId, $def, $base, $ds, $assertField, $actor) {
             $model = SemanticModel::withoutGlobalScopes()->firstOrNew(['organisation_id' => $organisationId, 'key' => $def['key']]);
+            if ($model->exists && $model->project_id !== $base->project_id) {
+                throw new InvalidArgumentException("The model key '{$def['key']}' is already used in another project. Choose a different key.");
+            }
             $isNew = ! $model->exists;
             $model->fill([
                 'organisation_id' => $organisationId,
                 'base_dataset_id' => $base->id,
+                'project_id' => $base->project_id,
                 'name' => $def['name'],
                 'description' => $def['description'] ?? null,
                 'domain' => $def['domain'] ?? null,

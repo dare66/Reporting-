@@ -9,6 +9,7 @@ const PERSONAS = ['admin@emgs.demo', 'manager.asia@emgs.demo'];
 const ROUTES = [
   '/home', '/insights', '/dashboards', '/reports', '/explore', '/forecast', '/alerts', '/data', '/semantic',
   '/governance', '/admin', '/notifications', '/settings', '/ai', '/investigate?metric=decisions.sla_compliance',
+  '/trust', '/metrics', '/projects',
 ];
 // Web fonts are optional; offline or proxied environments may refuse them.
 const IGNORED = ['fonts.googleapis.com', 'fonts.gstatic.com', 'ERR_CERT_AUTHORITY_INVALID'];

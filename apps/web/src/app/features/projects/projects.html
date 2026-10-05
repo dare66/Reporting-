@@ -1,0 +1,246 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Projects</div>
+      <h1>Separate spaces for separate work</h1>
+      <p class="lede">
+        Each project has its own data sources, data models, dashboards, reports and alerts. Choose the project you are
+        working in from the top bar; anything new you add goes into it.
+      </p>
+    </div>
+    @if (auth.can('data.manage') && !creating()) {
+      <button class="btn primary" (click)="creating.set(true)"><app-icon name="plus" [size]="16" /> New project</button>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <app-error title="That did not work" [message]="message" (retry)="load()" />
+  }
+  @if (notice(); as n) {
+    <p class="notice panel" role="status">
+      <app-icon name="check" [size]="16" /> {{ n }}
+      <button class="btn sm ghost icon" (click)="notice.set(null)" aria-label="Dismiss">
+        <app-icon name="close" [size]="14" />
+      </button>
+    </p>
+  }
+
+  @if (creating()) {
+    <form class="panel create" (submit)="$event.preventDefault(); create()">
+      <h2>New project</h2>
+      <label class="field"
+        >Name<input
+          class="input"
+          name="name"
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+          placeholder="For example: Student visas 2027"
+          maxlength="120"
+          required
+      /></label>
+      <label class="field"
+        >Description<input
+          class="input"
+          name="description"
+          [ngModel]="description()"
+          (ngModelChange)="description.set($event)"
+          placeholder="What this project is for (optional)"
+          maxlength="1000"
+      /></label>
+      <fieldset class="field">
+        <legend>Who can open it</legend>
+        <div class="seg">
+          <button type="button" [class.on]="visibility() === 'members'" (click)="visibility.set('members')">
+            Only its members
+          </button>
+          <button type="button" [class.on]="visibility() === 'organisation'" (click)="visibility.set('organisation')">
+            Everyone in the organisation
+          </button>
+        </div>
+      </fieldset>
+      <p class="muted small">You become its owner. Administrators can always open every project.</p>
+      <div class="row">
+        <button class="btn primary" [disabled]="!name().trim() || busy()">
+          {{ busy() ? 'Creating…' : 'Create project' }}
+        </button>
+        <button type="button" class="btn ghost" (click)="creating.set(false)">Cancel</button>
+      </div>
+    </form>
+  }
+
+  <section class="list">
+    @for (p of projects(); track p.id) {
+      <article class="panel project" [class.current]="scope.currentId() === p.id">
+        <button class="head" (click)="open(p)" [attr.aria-expanded]="openId() === p.id">
+          <span class="mark" aria-hidden="true">{{ p.name.charAt(0) }}</span>
+          <span class="title">
+            <b>{{ p.name }}</b>
+            <small class="muted">{{ p.description || summary(p) }}</small>
+          </span>
+          <span class="meta">
+            @if (p.is_default) {
+              <span class="badge">Default</span>
+            }
+            <span class="badge" [class.ai]="p.visibility === 'members'">
+              @if (p.visibility === 'members') {
+                <app-icon name="lock" [size]="11" /> Members only
+              } @else {
+                Everyone
+              }
+            </span>
+            @if (p.my_role === 'owner') {
+              <span class="badge good">Owner</span>
+            }
+            @if (scope.currentId() === p.id) {
+              <span class="badge good">Working here</span>
+            }
+          </span>
+        </button>
+        @if (openId() === p.id) {
+          <div class="body">
+            <div class="counts">
+              @for (l of labels; track l[0]) {
+                <span
+                  ><b>{{ p.counts[l[0]] }}</b> {{ l[1] }}</span
+                >
+              }
+              <span
+                ><b>{{ p.member_count }}</b> members</span
+              >
+            </div>
+            @if (scope.currentId() !== p.id) {
+              <button class="btn sm" (click)="workIn(p)">Work in this project</button>
+            }
+
+            @if (detail(); as d) {
+              @if (d.can_manage) {
+                <form class="edit" (submit)="$event.preventDefault(); save()">
+                  <label class="field"
+                    >Name<input
+                      class="input"
+                      name="en"
+                      [ngModel]="editName()"
+                      (ngModelChange)="editName.set($event)"
+                      maxlength="120"
+                  /></label>
+                  <label class="field"
+                    >Description<input
+                      class="input"
+                      name="ed"
+                      [ngModel]="editDescription()"
+                      (ngModelChange)="editDescription.set($event)"
+                      maxlength="1000"
+                  /></label>
+                  @if (!d.is_default) {
+                    <fieldset class="field">
+                      <legend>Who can open it</legend>
+                      <div class="seg">
+                        <button
+                          type="button"
+                          [class.on]="editVisibility() === 'members'"
+                          (click)="editVisibility.set('members')"
+                        >
+                          Only its members
+                        </button>
+                        <button
+                          type="button"
+                          [class.on]="editVisibility() === 'organisation'"
+                          (click)="editVisibility.set('organisation')"
+                        >
+                          Everyone
+                        </button>
+                      </div>
+                    </fieldset>
+                  }
+                  <div class="row">
+                    <button class="btn sm primary" [disabled]="busy() || !editName().trim()">Save</button>
+                  </div>
+                </form>
+              }
+
+              <h3>Members</h3>
+              @if (d.visibility === 'organisation') {
+                <p class="muted small">Everyone in the organisation can open this project. Owners manage it.</p>
+              }
+              <ul class="members">
+                @for (m of d.members ?? []; track m.id) {
+                  <li>
+                    <span class="avatar" aria-hidden="true">{{ m.name.charAt(0) }}</span>
+                    <span class="who"
+                      ><b>{{ m.name }}</b
+                      ><small class="muted">{{ m.email }}</small></span
+                    >
+                    @if (d.can_manage) {
+                      <select
+                        class="select sm"
+                        [ngModel]="m.role"
+                        (ngModelChange)="setRole(m.id, $event)"
+                        [name]="'role-' + m.id"
+                        [attr.aria-label]="'Role of ' + m.name"
+                        [disabled]="busy() || (m.role === 'owner' && owners() === 1)"
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="member">Member</option>
+                      </select>
+                      <button
+                        class="btn sm ghost icon"
+                        (click)="removeMember(m.id)"
+                        [disabled]="busy() || (m.role === 'owner' && owners() === 1)"
+                        [attr.aria-label]="'Remove ' + m.name"
+                      >
+                        <app-icon name="trash" [size]="14" />
+                      </button>
+                    } @else {
+                      <span class="badge">{{ m.role === 'owner' ? 'Owner' : 'Member' }}</span>
+                    }
+                  </li>
+                } @empty {
+                  <li class="muted">No named members.</li>
+                }
+              </ul>
+              @if (d.can_manage) {
+                <form class="add row" (submit)="$event.preventDefault(); addMember()">
+                  <select
+                    class="select"
+                    name="add"
+                    [ngModel]="addId()"
+                    (ngModelChange)="addId.set($event)"
+                    aria-label="Person to add"
+                  >
+                    <option value="">Add a person…</option>
+                    @for (u of people(); track u.id) {
+                      <option [value]="u.id">{{ u.name }}{{ u.title ? ' — ' + u.title : '' }}</option>
+                    }
+                  </select>
+                  <select
+                    class="select"
+                    name="addRole"
+                    [ngModel]="addRole()"
+                    (ngModelChange)="addRole.set($event)"
+                    aria-label="Their role"
+                  >
+                    <option value="member">Member</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                  <button class="btn sm" [disabled]="!addId() || busy()">Add</button>
+                </form>
+                @if (!d.is_default) {
+                  <div class="danger">
+                    <button class="btn sm ghost" (click)="remove()" [disabled]="busy()">
+                      <app-icon name="trash" [size]="14" /> Delete project
+                    </button>
+                    <small class="muted">Only an empty project can be deleted, so no work is ever lost with it.</small>
+                  </div>
+                }
+              }
+            } @else {
+              <p class="muted">Loading…</p>
+            }
+          </div>
+        }
+      </article>
+    } @empty {
+      <p class="muted">Loading projects…</p>
+    }
+  </section>
+</div>

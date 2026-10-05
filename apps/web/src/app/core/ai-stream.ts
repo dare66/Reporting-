@@ -3,6 +3,7 @@ import { AI } from './api.service';
 import { AgentStep, AiBlock, ChatResult } from './ai-models';
 import { Auth } from './auth.service';
 import { JsonObject } from './models';
+import { ProjectScope } from './project-scope.service';
 
 /** Payload of each server-sent event, by event name. */
 export interface StreamEvents {
@@ -22,13 +23,18 @@ const EVENTS = new Set<string>(['step', 'plan', 'block', 'answer', 'done', 'erro
 @Injectable({ providedIn: 'root' })
 export class AiStream {
   private auth = inject(Auth);
+  private scope = inject(ProjectScope);
 
   async ask(question: string, conversationId: string | null, h: StreamHandlers, signal?: AbortSignal): Promise<void> {
     const call = () =>
       fetch(`${AI}/chat/stream`, {
         method: 'POST',
         signal,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.auth.accessToken()}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.auth.accessToken()}`,
+          ...this.scope.headers(),
+        },
         body: JSON.stringify({ question, conversation_id: conversationId }),
       });
     let res = await call();

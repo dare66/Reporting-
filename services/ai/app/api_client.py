@@ -19,10 +19,14 @@ class ApiError(Exception):
 
 
 class AixbiApi:
-    def __init__(self, token: str, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(self, token: str, transport: httpx.AsyncBaseTransport | None = None, project_id: str | None = None):
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        if project_id:
+            # Keeps the agent inside the project the person is working in.
+            headers["X-Project-Id"] = project_id
         self._client = httpx.AsyncClient(
             base_url=settings().api_url,
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            headers=headers,
             timeout=settings().request_timeout,
             transport=transport,
         )

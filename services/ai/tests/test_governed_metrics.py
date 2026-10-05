@@ -33,3 +33,22 @@ def test_certified_metric_wins_a_tie_over_an_uncertified_one() -> None:
     catalog[1]["metrics"].append(_metric("decisions.certified_volume", "Throughput", ["throughput"], "certified"))
     index = CatalogIndex.from_catalog(catalog)
     assert index.find_metrics("throughput last month")[0] == "decisions.certified_volume"
+
+
+async def test_api_client_forwards_the_project() -> None:
+    """The agent works inside the project the person chose; without one it sends no header."""
+    import httpx
+
+    from app.api_client import AixbiApi
+
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("X-Project-Id"))
+        return httpx.Response(200, json={"data": []})
+
+    for project in ("p-123", None):
+        api = AixbiApi("t", transport=httpx.MockTransport(handler), project_id=project)
+        await api.catalog()
+        await api.close()
+    assert seen == ["p-123", None]

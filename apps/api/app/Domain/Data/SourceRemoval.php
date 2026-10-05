@@ -37,8 +37,8 @@ class SourceRemoval
      */
     public function impact(DataSource $source, User $user): array
     {
-        $datasets = Dataset::where('data_source_id', $source->id)->get();
-        $models = SemanticModel::withCount('metrics')->whereIn('base_dataset_id', $datasets->pluck('id'))->get();
+        $datasets = Dataset::withoutGlobalScope('project')->where('data_source_id', $source->id)->get();
+        $models = SemanticModel::withoutGlobalScope('project')->withCount('metrics')->whereIn('base_dataset_id', $datasets->pluck('id'))->get();
         $blocking = ['dashboards' => [], 'reports' => [], 'alerts' => [], 'hidden' => 0];
         $usage = $this->usage->index($user);
         foreach ($models as $model) {
@@ -55,7 +55,8 @@ class SourceRemoval
         }
         // Models built on other sources that join to these tables would silently lose dimensions.
         $ids = $datasets->pluck('id');
-        $joining = SemanticModel::whereNotIn('base_dataset_id', $ids)
+        // Counted in every project: a model elsewhere still breaks if these tables go.
+        $joining = SemanticModel::withoutGlobalScope('project')->whereNotIn('base_dataset_id', $ids)
             ->where(fn ($q) => $q->whereHas('relationships', fn ($r) => $r->whereIn('to_dataset_id', $ids)->orWhereIn('from_dataset_id', $ids))
                 ->orWhereHas('dimensions', fn ($d) => $d->whereIn('dataset_id', $ids)))
             ->get(['key', 'name'])->map(fn ($m) => ['key' => $m->key, 'name' => $m->name])->values()->all();
@@ -78,10 +79,10 @@ class SourceRemoval
         if (! $impact['can_delete']) {
             throw new InvalidArgumentException('This source still feeds dashboards, reports, alerts or other data models. Remove or repoint them first.');
         }
-        $datasets = Dataset::where('data_source_id', $source->id)->get();
+        $datasets = Dataset::withoutGlobalScope('project')->where('data_source_id', $source->id)->get();
         $dropped = 0;
         DB::transaction(function () use ($source, $datasets, &$dropped) {
-            $models = SemanticModel::whereIn('base_dataset_id', $datasets->pluck('id'))->get();
+            $models = SemanticModel::withoutGlobalScope('project')->whereIn('base_dataset_id', $datasets->pluck('id'))->get();
             foreach ($models as $model) {
                 DataLineage::where('to_type', 'metric')->where('to_ref', 'like', $model->key.'.%')->delete();
                 $model->delete(); // dimensions, measures, metrics and versions cascade

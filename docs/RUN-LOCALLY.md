@@ -41,6 +41,7 @@ Every demo account uses the password **`Demo@2026!`**.
   - A database on **this computer**: use `host.docker.internal` as the host, not `localhost`. Inside Docker, `localhost` means the AIXBI container itself.
   - A database elsewhere on your network: use its normal host name or IP address.
 - Add as many sources as you like. Each one gets its own data model, dashboard and report.
+- **Keep separate work apart with projects.** Open **Projects** to start one, for example one per programme or department, and choose who can open it. Pick the project you are working in from the top bar. Anything you add (sources, models, dashboards, reports, alerts) goes into that project. **All projects** shows everything you can open. Your existing work is in the **General** project.
 
 ## Everyday commands
 

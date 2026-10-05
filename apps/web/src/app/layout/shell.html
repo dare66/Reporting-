@@ -43,6 +43,64 @@
       <button class="search" (click)="searchOpen.set(true)" aria-label="Search or ask (Ctrl+K)">
         <app-icon name="search" [size]="16" /><span>Search, or ask anything about your business…</span><kbd>⌘K</kbd>
       </button>
+      @if (showProjects()) {
+        <div class="proj-wrap">
+          <button
+            class="btn ghost proj"
+            (click)="projectsOpen.set(!projectsOpen())"
+            [attr.aria-expanded]="projectsOpen()"
+            aria-haspopup="menu"
+            aria-label="Choose project"
+          >
+            <app-icon name="layers" [size]="16" />
+            <span class="proj-name">{{
+              scope.current()?.name ?? (scope.currentId() ? 'Loading…' : 'All projects')
+            }}</span>
+            <app-icon name="arrowDown" [size]="12" />
+          </button>
+          @if (projectsOpen()) {
+            <div class="pop panel rise proj-pop" role="menu" aria-label="Projects">
+              <button
+                class="proj-row"
+                role="menuitemradio"
+                [attr.aria-checked]="!scope.currentId()"
+                (click)="switchProject(null)"
+              >
+                <span
+                  ><b>All projects</b
+                  ><small>Everything you can open. New work goes into the default project.</small></span
+                >
+                @if (!scope.currentId()) {
+                  <app-icon name="check" [size]="15" />
+                }
+              </button>
+              @for (p of scope.projects(); track p.id) {
+                <button
+                  class="proj-row"
+                  role="menuitemradio"
+                  [attr.aria-checked]="scope.currentId() === p.id"
+                  (click)="switchProject(p.id)"
+                >
+                  <span
+                    ><b>{{ p.name }}</b
+                    ><small
+                      >{{ p.visibility === 'members' ? 'Members only' : 'Everyone'
+                      }}{{ p.is_default ? ' · default' : '' }}</small
+                    ></span
+                  >
+                  @if (scope.currentId() === p.id) {
+                    <app-icon name="check" [size]="15" />
+                  }
+                </button>
+              }
+              <a class="proj-row manage" routerLink="/projects" (click)="projectsOpen.set(false)"
+                ><span><b>Manage projects</b></span
+                ><app-icon name="arrowRight" [size]="15"
+              /></a>
+            </div>
+          }
+        </div>
+      }
       <span class="spacer"></span>
       @if (!online()) {
         <span class="badge warning">Offline — showing cached data</span>
@@ -87,7 +145,12 @@
         <a routerLink="/ai" class="btn ai ask-btn"><app-icon name="ai" [size]="16" /> Ask AI</a>
       }
     </header>
-    <main id="content"><router-outlet /></main>
+    <main id="content">
+      <!-- Keyed by project: switching project re-creates the open page, so it reloads inside the new project. -->
+      @for (key of [scope.currentId()]; track key) {
+        <router-outlet />
+      }
+    </main>
   </div>
 </div>
 

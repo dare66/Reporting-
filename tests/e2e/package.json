@@ -6,7 +6,7 @@
     "smoke": "node smoke.mjs",
     "routes": "node routes.mjs",
     "studio": "node studio.mjs",
-    "test": "node smoke.mjs && node routes.mjs && node studio.mjs && node admin.mjs && node auto-bi.mjs && node metrics.mjs && node trust.mjs && node crossfilter.mjs",
+    "test": "node smoke.mjs && node routes.mjs && node studio.mjs && node admin.mjs && node auto-bi.mjs && node metrics.mjs && node trust.mjs && node crossfilter.mjs && node projects.mjs",
     "crossfilter": "node crossfilter.mjs",
     "database": "node database.mjs",
     "trust": "node trust.mjs",

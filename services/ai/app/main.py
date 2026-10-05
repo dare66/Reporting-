@@ -125,7 +125,7 @@ async def _persist(api: AixbiApi, req: ChatRequest, result: JSON, error: str | N
 
 @app.post("/v1/chat")
 async def chat(req: ChatRequest, user: CurrentUser) -> JSON:
-    api = AixbiApi(user.token)
+    api = AixbiApi(user.token, project_id=user.project_id)
     try:
         context = await _context(api, req.conversation_id)
         result = await graph.run(req.question, graph.Deps(api=api, organisation_id=user.organisation_id), context)
@@ -146,7 +146,7 @@ async def chat_stream(req: ChatRequest, user: CurrentUser) -> StreamingResponse:
         await queue.put((event, data))
 
     async def worker() -> None:
-        api = AixbiApi(user.token)
+        api = AixbiApi(user.token, project_id=user.project_id)
         try:
             await emit(
                 "step",

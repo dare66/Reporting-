@@ -12,6 +12,7 @@ use App\Models\DatasetSnapshot;
 use App\Models\DriftEvent;
 use App\Models\SemanticModel;
 use App\Models\User;
+use App\Support\Projects\ProjectContext;
 use Throwable;
 
 /**
@@ -78,7 +79,8 @@ class DriftMonitor
         $metrics = [];
         $dimensions = [];
         $dimensionRefs = [];
-        $models = SemanticModel::with(['measures', 'metrics', 'dimensions', 'relationships'])->get();
+        // Every project: a change to a shared table breaks work wherever it lives.
+        $models = SemanticModel::withoutGlobalScope('project')->with(['measures', 'metrics', 'dimensions', 'relationships'])->get();
         foreach ($models as $model) {
             $isBase = $model->base_dataset_id === $dataset->id;
             foreach ($model->dimensions as $d) {
@@ -123,11 +125,12 @@ class DriftMonitor
         }
         // Dashboards that group or filter by an affected dimension break too.
         if ($dimensionRefs) {
-            foreach (Dashboard::with('widgets:id,dashboard_id,query')->get(['id', 'title', 'visibility', 'owner_id']) as $d) {
+            $projects = app(ProjectContext::class);
+            foreach (Dashboard::withoutGlobalScope('project')->with('widgets:id,dashboard_id,query')->get(['id', 'title', 'visibility', 'owner_id', 'project_id']) as $d) {
                 $uses = $d->widgets->contains(fn ($w) => array_intersect((array) ($w->query['dimensions'] ?? []), $dimensionRefs[$w->query['model'] ?? ''] ?? []) !== []);
                 if ($uses && ! isset($seen['dashboards'.$d->id])) {
                     $seen['dashboards'.$d->id] = true;
-                    if ($viewer === null || $d->visibility === 'organisation' || $d->owner_id === $viewer->id) {
+                    if ($viewer === null || ($projects->canSee($d->project_id) && ($d->visibility === 'organisation' || $d->owner_id === $viewer->id))) {
                         $impact['dashboards'][] = ['id' => $d->id, 'title' => $d->title];
                     } else {
                         $impact['hidden']++;
@@ -147,7 +150,7 @@ class DriftMonitor
     private function usedColumns(Dataset $dataset): array
     {
         $used = [];
-        foreach (SemanticModel::with(['measures', 'dimensions', 'relationships'])->get() as $model) {
+        foreach (SemanticModel::withoutGlobalScope('project')->with(['measures', 'dimensions', 'relationships'])->get() as $model) {
             if ($model->base_dataset_id === $dataset->id) {
                 foreach ($model->measures as $m) {
                     if ($m->field) {
@@ -202,7 +205,7 @@ class DriftMonitor
         }
         $critical = count(array_filter($serious, fn (DriftEvent $e) => $e->severity === 'critical'));
         $impact = $this->impact($dataset, null, null);
-        $owners = SemanticModel::with('metrics:id,semantic_model_id,key,data_owner_id,business_owner_id')->where('base_dataset_id', $dataset->id)->get()
+        $owners = SemanticModel::withoutGlobalScope('project')->with('metrics:id,semantic_model_id,key,data_owner_id,business_owner_id')->where('base_dataset_id', $dataset->id)->get()
             ->flatMap(fn ($m) => $m->metrics->flatMap(fn ($x) => [$x->data_owner_id, $x->business_owner_id]))->filter()->unique()->values()->all();
         $first = array_values($serious)[0];
         $payload = [

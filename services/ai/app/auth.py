@@ -15,9 +15,13 @@ class Principal:
     organisation_id: str
     roles: tuple[str, ...]
     token: str  # forwarded to the API so every data access is authorised as this user
+    project_id: str | None = None  # the project the person is working in; the API checks they may open it
 
 
-def current_user(authorization: Annotated[str, Header()] = "") -> Principal:
+def current_user(
+    authorization: Annotated[str, Header()] = "",
+    x_project_id: Annotated[str | None, Header()] = None,
+) -> Principal:
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
         raise HTTPException(401, detail="Authentication required.")
@@ -28,7 +32,7 @@ def current_user(authorization: Annotated[str, Header()] = "") -> Principal:
         raise HTTPException(401, detail="Your session has expired. Please sign in again.") from None
     if claims.get("typ") != "access":
         raise HTTPException(401, detail="Invalid token type.")
-    return Principal(claims["sub"], claims["org"], tuple(claims.get("roles", [])), token)
+    return Principal(claims["sub"], claims["org"], tuple(claims.get("roles", [])), token, x_project_id or None)
 
 
 def internal_caller(authorization: Annotated[str, Header()] = "") -> None:

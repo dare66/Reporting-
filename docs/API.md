@@ -22,6 +22,20 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 
 While an account is held, only `GET /me`, `POST /me/password`, `POST /me/mfa/setup|enable` and `POST /auth/logout` stay open.
 
+## Projects
+Every authenticated call may carry `X-Project-Id` to work inside one project. Without it, the call sees every project the person can open, and new work goes into the default project. A project the person cannot open is refused with `403 project_forbidden`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/projects` | Projects the person can open: `visibility`, `is_default`, `my_role`, `can_manage`, `member_count`, `counts` per kind of work |
+| GET | `/projects/{id}` | Plus `members` (name, email, role) |
+| POST | `/projects` | `data.manage`. `{name, description?, visibility?: members\|organisation}`; the creator becomes owner |
+| PATCH | `/projects/{id}` | Owners or `admin.org`. The default project stays open to everyone |
+| DELETE | `/projects/{id}` | Owners or `admin.org`. `409 project_not_empty` while it holds any work; the default project cannot be deleted |
+| GET | `/projects/{id}/people` | Owners: active people not yet members |
+| POST | `/projects/{id}/members` | `{user_id, role?: member\|owner}`; also changes a member's role |
+| DELETE | `/projects/{id}/members/{userId}` | The last owner cannot be removed |
+
 ## Semantic layer & queries
 | Method | Path | Permission |
 |---|---|---|

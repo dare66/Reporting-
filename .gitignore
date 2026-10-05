@@ -12,3 +12,6 @@ coverage/
 services/ai/.venv/
 tests/e2e/node_modules
 .verify-ca.crt
+
+# Redis snapshots written by a local redis-server
+dump.rdb

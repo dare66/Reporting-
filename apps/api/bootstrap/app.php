@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'project' => App\Http\Middleware\ResolveProject::class,
             'auth.jwt' => AuthenticateJwt::class,
             'perm' => RequirePermission::class,
             'policy' => EnforceSecurityPolicy::class,

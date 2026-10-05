@@ -107,9 +107,9 @@ class AutoBiDesigner
         $reportPlan = $this->reportSections($model->key, $chosen, $dims, $plan['window']);
         $title = Str::headline(preg_replace('/\s*\(upload\)$/i', '', $source->name) ?? $source->name);
 
-        $dashboard = DB::transaction(function () use ($dashboardPlan, $title, $audience, $plan, $user) {
+        $dashboard = DB::transaction(function () use ($dashboardPlan, $title, $audience, $plan, $user, $source) {
             $d = Dashboard::create([
-                'owner_id' => $user->id, 'title' => "{$title} — ".Str::headline($audience).' overview',
+                'project_id' => $source->project_id, 'owner_id' => $user->id, 'title' => "{$title} — ".Str::headline($audience).' overview',
                 'description' => "Designed automatically from {$plan['fact']['label']} ({$plan['domain']['name']}). Each widget records why it was chosen.",
                 'visibility' => 'private', 'sections' => [['key' => 'main', 'label' => 'Overview']], 'filters' => [],
             ]);
@@ -123,7 +123,7 @@ class AutoBiDesigner
 
         $period = TimeRange::resolve($reportPlan['range'] ?? 'last_30_days');
         $report = Report::create([
-            'owner_id' => $user->id, 'title' => "{$title} — executive report", 'subtitle' => $period->label,
+            'project_id' => $source->project_id, 'owner_id' => $user->id, 'title' => "{$title} — executive report", 'subtitle' => $period->label,
             'type' => 'management', 'theme' => 'executive', 'status' => 'draft',
             'parameters' => ['range' => $reportPlan['range'] ?? 'last_30_days', 'range_label' => $period->label, 'period' => $period->toArray()],
         ]);
@@ -221,8 +221,11 @@ class AutoBiDesigner
     private function modelKey(DataSource $source): string
     {
         $base = Str::snake(Str::ascii(preg_replace('/\s*\(upload\)$/i', '', $source->name) ?? 'source'));
+        // Model keys are unique per organisation, so a model outside the default project carries its project's key.
+        $project = $source->project()->withoutGlobalScopes()->first();
+        $prefix = $project === null || $project->is_default ? 'auto_' : 'auto_'.$project->key.'_';
 
-        return Str::limit('auto_'.trim((string) preg_replace('/[^a-z0-9_]+/', '_', $base), '_'), 40, '');
+        return Str::limit($prefix.trim((string) preg_replace('/[^a-z0-9_]+/', '_', $base), '_'), 40, '');
     }
 
     /**

@@ -9,7 +9,7 @@ CI (`.github/workflows/ci.yml`) runs the API, AI-service and web gates on every 
 | **API** (PHPUnit, PostgreSQL) | 114 tests: compiler, expressions, time ranges, authentication and MFA, cross-tenant isolation, roles, row- and column-level security, analytics correctness against hand-written SQL, reporting, ingestion, Widget Studio, administration, Auto BI, metric store, Data Trust Center, safe source removal, SSRF guard | `cd apps/api && composer check` (Pint, Larastan level 6, tests) |
 | **AI service** (pytest) | 27 tests: the analyst graph against a mocked API, planner, LLM guards (grounding, plan validation), forecasting and anomaly maths, governed-metric selection | `cd services/ai && ruff format --check . && ruff check . && mypy && python -m pytest -q` |
 | **Web** (Karma) | 31 tests: formatting, chart specifications, pivot, Widget Studio model | `cd apps/web && npm run check` (Prettier, ESLint, production build, tests) |
-| **Browser journeys** (Playwright, against a running stack) | 9 journeys, below | `cd tests/e2e && npm test` |
+| **Browser journeys** (Playwright, against a running stack) | 10 journeys, below | `cd tests/e2e && npm test` |
 
 ## Browser journeys
 
@@ -23,6 +23,7 @@ CI (`.github/workflows/ci.yml`) runs the API, AI-service and web gates on every 
 | `metrics.mjs` | Changing a certified calculation lapses it; the approver cannot certify; a second person certifies; version diff; dashboards still render |
 | `database.mjs` | Connecting a PostgreSQL database leads to choosing tables; three load with progress under a row limit; Auto BI designs from them, joined (needs `SOURCE_DB_*` settings) |
 | `crossfilter.mjs` | Clicking a bar filters the other widgets, shows as a removable filter, and clearing it restores every value |
+| `projects.mjs` | A new project starts empty; switching to it from the top bar reopens the page inside it; an upload there is not in General; the choice survives a reload |
 | `trust.mjs` | A reload with a broken schema is caught, with its impact; acknowledgement; removing a source shows its impact and cleans up |
 
 Each journey fails on any uncaught page error, console error or 5xx response, and cleans up the data it creates.

@@ -20,7 +20,17 @@ Everything listed as built here is enforced in code and covered by tests (mainly
 
 Every tenant table has `organisation_id` and a global scope that **fails closed**: a request with no resolved tenant sees no rows. Cross-tenant code paths (login lookup, seeding, schedulers) use the explicit, searchable `TenantScopeBypass::run()`. Tests check that one tenant cannot read another's data through the API.
 
-**Not built yet (brief §63–64):** workspaces and projects inside a tenant. Today dashboards are private or organisation-wide, and reports are draft or published.
+## Projects (built)
+
+Inside a tenant, **projects** keep data sources, datasets, data models (and their metrics), dashboards, reports and alerts apart (`ProjectsTest`).
+
+- A second global scope, `project`, applies after the tenant scope. The web app sends the chosen project as `X-Project-Id`, and the AI service forwards it, so the analyst stays in the same project.
+- A project is open to the whole organisation or only to its members. Naming a project the person cannot open is refused with `403 project_forbidden`; with no header, the request sees every project the person can open.
+- Organisation administrators (`admin.org`) open every project. Owners manage details and members; anyone with `data.manage` can start a project and becomes its owner. A project always keeps one owner.
+- Checks that protect work look across **every** project: whether a source can be removed, metric usage, and the impact of schema drift. Work in projects the viewer cannot open is counted, never named.
+- A data model cannot be built on another project's dataset, and a model key cannot be reused across projects.
+- Only an empty project can be deleted; the default project cannot be.
+- Everything that existed before projects lives in the default project, "General", which is open to the whole organisation.
 
 ## Authorisation (built)
 

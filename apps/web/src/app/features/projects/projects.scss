@@ -1,0 +1,169 @@
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  color: var(--ink-1);
+}
+.notice button {
+  margin-left: auto;
+}
+.create {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+  max-width: 640px;
+}
+.create h2 {
+  margin: 0;
+  font-size: 18px;
+}
+fieldset.field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+fieldset.field legend {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.small {
+  font-size: 12px;
+}
+.list {
+  display: grid;
+  gap: 12px;
+}
+.project.current {
+  border-color: var(--accent);
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-3);
+  color: var(--accent);
+  font-weight: 700;
+  flex: none;
+}
+.title {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 180px;
+}
+.meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.body {
+  padding: 0 16px 16px 66px;
+  display: grid;
+  gap: 14px;
+}
+.counts {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.counts b {
+  color: var(--ink-1);
+}
+.edit {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+}
+h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
+}
+.members li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex: none;
+}
+.who {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.who small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.add {
+  flex-wrap: wrap;
+  max-width: 560px;
+}
+.add .select:first-child {
+  flex: 1;
+  min-width: 200px;
+}
+.danger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 640px) {
+  .body {
+    padding-left: 16px;
+  }
+}
+.body > .btn,
+.edit .row {
+  justify-self: start;
+}
+.members .select,
+.add .select {
+  width: auto;
+  flex: none;
+}
+.add .select:first-child {
+  flex: 1;
+}

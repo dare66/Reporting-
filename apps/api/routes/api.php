@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\InsightController;
 use App\Http\Controllers\Api\MetricStoreController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\QueryController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SearchController;
@@ -30,7 +31,7 @@ Route::prefix('auth')->group(function () {
 });
 Route::post('ingest/webhook/{id}/{token}', [DataController::class, 'webhook'])->middleware('throttle:api');
 
-Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
+Route::middleware(['auth.jwt', 'policy', 'project', 'throttle:api'])->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('me', [AuthController::class, 'me']);
     Route::patch('me', [AuthController::class, 'updateProfile']);
@@ -210,6 +211,16 @@ Route::middleware(['auth.jwt', 'policy', 'throttle:api'])->group(function () {
     });
     Route::get('bookmarks', [CollaborationController::class, 'bookmarks']);
     Route::post('bookmarks/toggle', [CollaborationController::class, 'toggleBookmark']);
+
+    // Projects
+    Route::get('projects', [ProjectController::class, 'index']);
+    Route::get('projects/{id}', [ProjectController::class, 'show']);
+    Route::post('projects', [ProjectController::class, 'store'])->middleware('perm:data.manage');
+    Route::patch('projects/{id}', [ProjectController::class, 'update']);
+    Route::delete('projects/{id}', [ProjectController::class, 'destroy']);
+    Route::get('projects/{id}/people', [ProjectController::class, 'people']);
+    Route::post('projects/{id}/members', [ProjectController::class, 'addMember']);
+    Route::delete('projects/{id}/members/{userId}', [ProjectController::class, 'removeMember']);
 
     // Administration
     Route::prefix('admin')->group(function () {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Projects\BelongsToProject;
 use App\Support\Tenancy\BelongsToOrganisation;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Dashboard extends Model
 {
-    use BelongsToOrganisation, HasUuids;
+    use BelongsToOrganisation, BelongsToProject, HasUuids;
 
     protected $table = 'dashboards';
 

@@ -44,6 +44,7 @@ class DatasetRegistrar
             ['organisation_id' => $source->organisation_id, 'name' => $table],
             [
                 'data_source_id' => $source->id,
+                'project_id' => $source->project_id,
                 'label' => $label ?? Str::headline($table),
                 'description' => $description,
                 'physical_schema' => $schema,

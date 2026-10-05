@@ -20,6 +20,7 @@ import { AppNotification, SearchResult } from '../core/models';
 import { notificationIcon } from '../core/notifications';
 import { ago, setCurrencySymbol } from '../core/format';
 import { Preferences } from '../core/preferences.service';
+import { Project, ProjectScope } from '../core/project-scope.service';
 import { Theme } from '../core/theme.service';
 import { Icon } from '../shared/icon';
 import { Scrim } from '../shared/scrim';
@@ -45,6 +46,7 @@ const NAV: NavItem[] = [
   { path: '/trust', label: 'Data Trust', icon: 'heart', perm: ['data.view'], group: 'platform' },
   { path: '/semantic', label: 'Semantic Model', icon: 'semantic', perm: ['semantic.view'], group: 'platform' },
   { path: '/metrics', label: 'Metric Store', icon: 'target', perm: ['semantic.view'], group: 'platform' },
+  { path: '/projects', label: 'Projects', icon: 'layers', group: 'platform' },
   {
     path: '/governance',
     label: 'Governance',
@@ -86,8 +88,12 @@ export class Shell implements OnInit, OnDestroy {
   private preferences = inject(Preferences);
   private api = inject(Api);
   private router = inject(Router);
+  readonly scope = inject(ProjectScope);
 
   readonly user = this.auth.user;
+  readonly projectsOpen = signal(false);
+  /** Shown once there is a choice to make, or for people who can start a project. */
+  readonly showProjects = computed(() => this.scope.projects().length > 1 || this.auth.can('data.manage'));
   readonly nav = computed(() => {
     const exec = this.user()?.experience === 'executive';
     return NAV.filter((n) => (!n.perm || this.auth.canAny(...n.perm)) && !(exec && EXECUTIVE_HIDDEN.has(n.path)));
@@ -118,12 +124,16 @@ export class Shell implements OnInit, OnDestroy {
 
   ngOnInit() {
     setCurrencySymbol(this.user()?.organisation.currency ?? 'MYR');
+    const id = this.user()?.id;
+    if (id) this.scope.restore(id);
+    this.loadProjects();
     this.loadNotifications();
     this.listen();
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.moreOpen.set(false);
       this.searchOpen.set(false);
       this.bellOpen.set(false);
+      this.projectsOpen.set(false);
     });
     addEventListener('online', () => this.online.set(true));
     addEventListener('offline', () => this.online.set(false));
@@ -144,7 +154,30 @@ export class Shell implements OnInit, OnDestroy {
       this.searchOpen.set(false);
       this.bellOpen.set(false);
       this.moreOpen.set(false);
+      this.projectsOpen.set(false);
     }
+  }
+
+  async loadProjects() {
+    try {
+      this.scope.setProjects((await this.api.get<{ data: Project[] }>('/projects')).data);
+    } catch {
+      /* the switcher stays hidden if projects are unavailable */
+    }
+  }
+
+  /**
+   * Switches project. The open page is re-created (the outlet is keyed by
+   * project), so it reloads inside the new one. A detail page (one dashboard,
+   * one report) may not exist there, so its section's list opens instead.
+   */
+  async switchProject(id: string | null) {
+    this.projectsOpen.set(false);
+    if (id === this.scope.currentId()) return;
+    this.scope.select(id);
+    const path = this.router.url.split(/[?#]/)[0].split('/').filter(Boolean);
+    if (path.length > 1) await this.router.navigateByUrl('/' + path[0]);
+    this.loadProjects();
   }
 
   onSearch(q: string) {
