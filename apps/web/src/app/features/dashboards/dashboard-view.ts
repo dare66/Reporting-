@@ -13,7 +13,16 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api.service';
 import { Auth } from '../../core/auth.service';
 import { ago } from '../../core/format';
-import { CatalogModel, Comment, Dashboard, DashboardFilter, Envelope, GridPosition, Widget } from '../../core/models';
+import {
+  CatalogModel,
+  Comment,
+  CrossFilterPick,
+  Dashboard,
+  DashboardFilter,
+  Envelope,
+  GridPosition,
+  Widget,
+} from '../../core/models';
 import { Icon } from '../../shared/icon';
 import { ErrorState, Working } from '../../shared/states';
 import { FilterBar } from './filters/filter-bar';
@@ -85,7 +94,10 @@ export class DashboardView implements OnInit {
   });
   readonly sections = computed(() => this.dash()?.sections ?? []);
   /** The current filters differ from the saved defaults. */
-  readonly filtersDirty = computed(() => JSON.stringify(this.filters()) !== JSON.stringify(this.dash()?.filters ?? []));
+  readonly filtersDirty = computed(
+    () =>
+      JSON.stringify(this.filters().map(({ from: _from, ...f }) => f)) !== JSON.stringify(this.dash()?.filters ?? []),
+  );
   readonly nextRow = computed(() => Math.max(0, ...Object.values(this.positions()).map((p) => p.y + p.h)));
   readonly canStudio = isStudioWidget;
 
@@ -140,13 +152,33 @@ export class DashboardView implements OnInit {
     this.filters.set(filters);
     this.version.update((v) => v + 1);
   }
+  /**
+   * A chart click filters every widget whose data has that dimension. Clicking
+   * the same member again clears it; a click replaces any filter on the same dimension.
+   */
+  crossFilter(widgetId: string, pick: CrossFilterPick) {
+    const current = this.filters().find((f) => f.dimension === pick.dimension);
+    const same =
+      current?.from === widgetId &&
+      Array.isArray(current.value) &&
+      current.value.length === 1 &&
+      current.value[0] === pick.member;
+    const others = this.filters().filter((f) => f.dimension !== pick.dimension);
+    this.setFilters(
+      same
+        ? others
+        : [...others, { dimension: pick.dimension, op: 'in', value: [pick.member], label: pick.label, from: widgetId }],
+    );
+  }
   resetFilters() {
     this.setFilters(this.dash()?.filters ?? []);
   }
   async saveDefaultFilters() {
     try {
-      await this.api.patch(`/dashboards/${this.id()}`, { filters: this.filters() });
-      this.patch(() => ({ filters: this.filters() }));
+      // Saved defaults are ordinary filters: the chart-click marker is dropped.
+      const filters = this.filters().map(({ from: _from, ...f }) => f);
+      await this.api.patch(`/dashboards/${this.id()}`, { filters });
+      this.patch(() => ({ filters }));
     } catch (e) {
       this.error.set(errorMessage(e));
     }

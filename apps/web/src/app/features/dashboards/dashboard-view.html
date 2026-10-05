@@ -127,7 +127,13 @@
                 </button>
               }
               @for (v of [version()]; track v) {
-                <app-widget [widget]="w" [dashboardId]="d.id" [height]="height(w)" [filters]="filters()" />
+                <app-widget
+                  [widget]="w"
+                  [dashboardId]="d.id"
+                  [height]="height(w)"
+                  [filters]="filters()"
+                  (crossFilter)="crossFilter(w.id, $event)"
+                />
               }
             } @else {
               <div class="ghost-body muted">{{ w.type }} · {{ w.pos.w }}×{{ w.pos.h }}</div>

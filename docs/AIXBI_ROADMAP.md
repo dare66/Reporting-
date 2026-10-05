@@ -40,7 +40,7 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 | 5 | Root cause with ranked drivers | ✅ | Counterfactual attribution; impacts sum to the total change (tested) |
 | 6 | "Create an incident" through an authorised action | ⏭ | Needs the action engine |
 | 7 | One tenant cannot see another's data | ✅ | `SecurityTest::test_tenants_cannot_see_each_others_resources` |
-| 8 | Cross-filtering | 🟡 | Dashboard filters update every widget. Clicking a chart to filter the others is not wired yet: charts already emit the clicked category, and the dashboard needs to apply it as a filter |
+| 8 | Cross-filtering | ✅ | Clicking a bar, slice or region filters every widget whose data has that dimension (across data models); the clicked chart highlights its pick; a second click clears it. `crossfilter.mjs`. Forecast widgets do not follow dashboard filters yet |
 | 9 | PDF / PPTX / DOCX / XLSX | 🟡 | PDF, PPTX, XLSX, CSV, HTML built. DOCX missing |
 | 10 | Dashboard usable on a phone | 🟡 | Responsive reflow built; no phone-size automated test yet |
 | 11 | Break the source schema → drift detected | ✅ | `trust.mjs`, `DataTrustTest` |
@@ -49,7 +49,6 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 ## Next, in order
 
 1. **EMGS branding**, as soon as the logo and colour codes arrive.
-2. **Cross-filtering** by clicking charts (completes Test 8).
 3. **Action engine v1** with approval and audit (Test 6).
 4. **Executive home v2**: "what should I know right now".
 5. **DOCX export** (completes Test 9) and a phone-size test pass (Test 10).

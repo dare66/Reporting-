@@ -77,7 +77,13 @@
     }
     @default {
       @if (chartSpec(); as spec) {
-        <app-chart [spec]="spec" [height]="height() - 80" />
+        <app-chart
+          [spec]="spec"
+          [height]="height() - 80"
+          [class.pickable]="pickDimension()"
+          [attr.title]="pickDimension() ? 'Click to filter the dashboard by ' + (pickDimension()?.label ?? '') : null"
+          (categorySelect)="pick($event.category)"
+        />
       }
     }
   }

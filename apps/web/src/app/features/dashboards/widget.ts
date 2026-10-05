@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Api, errorMessage } from '../../core/api.service';
 import { fmt, fmtDate } from '../../core/format';
 import {
   Anomaly,
+  CrossFilterPick,
   DashboardFilter,
   Envelope,
   Forecast,
@@ -44,6 +45,8 @@ export class DashboardWidget implements OnInit {
   readonly dashboardId = input.required<string>();
   readonly height = input(300);
   readonly filters = input<DashboardFilter[]>([]);
+  /** A bar, slice or region was clicked: filter the rest of the dashboard by it. */
+  readonly crossFilter = output<CrossFilterPick>();
   readonly data = signal<WidgetData | null>(null);
   readonly error = signal<string | null>(null);
   readonly three = signal(true);
@@ -74,8 +77,24 @@ export class DashboardWidget implements OnInit {
   readonly chartSpec = computed(() => {
     const r = this.result();
     if (!r) return null;
-    return this.widget().type === 'gauge' ? specFromGauge(r, this.widget().viz) : specFromQuery(r, this.widget().viz);
+    if (this.widget().type === 'gauge') return specFromGauge(r, this.widget().viz);
+    const spec = specFromQuery(r, this.widget().viz);
+    const picked = this.picked();
+    return picked.length ? { ...spec, highlight: picked } : spec;
   });
+  /** The grouping column a click on this chart filters by: a category axis, never a time axis. */
+  readonly pickDimension = computed(() => {
+    const r = this.result();
+    const spec = this.chartSpec();
+    if (!r || !spec || spec.isTime || ['heatmap', 'scatter', 'gauge', 'forecast'].includes(spec.kind)) return null;
+    return r.columns.find((c) => c.role === 'dimension' && !c.key.endsWith('_code')) ?? null;
+  });
+  /** Members this widget's own clicks selected; it highlights them rather than filtering itself. */
+  readonly picked = computed(() =>
+    this.filters()
+      .filter((f) => f.from === this.widget().id)
+      .flatMap((f) => (Array.isArray(f.value) ? f.value.map(String) : [String(f.value)])),
+  );
   readonly mapSpec = computed(() => {
     const r = this.result();
     return r ? specFromQuery(r, { type: 'map' }) : null;
@@ -87,6 +106,11 @@ export class DashboardWidget implements OnInit {
 
   ngOnInit() {
     this.load();
+  }
+
+  pick(category: string) {
+    const dim = this.pickDimension();
+    if (dim && category) this.crossFilter.emit({ dimension: dim.key, label: dim.label ?? dim.key, member: category });
   }
 
   async load() {
@@ -106,7 +130,11 @@ export class DashboardWidget implements OnInit {
         this.data.set({ kind: 'forecast', spec });
       } else {
         const url = `/dashboards/${this.dashboardId()}/widgets/${w.id}/data`;
-        this.data.set(await this.api.post<WidgetData>(url, { filters: this.filters() }));
+        // A widget is not filtered by its own clicks, and the client-only marker is not sent.
+        const filters = this.filters()
+          .filter((f) => f.from !== w.id)
+          .map(({ from: _from, ...f }) => f);
+        this.data.set(await this.api.post<WidgetData>(url, { filters }));
       }
     } catch (e) {
       this.error.set(errorMessage(e));

@@ -89,6 +89,15 @@ export interface RankingValue {
 export interface DashboardFilter extends QueryFilter {
   label?: string;
   disabled?: boolean;
+  /** Set by clicking a chart: the widget it came from. That widget highlights instead of filtering itself. Never saved. */
+  from?: string;
+}
+
+/** A chart member a viewer clicked, to filter the rest of the dashboard by. */
+export interface CrossFilterPick {
+  dimension: string;
+  label: string;
+  member: string;
 }
 
 export type HavingOp = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between' | 'not_between';
