@@ -74,7 +74,7 @@ class DataTrustTest extends TestCase
 
         // The same file arrives again, broken: amount is now text, units is gone, a column and a region are new, rows fell.
         $regions[] = 'West';
-        $second = $this->upload('order_date,region,product,amount,channel', fn ($i) => sprintf('2026-%02d-%02d,%s,%s,RM %d,%s', ($i % 9) + 1, ($i % 27) + 1, $regions[$i % 4], ['Alpha', 'Beta'][$i % 2], 100 + $i, ['web', 'agent'][$i % 2]), 30);
+        $second = $this->upload('order_date,region,product,amount,channel', fn ($i) => sprintf('2026-%02d-%02d,%s,%s,%d pcs,%s', ($i % 9) + 1, ($i % 27) + 1, $regions[$i % 4], ['Alpha', 'Beta'][$i % 2], 100 + $i, ['web', 'agent'][$i % 2]), 30);
         $this->assertSame($datasetId, $second['dataset']['id'], 'a reload updates the same dataset');
         $this->assertNotContains('units', array_column($second['dataset']['fields'], 'name'), 'columns that are gone are not kept as fields');
 

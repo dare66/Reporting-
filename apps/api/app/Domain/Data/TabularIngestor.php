@@ -6,6 +6,7 @@ use App\Models\Dataset;
 use App\Models\DataSource;
 use App\Models\IngestionRun;
 use App\Models\Project;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -28,6 +29,20 @@ class TabularIngestor
     /** @var array<string, array{0: int, 1: string}> values that did not fit their column's type in the current load: column → [count, type] */
     private array $mismatches = [];
 
+    /** @var array<string, string> source column name → table column, unique even when two names clean up the same */
+    private array $columnOf = [];
+
+    /** @var array<string, string> table column → how its text is read: number, percent, or date:/timestamp: with a format */
+    private array $readers = [];
+
+    /** Day-first formats come before month-first ones (Malaysian convention); month-first wins only when day-first cannot read every value. */
+    private const DATE_FORMATS = [
+        'd/m/Y', 'm/d/Y', 'd-m-Y', 'm-d-Y', 'd.m.Y', 'Y/m/d', 'd/m/y', 'm/d/y', 'Y.m.d',
+        'd-M-Y', 'd-M-y', 'd M Y', 'j M Y', 'd F Y', 'j F Y', 'M j, Y', 'F j, Y', 'M j Y', 'D, d M Y',
+    ];
+
+    private const TIME_FORMATS = [' H:i', ' H:i:s', ' g:i A', ' g:i a', ' h:i A', ' H:i:s.u', 'TH:i:s'];
+
     /**
      * @param  iterable<array<string, mixed>>  $rows  records keyed by column name; a generator is read once, in batches
      * @param  'full'|'append'  $mode
@@ -37,6 +52,8 @@ class TabularIngestor
     public function ingest(DataSource $source, string $name, iterable $rows, string $mode = 'full', ?string $label = null): array
     {
         $this->mismatches = [];
+        $this->columnOf = [];
+        $this->readers = [];
         $run = IngestionRun::create(['organisation_id' => $source->organisation_id, 'data_source_id' => $source->id, 'mode' => $mode, 'status' => 'running', 'started_at' => now()]);
         $started = microtime(true);
         $log = [];
@@ -120,7 +137,11 @@ class TabularIngestor
         }
         $columns = [];
         foreach (array_keys($names) as $raw) {
-            $col = $this->sanitize((string) $raw);
+            $col = $base = $this->sanitize((string) $raw);
+            for ($n = 2; isset($columns[$col]); $n++) {
+                $col = substr($base, 0, 56).'_'.$n;
+            }
+            $this->columnOf[(string) $raw] = $col;
             $values = array_values(array_filter(array_column($sample, $raw), fn ($v) => $v !== null && $v !== ''));
             $type = match (true) {
                 $values === [] => 'text',
@@ -129,7 +150,7 @@ class TabularIngestor
                 $this->all($values, fn ($v) => is_numeric($v)) => 'double precision',
                 $this->all($values, fn ($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v)) => 'date',
                 $this->all($values, fn ($v) => preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', (string) $v)) => 'timestamp',
-                default => 'text',
+                default => $this->formatted($col, $values, $log),
             };
             if (count($values) < count($sample) * 0.5) {
                 $warnings++;
@@ -151,7 +172,7 @@ class TabularIngestor
     {
         $out = [];
         foreach ($row as $k => $v) {
-            $col = $this->sanitize((string) $k);
+            $col = $this->columnOf[(string) $k] ?? $this->sanitize((string) $k);
             if (! isset($columns[$col])) {
                 continue;
             }
@@ -159,6 +180,9 @@ class TabularIngestor
                 $out[$col] = null;
 
                 continue;
+            }
+            if (isset($this->readers[$col]) && is_string($v)) {
+                $v = $this->read($this->readers[$col], $v) ?? $v;
             }
             $type = $columns[$col];
             // A value that does not fit the inferred type is left empty, never silently turned into 0 or a wrong date.
@@ -187,9 +211,75 @@ class TabularIngestor
         return $out;
     }
 
+    /**
+     * Text columns that hold formatted numbers or dates, as people type them:
+     * "RM 1,234.50", "(500)", "12.5%", "05/03/2024", "5 Mar 2024 14:30". Read as
+     * numbers and dates so they can be summed and trended; otherwise text.
+     *
+     * @param  list<mixed>  $values
+     * @param  list<array{level: string, message: string}>  $log
+     */
+    private function formatted(string $col, array $values, array &$log): string
+    {
+        $strings = array_map(fn ($v) => trim((string) $v), $values);
+        $percent = $this->all($strings, fn ($v) => str_ends_with($v, '%'));
+        $reader = $percent ? 'percent' : 'number';
+        if ($this->all($strings, fn ($v) => $this->read($reader, $v) !== null)) {
+            $this->readers[$col] = $reader;
+            $log[] = ['level' => 'info', 'message' => "Read {$col} as ".($percent ? 'percentages (12% is stored as 0.12)' : 'numbers').', ignoring currency signs and thousands separators.'];
+            $whole = ! $percent && $this->all($strings, fn ($v) => fmod((float) $this->read('number', $v), 1.0) === 0.0 && abs((float) $this->read('number', $v)) < 1e15);
+
+            return $whole ? 'bigint' : 'double precision';
+        }
+        foreach ([...self::DATE_FORMATS, ...array_merge(...array_map(fn ($d) => array_map(fn ($t) => $d.$t, self::TIME_FORMATS), self::DATE_FORMATS))] as $format) {
+            $kind = strpbrk($format, 'HgGh') !== false ? 'timestamp' : 'date';
+            if ($this->all($strings, fn ($v) => $this->read("{$kind}:{$format}", $v) !== null)) {
+                $this->readers[$col] = "{$kind}:{$format}";
+                $log[] = ['level' => 'info', 'message' => "Read {$col} as ".($kind === 'date' ? 'dates' : 'dates and times')." written {$format}."];
+
+                return $kind;
+            }
+        }
+
+        return 'text';
+    }
+
+    /** One formatted value as a plain number or ISO date, or null when it does not follow the column's format. */
+    private function read(string $reader, string $v): ?string
+    {
+        $v = trim($v);
+        if ($reader === 'number' || $reader === 'percent') {
+            $negative = (bool) preg_match('/^\((.*)\)$/', $v, $m);
+            $v = $negative ? $m[1] : $v;
+            $v = (string) preg_replace('/^(?:RM|MYR|USD|SGD|EUR|GBP|IDR|INR|CNY|US\$|S\$|\$|€|£|¥|₹)\s*|\s*(?:RM|MYR|USD|SGD|EUR|GBP)$/iu', '', $v);
+            if ($reader === 'percent') {
+                if (! str_ends_with($v, '%')) {
+                    return null;
+                }
+                $v = rtrim(substr($v, 0, -1));
+            }
+            if (! preg_match('/^[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/', $v)) {
+                return null;
+            }
+            $n = (float) str_replace(',', '', $v) * ($negative ? -1 : 1);
+
+            return (string) ($reader === 'percent' ? $n / 100 : $n);
+        }
+        [$kind, $format] = explode(':', $reader, 2);
+        $d = DateTimeImmutable::createFromFormat('!'.$format, $v);
+        $errors = DateTimeImmutable::getLastErrors();
+        if ($d === false || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0)) || (int) $d->format('Y') < 1900 || (int) $d->format('Y') > 2200) {
+            return null;
+        }
+
+        return $d->format($kind === 'date' ? 'Y-m-d' : 'Y-m-d H:i:s');
+    }
+
     private function sanitize(string $name): string
     {
-        $s = Str::of($name)->ascii()->snake()->replaceMatches('/[^a-z0-9_]/', '_')->replaceMatches('/_+/', '_')->trim('_')->value();
+        // "orderDate" → order_date, "Staff ID" → staff_id, "Revenue (RM)" → revenue_rm: words split at case changes, acronyms kept whole.
+        $s = Str::of($name)->ascii()->replaceMatches('/(?<=[a-z0-9])(?=[A-Z])/', '_')->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '_')->trim('_')->value();
         if ($s === '' || ctype_digit($s[0])) {
             $s = 'c_'.$s;
         }

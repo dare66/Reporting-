@@ -72,7 +72,7 @@ try {
     await api(`/datasets/${first.data.dataset.id}/semantic-model`, { method: 'POST', body: '{}' });
     const second = await api('/data/upload', {
       method: 'POST',
-      csv: 'order_date,region,amount\n' + rows(60, (i) => `2026-03-${String((i % 27) + 1).padStart(2, '0')},${regions[i % 3]},RM ${100 + i}`),
+      csv: 'order_date,region,amount\n' + rows(60, (i) => `2026-03-${String((i % 27) + 1).padStart(2, '0')},${regions[i % 3]},${100 + i} pcs`),
     });
     sources.push(second.data.source.id);
   });

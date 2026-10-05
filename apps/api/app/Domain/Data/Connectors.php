@@ -43,7 +43,7 @@ class Connectors
         $ext = strtolower($file->getClientOriginalExtension());
 
         return match ($ext) {
-            'csv', 'txt' => ['Sheet1' => $this->csv($file->getRealPath())],
+            'csv', 'txt', 'tsv' => ['Sheet1' => $this->csv($file->getRealPath())],
             'json' => ['Sheet1' => $this->json(file_get_contents($file->getRealPath()), null)],
             'xlsx' => $this->excel(new Xlsx, $file->getRealPath()),
             'xls' => $this->excel(new Xls, $file->getRealPath()),
@@ -202,22 +202,122 @@ class Connectors
     /** @return list<Record> */
     private function csv(string $path): array
     {
-        $fh = fopen($path, 'r');
-        $first = fgets($fh);
-        $delimiter = substr_count($first, ';') > substr_count($first, ',') ? ';' : ',';
+        $text = $this->utf8((string) file_get_contents($path));
+        if (trim($text) === '') {
+            return [];
+        }
+        $delimiter = $this->delimiter($text);
+        $fh = fopen('php://temp', 'r+');
+        fwrite($fh, $text);
         rewind($fh);
-        $header = fgetcsv($fh, 0, $delimiter);
-        $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]); // BOM
         $rows = [];
-        while (($r = fgetcsv($fh, 0, $delimiter)) !== false) {
-            if ($r === [null]) {
-                continue;
-            }
-            $rows[] = array_combine($header, array_pad(array_slice($r, 0, count($header)), count($header), null));
+        while (($r = fgetcsv($fh, 0, $delimiter, '"', '')) !== false) {
+            $rows[] = $r;
         }
         fclose($fh);
 
-        return $rows;
+        return $this->table($rows);
+    }
+
+    /**
+     * Text as UTF-8, whatever the program that wrote it used: UTF-8 (with or
+     * without a byte-order mark), UTF-16 (Excel's "Unicode text") or Windows-1252
+     * (Excel's "CSV" on Windows).
+     */
+    private function utf8(string $text): string
+    {
+        if (str_starts_with($text, "\xFF\xFE") || str_starts_with($text, "\xFE\xFF")) {
+            return (string) mb_convert_encoding(substr($text, 2), 'UTF-8', str_starts_with($text, "\xFF\xFE") ? 'UTF-16LE' : 'UTF-16BE');
+        }
+        $text = (string) preg_replace('/^\xEF\xBB\xBF/', '', $text);
+
+        return mb_check_encoding($text, 'UTF-8') ? $text : (string) mb_convert_encoding($text, 'UTF-8', 'Windows-1252');
+    }
+
+    /** The separator that splits the first lines into the same, largest number of columns: comma, semicolon, tab or pipe. */
+    private function delimiter(string $text): string
+    {
+        $lines = array_slice(array_values(array_filter(preg_split('/\r\n|\n|\r/', substr($text, 0, 65536)) ?: [], fn ($l) => trim($l) !== '')), 0, 20);
+        $best = [',', 0];
+        foreach ([',', ';', "\t", '|'] as $d) {
+            $counts = array_map(fn ($l) => count(str_getcsv($l, $d, '"', '')), $lines);
+            // The most common width among the lines; title lines above the table do not decide it.
+            $widths = array_count_values($counts);
+            arsort($widths);
+            $width = (int) array_key_first($widths);
+            if ($width > 1 && $width * $widths[$width] > $best[1]) {
+                $best = [$d, $width * $widths[$width]];
+            }
+        }
+
+        return $best[0];
+    }
+
+    /**
+     * Turns rows of cells into records the way a person reads a sheet: the
+     * header is the first row that spans the table (title and notes rows above
+     * it are skipped), blank headings become "Column N", repeated headings get
+     * a number, and empty rows and repeated header rows are dropped.
+     *
+     * @param  list<list<mixed>>  $rows
+     * @return list<Record>
+     */
+    private function table(array $rows): array
+    {
+        $filled = fn (array $r) => count(array_filter($r, fn ($v) => $v !== null && trim((string) $v) !== ''));
+        $rows = array_values(array_filter($rows, fn ($r) => $filled($r) > 0));
+        if ($rows === []) {
+            return [];
+        }
+        $widths = array_map($filled, array_slice($rows, 0, 200));
+        $width = max($widths);
+        $at = 0;
+        foreach (array_slice($rows, 0, 20) as $i => $r) {
+            $text = array_filter($r, fn ($v) => $v !== null && trim((string) $v) !== '' && ! is_numeric($v));
+            if ($filled($r) >= max(1, (int) ceil($width * 0.6)) && count($text) >= $filled($r) / 2) {
+                $at = $i;
+                break;
+            }
+        }
+        $header = [];
+        $seen = [];
+        foreach ($rows[$at] as $i => $h) {
+            $name = trim((string) preg_replace('/\s+/u', ' ', (string) $h));
+            $name = $name === '' ? 'Column '.($i + 1) : $name;
+            $key = mb_strtolower($name);
+            $seen[$key] = ($seen[$key] ?? 0) + 1;
+            $header[$i] = $seen[$key] > 1 ? "{$name} {$seen[$key]}" : $name;
+        }
+        $records = [];
+        $headerValues = array_map(fn ($v) => trim((string) $v), $rows[$at]);
+        foreach (array_slice($rows, $at + 1) as $r) {
+            if (array_map(fn ($v) => trim((string) $v), array_slice($r, 0, count($headerValues))) === $headerValues) {
+                continue; // the header repeated, e.g. at a page break
+            }
+            // Total and subtotal rows would be counted twice once the data is summed.
+            $first = array_values(array_filter($r, fn ($v) => $v !== null && trim((string) $v) !== ''))[0] ?? null;
+            if (is_string($first) && preg_match('/^(grand\s+|sub\s*-?\s*)?(total|totals|sum|jumlah)\b/i', trim($first))) {
+                continue;
+            }
+            $record = [];
+            foreach ($header as $i => $name) {
+                $v = $r[$i] ?? null;
+                $record[$name] = is_string($v) ? trim($v) : $v;
+            }
+            $records[] = $record;
+        }
+        // Columns with neither a heading nor any value are noise from formatting, not data.
+        foreach ($header as $i => $name) {
+            if (str_starts_with($name, 'Column ') && trim((string) ($rows[$at][$i] ?? '')) === ''
+                && ! array_filter($records, fn ($rec) => $rec[$name] !== null && $rec[$name] !== '')) {
+                foreach ($records as &$rec) {
+                    unset($rec[$name]);
+                }
+                unset($rec);
+            }
+        }
+
+        return $records;
     }
 
     /** @return list<Record> */
@@ -271,19 +371,8 @@ class Connectors
             }
             $rows[] = $values;
         }
-        $header = array_map(fn ($h) => trim((string) $h), array_shift($rows) ?? []);
-        // Columns without a heading carry no meaning a person could check; leave them out.
-        $keep = array_keys(array_filter($header, fn ($h) => $h !== ''));
-        $rows = array_filter($rows, fn ($r) => array_filter($r, fn ($v) => $v !== null && $v !== '') !== []);
 
-        return array_values(array_map(function ($r) use ($header, $keep) {
-            $record = [];
-            foreach ($keep as $i) {
-                $record[$header[$i]] = $r[$i] ?? null;
-            }
-
-            return $record;
-        }, $rows));
+        return $this->table($rows);
     }
 
     private function cellValue(Cell $cell): mixed

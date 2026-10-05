@@ -41,7 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (QueryDeniedException $e) => $error('forbidden', $e->getMessage(), 403));
         $exceptions->render(fn (QueryExecutionException $e) => $error('query_failed', $e->getMessage(), 503));
         $exceptions->render(fn (AnalyticsEngineException $e) => $error('engine_unavailable', $e->getMessage(), 503));
-        $exceptions->render(fn (ValidationException $e) => $error('validation_failed', 'Some fields need attention.', 422, ['fields' => $e->errors()]));
+        // One problem is named outright; several are listed per field.
+        $exceptions->render(fn (ValidationException $e) => $error('validation_failed', count($e->errors()) === 1 ? (string) $e->validator->errors()->first() : 'Some fields need attention.', 422, ['fields' => $e->errors()]));
         $exceptions->render(function (NotFoundHttpException $e, Request $request) use ($error) {
             if ($e->getPrevious() instanceof ModelNotFoundException || $request->is('api/*')) {
                 return $error('not_found', 'We couldn\'t find what you were looking for. It may have been removed or you may not have access.', 404);

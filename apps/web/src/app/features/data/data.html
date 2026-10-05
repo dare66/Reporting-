@@ -27,7 +27,12 @@
         (dragleave)="over.set(false)"
         (drop)="$event.preventDefault(); over.set(false); upload($event.dataTransfer?.files?.[0])"
       >
-        <input type="file" accept=".csv,.xlsx,.xls,.json" (change)="upload($any($event.target).files?.[0])" hidden />
+        <input
+          type="file"
+          accept=".csv,.tsv,.txt,.xlsx,.xls,.json"
+          (change)="upload($any($event.target).files?.[0])"
+          hidden
+        />
         <app-icon name="upload" [size]="22" /><b>Drop a CSV, Excel or JSON file</b
         ><span class="muted">or click to browse · up to 50 MB</span>
       </label>

@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class DataController extends Controller
 {
@@ -122,17 +123,33 @@ class DataController extends Controller
 
     public function upload(Request $request): JsonResponse
     {
-        $data = $request->validate(['file' => 'required|file|max:51200|mimes:csv,txt,xlsx,xls,json', 'name' => 'nullable|string|max:60']);
+        // Files are read by their extension, never by sniffing their content, which can mistake a valid CSV for something else.
+        $data = $request->validate(['file' => 'required|file|max:51200|extensions:csv,txt,tsv,xlsx,xls,json', 'name' => 'nullable|string|max:60'], [
+            'file.uploaded' => 'The file did not reach the server. It may be larger than the server accepts ('.ini_get('upload_max_filesize').'B per file), or the upload was interrupted.',
+            'file.max' => 'The file is larger than 50 MB. Split it, or connect the database it came from instead.',
+            'file.extensions' => 'Upload a CSV, TSV, Excel (.xlsx or .xls) or JSON file.',
+        ]);
         $file = $data['file'];
         $ext = strtolower($file->getClientOriginalExtension());
         $connector = match ($ext) {
             'xlsx', 'xls' => 'excel', 'json' => 'json', default => 'csv'
         };
         $name = $data['name'] ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $source = DataSource::create(['connector_key' => $connector, 'name' => Str::headline($name).' (upload)', 'status' => 'syncing',
-            'config' => ['filename' => $file->getClientOriginalName()], 'created_by' => $request->user()->id]);
-        $sheets = $this->connectors->readSheets($file);
-        abort_if($sheets === [], 422, 'The file contains no records.');
+        // Read first, so a file that cannot be used leaves nothing half-created behind.
+        try {
+            $sheets = array_filter($this->connectors->readSheets($file), fn ($records) => $records !== []);
+        } catch (Throwable $e) {
+            report($e);
+            abort(422, 'This file could not be read. It may be damaged, password-protected, or not really a '.strtoupper($ext).' file.');
+        }
+        abort_if($sheets === [], 422, 'The file has no rows of data under its headings.');
+        // Uploading a file with the same name again refreshes its source (a new version of the data), rather than adding a second one.
+        $sourceName = Str::headline($name).' (upload)';
+        $source = DataSource::where('connector_key', $connector)->where('name', $sourceName)->first();
+        $source
+            ? $source->update(['status' => 'syncing', 'config' => ['filename' => $file->getClientOriginalName()]])
+            : $source = DataSource::create(['connector_key' => $connector, 'name' => $sourceName, 'status' => 'syncing',
+                'config' => ['filename' => $file->getClientOriginalName()], 'created_by' => $request->user()->id]);
         // A workbook with several sheets becomes one dataset per sheet; the table name keeps the file, the label is the sheet.
         $results = [];
         foreach ($sheets as $sheet => $records) {
