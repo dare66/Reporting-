@@ -43,6 +43,7 @@ class LlmPlan(BaseModel):
         "report",
         "report_edit",
         "alert",
+        "incident",
         "dashboard",
         "anomalies",
         "help",

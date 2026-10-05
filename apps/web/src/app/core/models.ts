@@ -885,6 +885,8 @@ export interface AlertRule {
   last_value: number | null;
   last_evaluated_at: string | null;
   created_via: string;
+  /** What the rule proposes when it fires, e.g. an incident; someone allowed to approve still decides. */
+  actions: { kind: 'incident'; severity?: string }[];
   alerts_count: number;
   semantic_model: { id: string; key: string; name: string } | null;
   /** The watched metric's label and display format. */
@@ -1511,4 +1513,69 @@ export interface SourceImpact {
     hidden: number;
   };
   can_delete: boolean;
+}
+
+/** Action engine: propose → approve → run → verify → audit. */
+export type ActionKind = 'incident' | 'notify' | 'webhook' | 'slack' | 'teams' | 'email';
+export type ActionStatus = 'proposed' | 'approved' | 'running' | 'done' | 'failed' | 'rejected' | 'cancelled';
+export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ActionDriver {
+  dimension_label: string;
+  member: string;
+  impact_share?: number | null;
+}
+
+export interface ActionItem {
+  id: string;
+  kind: ActionKind;
+  title: string;
+  summary: string | null;
+  status: ActionStatus;
+  payload: { severity?: IncidentSeverity; metric_ref?: string; assignee_id?: string; user_ids?: string[] };
+  evidence: {
+    card?: { label?: string; value?: number; format?: string };
+    drivers?: ActionDriver[];
+    checked?: string[];
+  };
+  source: 'manual' | 'ai' | 'alert';
+  requested_by: { id: string; name: string } | null;
+  decided_by: { id: string; name: string } | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  executed_at: string | null;
+  verified_at: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  attempts: number;
+  destination: { id: string; name: string; kind: string } | null;
+  incident: { id: string; reference: string; status: string } | null;
+  created_at: string;
+  needs_second_person: boolean;
+  can_approve: boolean;
+  can_cancel: boolean;
+  can_retry: boolean;
+}
+
+export interface Incident {
+  id: string;
+  reference: string;
+  number: number;
+  title: string;
+  description: string | null;
+  severity: IncidentSeverity;
+  status: 'open' | 'investigating' | 'resolved';
+  metric_ref: string | null;
+  assignee: { id: string; name: string } | null;
+  assignee_id: string | null;
+  action_id: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface ActionDestination {
+  id: string;
+  name: string;
+  kind: 'webhook' | 'slack' | 'teams' | 'email';
+  is_active: boolean;
 }

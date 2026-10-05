@@ -24,6 +24,7 @@ OVERVIEW_METRICS = [
 ]
 
 INTENT_RULES: list[tuple[Intent, str]] = [
+    ("incident", r"\b(create|open|raise|log|file|start)\b.{0,30}\b(incident|ticket|case)\b"),
     ("alert", r"\b(alert|notify|warn|tell) me\b|\balert when\b|\bsend (me )?an alert\b"),
     ("what_if", r"\bwhat (happens|would happen) if\b|\bwhat if\b|\bscenario\b|\bsimulat"),
     (
@@ -236,6 +237,9 @@ def plan(question: str, index: CatalogIndex, context: JSON | None = None) -> Pla
         else:
             s.demand_change_pct = pct
         p.scenario = s
+
+    if intent == "incident" and re.search(r"\b(biggest|worst|main|top|largest|most (serious|urgent|important))\b", t):
+        p.metrics = []  # the agent finds the biggest issue itself, rather than reusing the last metric discussed
 
     if intent == "alert":
         if not p.metrics:

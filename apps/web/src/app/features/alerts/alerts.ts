@@ -52,6 +52,16 @@ export class Alerts implements OnInit {
   toggle(r: AlertRule) {
     return this.run(r.id, () => this.api.patch(`/alert-rules/${r.id}`, { is_active: !r.is_active }));
   }
+  /** Turns on or off: when the rule fires, propose an incident for approval. */
+  toggleIncident(r: AlertRule) {
+    const on = this.proposesIncident(r);
+    return this.run(r.id, () =>
+      this.api.patch(`/alert-rules/${r.id}`, { actions: on ? [] : [{ kind: 'incident', severity: 'high' }] }),
+    );
+  }
+  proposesIncident(r: AlertRule): boolean {
+    return (r.actions ?? []).some((a) => a.kind === 'incident');
+  }
   remove(r: AlertRule) {
     return this.run(r.id, () => this.api.delete(`/alert-rules/${r.id}`));
   }

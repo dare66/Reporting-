@@ -1,0 +1,260 @@
+<div class="page">
+  <header class="page-head">
+    <div>
+      <div class="eyebrow signal">Actions</div>
+      <h1>Decide, then act</h1>
+      <p class="lede">
+        People, alerts and the AI analyst propose actions such as incidents and messages. Nothing runs until someone
+        allowed to approve it does. Each run is then checked, and every step is recorded in the audit log.
+      </p>
+    </div>
+    @if (auth.can('actions.request') && !proposing()) {
+      <button class="btn primary" (click)="startProposal()">
+        <app-icon name="plus" [size]="16" /> Propose an action
+      </button>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <app-error title="That did not work" [message]="message" (retry)="load()" />
+  }
+
+  @if (proposing()) {
+    <form class="panel propose" (submit)="$event.preventDefault(); propose()">
+      <h2>Propose an action</h2>
+      <label class="field"
+        >What should happen
+        <select class="select" name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)">
+          <option value="incident">Open an incident</option>
+          <option value="webhook">Send to a system (webhook, Jira, ServiceNow…)</option>
+          <option value="slack">Post to Slack</option>
+          <option value="teams">Post to Microsoft Teams</option>
+          <option value="email">Send an email</option>
+        </select>
+      </label>
+      <label class="field"
+        >Title<input
+          class="input"
+          name="title"
+          [ngModel]="title()"
+          (ngModelChange)="title.set($event)"
+          maxlength="250"
+          placeholder="For example: SLA below 85% at Meridian University"
+      /></label>
+      <label class="field"
+        >Details<textarea
+          class="input"
+          rows="3"
+          name="summary"
+          [ngModel]="summary()"
+          (ngModelChange)="summary.set($event)"
+          placeholder="What is happening and what should be done"
+        ></textarea>
+      </label>
+      @if (kind() === 'incident') {
+        <div class="row two">
+          <label class="field"
+            >Severity
+            <select class="select" name="severity" [ngModel]="severity()" (ngModelChange)="severity.set($event)">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label class="field"
+            >Assign to
+            <select class="select" name="assignee" [ngModel]="assignee()" (ngModelChange)="assignee.set($event)">
+              <option value="">No one yet</option>
+              @for (p of people(); track p.id) {
+                <option [value]="p.id">{{ p.name }}{{ p.title ? ' — ' + p.title : '' }}</option>
+              }
+            </select>
+          </label>
+        </div>
+      }
+      @if (needsDestination()) {
+        <label class="field"
+          >Destination
+          <select class="select" name="dest" [ngModel]="destinationId()" (ngModelChange)="destinationId.set($event)">
+            <option value="">Choose…</option>
+            @for (d of destinationsForKind(); track d.id) {
+              <option [value]="d.id">{{ d.name }}</option>
+            }
+          </select>
+        </label>
+        @if (!destinationsForKind().length) {
+          <p class="muted small">
+            No {{ kind() }} destination is set up yet. An administrator adds one under Destinations.
+          </p>
+        } @else {
+          <p class="muted small">This sends data outside AIXBI, so someone other than you must approve it.</p>
+        }
+      }
+      <div class="row">
+        <button class="btn primary" [disabled]="busy() || !title().trim() || (needsDestination() && !destinationId())">
+          {{ busy() ? 'Proposing…' : 'Propose for approval' }}
+        </button>
+        <button type="button" class="btn ghost" (click)="proposing.set(false)">Cancel</button>
+      </div>
+    </form>
+  }
+
+  <nav class="seg tabs" aria-label="Views">
+    <button [class.on]="tab() === 'awaiting'" (click)="tab.set('awaiting')">
+      Awaiting approval
+      @if (awaiting()) {
+        <span class="count">{{ awaiting() }}</span>
+      }
+    </button>
+    <button [class.on]="tab() === 'all'" (click)="tab.set('all')">All actions</button>
+    <button [class.on]="tab() === 'incidents'" (click)="tab.set('incidents')">Incidents</button>
+    @if (auth.can('admin.org')) {
+      <button [class.on]="tab() === 'destinations'" (click)="tab.set('destinations')">Destinations</button>
+    }
+  </nav>
+
+  @switch (tab()) {
+    @case ('incidents') {
+      <section class="panel">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Incident</th>
+              <th>Severity</th>
+              <th>Status</th>
+              <th>Assigned to</th>
+              <th>Opened</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of incidents(); track i.id) {
+              <tr [class.focus]="focusIncident() === i.id">
+                <td>
+                  <b>{{ i.reference }}</b> {{ i.title }}
+                  @if (i.description) {
+                    <div class="muted small clamp">{{ i.description }}</div>
+                  }
+                </td>
+                <td>
+                  <span
+                    class="badge"
+                    [class.critical]="i.severity === 'critical' || i.severity === 'high'"
+                    [class.warning]="i.severity === 'medium'"
+                    >{{ i.severity }}</span
+                  >
+                </td>
+                <td>
+                  @if (canWork(i)) {
+                    <select
+                      class="select sm"
+                      [ngModel]="i.status"
+                      (ngModelChange)="setIncident(i, $event)"
+                      [name]="'status-' + i.id"
+                      [attr.aria-label]="'Status of ' + i.reference"
+                    >
+                      <option value="open">Open</option>
+                      <option value="investigating">Investigating</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                  } @else {
+                    {{ i.status }}
+                  }
+                </td>
+                <td>{{ i.assignee?.name ?? '—' }}</td>
+                <td class="muted">{{ ago(i.created_at) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="muted">No incidents yet. Approved incident actions appear here.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+    @case ('destinations') {
+      <section class="panel dests">
+        <p class="muted">
+          Where approved actions may be sent. Web addresses are checked so they cannot reach AIXBI itself; secrets in
+          headers are stored encrypted and never shown again.
+        </p>
+        <ul>
+          @for (d of destinations(); track d.id) {
+            <li>
+              <span class="badge">{{ d.kind }}</span> <b>{{ d.name }}</b>
+              <span class="spacer"></span>
+              <button class="btn sm ghost" (click)="toggleDestination(d)">
+                {{ d.is_active ? 'Turn off' : 'Turn on' }}
+              </button>
+              <button class="btn sm ghost icon" (click)="removeDestination(d)" [attr.aria-label]="'Remove ' + d.name">
+                <app-icon name="trash" [size]="14" />
+              </button>
+            </li>
+          } @empty {
+            <li class="muted">None yet.</li>
+          }
+        </ul>
+        <form class="add" (submit)="$event.preventDefault(); addDestination()">
+          <label class="field"
+            >Name<input
+              class="input"
+              name="dn"
+              [ngModel]="dName()"
+              (ngModelChange)="dName.set($event)"
+              placeholder="Ops tickets"
+          /></label>
+          <label class="field"
+            >Kind
+            <select class="select" name="dk" [ngModel]="dKind()" (ngModelChange)="dKind.set($event)">
+              <option value="webhook">Webhook / REST API</option>
+              <option value="slack">Slack incoming webhook</option>
+              <option value="teams">Teams incoming webhook</option>
+              <option value="email">Email list</option>
+            </select>
+          </label>
+          <label class="field wide"
+            >{{ dKind() === 'email' ? 'Email addresses' : 'Web address (https://…)'
+            }}<input class="input" name="dt" [ngModel]="dTarget()" (ngModelChange)="dTarget.set($event)"
+          /></label>
+          @if (dKind() === 'webhook') {
+            <label class="field"
+              >Header name (optional)<input
+                class="input"
+                name="dh"
+                [ngModel]="dHeader()"
+                (ngModelChange)="dHeader.set($event)"
+                placeholder="Authorization"
+            /></label>
+            <label class="field"
+              >Header value<input
+                class="input"
+                type="password"
+                name="dv"
+                [ngModel]="dValue()"
+                (ngModelChange)="dValue.set($event)"
+            /></label>
+          }
+          <div class="row">
+            <button class="btn" [disabled]="busy() || !dName().trim() || !dTarget().trim()">Add destination</button>
+          </div>
+        </form>
+      </section>
+    }
+    @default {
+      <section class="list">
+        @for (a of shown(); track a.id) {
+          <app-action-card [action]="a" [highlight]="focus() === a.id" (changed)="onChanged()" />
+        } @empty {
+          <p class="muted empty">
+            {{
+              tab() === 'awaiting'
+                ? 'Nothing is waiting for approval.'
+                : 'No actions yet. Ask the AI analyst to “create an incident for the biggest issue”, or propose one here.'
+            }}
+          </p>
+        }
+      </section>
+    }
+  }
+</div>

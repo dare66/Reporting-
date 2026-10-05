@@ -13,8 +13,10 @@ connector (Connectors.php)  ─▶  TabularIngestor  ─▶  DatasetRegistrar  �
 | Connector | Test connection | Load | Notes |
 |---|---|---|---|
 | PostgreSQL, MySQL, MariaDB | ✅ lists tables and views with row estimates | ✅ **all chosen tables at once, in the background**, up to a row limit per table (newest rows first when a table has a date column); then straight into Auto BI | Read-only session; rows are streamed, not held in memory; credentials encrypted at rest |
-| CSV | — | ✅ upload | Delimiter (`,` or `;`) and byte-order mark detected |
+| CSV, TSV, text | — | ✅ upload (up to 50 MB) | Separator (comma, semicolon, tab, pipe) and encoding (UTF-8, UTF-16, Windows-1252) detected |
 | Excel (.xlsx, .xls) | — | ✅ upload, **every sheet** becomes a dataset | Dates keep their type; formulas are never recalculated |
+
+For CSV and Excel alike, the header is found below any title rows. Blank headings become "Column N" and repeated ones are numbered. Repeated header rows and total or subtotal rows are dropped, so sums are not doubled. Formatted values such as "RM 1,234.50", "(500)", "12%" and "05/03/2024" are read as numbers and dates. Dates are read day first unless only month first fits every value. Uploading a file with the same name again refreshes its source.
 | JSON | — | ✅ upload | Records found at the root or under `data`, `records` or `items` |
 | REST API | ✅ | ✅ | Optional auth header and records path; redirects not followed |
 | Webhook | — | ✅ append | A server-generated secret URL, shown once |

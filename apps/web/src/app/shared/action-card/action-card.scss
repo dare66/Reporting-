@@ -1,0 +1,107 @@
+.action {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+}
+.action.highlight {
+  border-color: var(--accent);
+}
+header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.kind {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-3);
+  color: var(--accent);
+  flex: none;
+}
+.what {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+}
+.badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.summary {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.timeline li {
+  position: relative;
+}
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  border: 2px solid var(--line);
+}
+.timeline li.done::before {
+  background: var(--pos);
+  border-color: var(--pos);
+}
+.timeline li.wait::before {
+  background: var(--warning);
+  border-color: var(--warning);
+}
+.timeline li.stop::before {
+  background: var(--neg);
+  border-color: var(--neg);
+}
+.timeline b {
+  color: var(--ink-1);
+}
+q {
+  display: block;
+  font-style: italic;
+  margin-top: 2px;
+}
+footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+footer .input {
+  flex: 1;
+  min-width: 200px;
+}
+.small {
+  font-size: 12px;
+}

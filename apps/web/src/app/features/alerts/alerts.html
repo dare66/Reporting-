@@ -63,7 +63,14 @@
                   {{ busy() === r.id ? 'Checking…' : 'Check now' }}
                 </button>
                 @if (auth.can('alerts.manage')) {
-                  <button class="btn sm ghost" (click)="toggle(r)">{{ r.is_active ? 'Pause' : 'Resume' }}</button
+                  <button
+                    class="btn sm ghost"
+                    (click)="toggleIncident(r)"
+                    [attr.aria-pressed]="proposesIncident(r)"
+                    title="When this alert fires, propose an incident for approval"
+                  >
+                    {{ proposesIncident(r) ? '✓ Incident on breach' : 'Incident on breach' }}</button
+                  ><button class="btn sm ghost" (click)="toggle(r)">{{ r.is_active ? 'Pause' : 'Resume' }}</button
                   ><button class="btn sm ghost icon" (click)="remove(r)" aria-label="Delete">
                     <app-icon name="trash" [size]="14" />
                   </button>

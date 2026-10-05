@@ -38,10 +38,13 @@ class AixbiApi:
         res = await self._client.request(method, path, **kwargs)
         if res.status_code >= 400:
             try:
-                err = res.json().get("error", {})
+                body = res.json()
             except ValueError:
-                err = {}
-            raise ApiError(res.status_code, err.get("message") or f"API error {res.status_code}", err.get("code"))
+                body = {}
+            # Errors come as {"error": {"code", "message"}}, or as {"message"} for plain HTTP errors.
+            err = body.get("error") or {}
+            message = err.get("message") or body.get("message") or f"API error {res.status_code}"
+            raise ApiError(res.status_code, message, err.get("code"))
         return res.json() if res.content else None
 
     async def _object(self, method: str, path: str, **kwargs: Any) -> JSON:
@@ -108,6 +111,10 @@ class AixbiApi:
 
     async def create_alert(self, body: JSON) -> JSON:
         return await self._object("POST", "/alert-rules", json=body)
+
+    async def propose_action(self, body: JSON) -> JSON:
+        """Proposes an action. The API runs nothing until a person allowed to approve it does."""
+        return await self._object("POST", "/actions", json=body)
 
     async def create_dashboard(self, body: JSON) -> JSON:
         return await self._object("POST", "/dashboards", json=body)

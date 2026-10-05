@@ -122,6 +122,12 @@ export const routes: Routes = [
         title: 'Administration · AIXBI',
       },
       {
+        path: 'actions',
+        canActivate: [permissionGuard('actions.request', 'actions.approve')],
+        loadComponent: () => import('./features/actions/actions').then((m) => m.Actions),
+        title: 'Actions · AIXBI',
+      },
+      {
         path: 'projects',
         loadComponent: () => import('./features/projects/projects').then((m) => m.Projects),
         title: 'Projects · AIXBI',

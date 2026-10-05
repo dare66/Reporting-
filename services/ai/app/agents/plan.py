@@ -19,6 +19,7 @@ Intent = Literal[
     "report",
     "report_edit",
     "alert",
+    "incident",
     "dashboard",
     "anomalies",
     "help",

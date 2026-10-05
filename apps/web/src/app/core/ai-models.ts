@@ -159,6 +159,14 @@ export interface MetaBlock {
   narrator: string | null;
 }
 
+/** An action the analyst proposed; it runs only once someone allowed to approve it does. */
+export interface ActionBlock {
+  type: 'action';
+  title: string;
+  action: { id: string; kind: string; title: string; summary: string; severity: string; status: string };
+  note: string;
+}
+
 export type AiBlock =
   | KpisBlock
   | ChartBlock
@@ -168,6 +176,7 @@ export type AiBlock =
   | ScenarioBlock
   | ReportBlock
   | AlertBlock
+  | ActionBlock
   | DashboardBlock
   | AnomaliesBlock
   | CapabilitiesBlock;

@@ -50,7 +50,8 @@ class AlertController extends Controller
         abort_unless($rule->owner_id === $request->user()->id || $request->user()->hasPermission('admin.org'), 403, 'Only the owner can change this alert.');
         $rule->update($request->validate(['name' => 'sometimes|string|max:160', 'operator' => 'sometimes|in:lt,lte,gt,gte,change_pct_gt,change_pct_lt',
             'threshold' => 'sometimes|numeric', 'window' => 'sometimes|string', 'frequency_minutes' => 'sometimes|integer|min:5|max:10080',
-            'channels' => 'sometimes|array', 'recipients' => 'sometimes|array', 'is_active' => 'sometimes|boolean', 'filters' => 'sometimes|array']));
+            'channels' => 'sometimes|array', 'recipients' => 'sometimes|array', 'is_active' => 'sometimes|boolean', 'filters' => 'sometimes|array',
+            ...self::ACTION_RULES]));
 
         return response()->json(['data' => $rule]);
     }
@@ -82,6 +83,11 @@ class AlertController extends Controller
         return response()->json(['data' => $alert]);
     }
 
+    /** When a rule fires it can propose an incident; someone with `actions.approve` still decides. */
+    private const ACTION_RULES = [
+        'actions' => 'sometimes|array|max:1', 'actions.*.kind' => 'required|in:incident', 'actions.*.severity' => 'sometimes|in:low,medium,high,critical',
+    ];
+
     /** @return array<string, mixed> */
     private function validated(Request $request): array
     {
@@ -91,6 +97,7 @@ class AlertController extends Controller
             'window' => 'nullable|in:today,last_7_days,last_30_days,this_month,this_week', 'filters' => 'array',
             'frequency_minutes' => 'nullable|integer|min:5|max:10080', 'channels' => 'array', 'channels.*' => 'in:in_app,email,push',
             'recipients' => 'array', 'recipients.*' => 'uuid', 'created_via' => 'nullable|in:form,conversation',
+            ...self::ACTION_RULES,
         ]);
     }
 }

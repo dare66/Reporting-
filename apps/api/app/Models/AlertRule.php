@@ -22,6 +22,7 @@ class AlertRule extends Model
         return [
             'filters' => 'array',
             'channels' => 'array',
+            'actions' => 'array',
             'recipients' => 'array',
             'is_active' => 'boolean',
             'threshold' => 'float',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AlertController;
@@ -211,6 +212,28 @@ Route::middleware(['auth.jwt', 'policy', 'project', 'throttle:api'])->group(func
     });
     Route::get('bookmarks', [CollaborationController::class, 'bookmarks']);
     Route::post('bookmarks/toggle', [CollaborationController::class, 'toggleBookmark']);
+
+    // Action engine: propose → approve → run → verify → audit
+    Route::middleware('perm:actions.request,actions.approve')->group(function () {
+        Route::get('actions', [ActionController::class, 'index']);
+        Route::get('actions/{id}', [ActionController::class, 'show']);
+        Route::post('actions/{id}/cancel', [ActionController::class, 'cancel']);
+        Route::get('incidents', [ActionController::class, 'incidents']);
+        Route::patch('incidents/{id}', [ActionController::class, 'updateIncident']);
+        Route::get('action-destinations', [ActionController::class, 'destinations']);
+        Route::get('action-people', [ActionController::class, 'people']);
+    });
+    Route::post('actions', [ActionController::class, 'store'])->middleware('perm:actions.request');
+    Route::middleware('perm:actions.approve')->group(function () {
+        Route::post('actions/{id}/approve', [ActionController::class, 'approve']);
+        Route::post('actions/{id}/reject', [ActionController::class, 'reject']);
+        Route::post('actions/{id}/retry', [ActionController::class, 'retry']);
+    });
+    Route::middleware('perm:admin.org')->group(function () {
+        Route::post('action-destinations', [ActionController::class, 'storeDestination']);
+        Route::patch('action-destinations/{id}', [ActionController::class, 'updateDestination']);
+        Route::delete('action-destinations/{id}', [ActionController::class, 'deleteDestination']);
+    });
 
     // Projects
     Route::get('projects', [ProjectController::class, 'index']);

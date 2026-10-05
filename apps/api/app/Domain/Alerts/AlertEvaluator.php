@@ -2,11 +2,13 @@
 
 namespace App\Domain\Alerts;
 
+use App\Domain\Actions\ActionEngine;
 use App\Domain\Analytics\Format;
 use App\Domain\Analytics\KpiService;
 use App\Domain\Analytics\RootCauseService;
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Notifications\Notifier;
+use App\Models\ActionRequest;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\User;
@@ -27,6 +29,7 @@ class AlertEvaluator
         private readonly Notifier $notifier,
         private readonly TenantContext $tenant,
         private readonly AuditLogger $audit,
+        private readonly ActionEngine $actions,
     ) {}
 
     /** @return array{state: string, value: ?float, fired: bool} */
@@ -70,6 +73,7 @@ class AlertEvaluator
                 'body' => $message.' Tap to investigate.', 'link' => '/investigate?metric='.urlencode($ref),
                 'data' => ['alert_rule_id' => $rule->id, 'value' => $value], 'channels' => $rule->channels ?: ['in_app'],
             ]);
+            $this->proposeActions($rule, $owner, $card, $message, $driver, $ref);
         } elseif (! $breached && $rule->last_state === 'breached') {
             $this->notifier->toUsers($rule->recipients ?: [$rule->owner_id], $rule->organisation_id, [
                 'type' => 'alert', 'severity' => 'positive', 'title' => '✓ '.$rule->name.' recovered',
@@ -81,5 +85,40 @@ class AlertEvaluator
         $this->audit->record('alert.evaluated', ['resource_type' => 'alert_rule', 'resource_id' => $rule->id], ['state' => $state, 'value' => $value], $owner->id, $owner->organisation_id);
 
         return ['state' => $state, 'value' => $value, 'fired' => $fired];
+    }
+
+    /**
+     * WHEN the rule fires THEN propose what it asks for, such as an incident.
+     * Proposed only: someone allowed to approve decides. One open proposal or
+     * incident per rule at a time, so a flapping metric does not flood people.
+     *
+     * @param  array<string, mixed>  $card
+     * @param  array<string, mixed>|null  $driver
+     */
+    private function proposeActions(AlertRule $rule, User $owner, array $card, string $message, ?array $driver, string $ref): void
+    {
+        foreach ($rule->actions ?? [] as $spec) {
+            if (($spec['kind'] ?? null) !== 'incident') {
+                continue;
+            }
+            $open = ActionRequest::withoutGlobalScope('project')->where('source', 'alert')->where('source_ref', $rule->id)
+                ->where(fn ($q) => $q->whereIn('status', ['proposed', 'approved', 'running'])
+                    ->orWhereHas('incident', fn ($i) => $i->withoutGlobalScope('project')->where('status', '!=', 'resolved')))
+                ->exists();
+            if ($open) {
+                continue;
+            }
+            try {
+                $this->actions->propose([
+                    'kind' => 'incident', 'project_id' => $rule->project_id,
+                    'title' => "{$rule->name}: ".Format::value($card['value'], $card['format']),
+                    'summary' => $message.' Raised automatically by the alert “'.$rule->name.'”.',
+                    'payload' => ['severity' => $spec['severity'] ?? 'high', 'metric_ref' => $ref],
+                    'evidence' => ['card' => array_diff_key($card, ['sparkline' => 1]), 'drivers' => $driver ? [$driver] : [], 'alert_rule_id' => $rule->id],
+                ], $owner, $rule->organisation_id, 'alert', $rule->id);
+            } catch (Throwable $e) {
+                logger()->warning('alert.action_failed', ['rule' => $rule->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 }

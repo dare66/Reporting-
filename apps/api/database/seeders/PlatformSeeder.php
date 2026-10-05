@@ -42,6 +42,8 @@ class PlatformSeeder extends Seeder
         'admin.system' => ['admin', 'View system health'],
         'collab.comment' => ['collaboration', 'Comment, mention and annotate'],
         'metrics.certify' => ['governance', 'Certify, revoke and deprecate governed metrics'],
+        'actions.request' => ['actions', 'Propose actions such as incidents and notifications'],
+        'actions.approve' => ['actions', 'Approve, reject and run proposed actions'],
     ];
 
     public const ROLES = [
@@ -49,22 +51,25 @@ class PlatformSeeder extends Seeder
         'tenant_admin' => ['Tenant Admin', 'admin', 'Administers one organisation.', ['*']],
         'ceo' => ['CEO', 'executive', 'Executive intelligence across the organisation.', [
             'dashboards.view', 'reports.view', 'reports.export', 'query.run', 'ai.use', 'alerts.view', 'alerts.manage',
-            'analytics.advanced', 'collab.comment', 'semantic.view', 'reports.manage', 'reports.publish',
+            'analytics.advanced', 'collab.comment', 'semantic.view', 'reports.manage', 'reports.publish', 'actions.request', 'actions.approve',
         ]],
         'executive' => ['Executive', 'executive', 'Directors and C-suite.', [
             'dashboards.view', 'reports.view', 'reports.export', 'query.run', 'ai.use', 'alerts.view', 'alerts.manage',
-            'analytics.advanced', 'collab.comment', 'semantic.view', 'reports.manage',
+            'analytics.advanced', 'collab.comment', 'semantic.view', 'reports.manage', 'actions.request', 'actions.approve',
         ]],
         'manager' => ['Manager', 'executive', 'Operational managers; data limited by row-level security.', [
             'dashboards.view', 'reports.view', 'reports.export', 'query.run', 'ai.use', 'alerts.view', 'alerts.manage', 'collab.comment', 'semantic.view',
+            'actions.request', 'actions.approve',
         ]],
         'analyst' => ['Analyst', 'analyst', 'Explores data and builds analyses.', [
             'dashboards.view', 'dashboards.manage', 'reports.view', 'reports.manage', 'reports.export', 'query.run', 'query.explain',
             'data.view', 'semantic.view', 'ai.use', 'alerts.view', 'alerts.manage', 'analytics.advanced', 'governance.view', 'collab.comment',
+            'actions.request',
         ]],
         'data_engineer' => ['Data Engineer', 'engineer', 'Owns connectors, ingestion and the semantic layer.', [
             'dashboards.view', 'reports.view', 'query.run', 'query.explain', 'data.view', 'data.manage', 'data.sensitive',
             'semantic.view', 'semantic.manage', 'ai.use', 'governance.view', 'audit.view', 'admin.system', 'collab.comment', 'metrics.certify',
+            'actions.request',
         ]],
         'report_designer' => ['Report Designer', 'analyst', 'Designs report layouts and templates.', [
             'dashboards.view', 'dashboards.manage', 'reports.view', 'reports.manage', 'reports.publish', 'reports.export', 'query.run', 'semantic.view', 'ai.use', 'collab.comment',

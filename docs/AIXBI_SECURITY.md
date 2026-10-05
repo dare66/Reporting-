@@ -20,6 +20,18 @@ Everything listed as built here is enforced in code and covered by tests (mainly
 
 Every tenant table has `organisation_id` and a global scope that **fails closed**: a request with no resolved tenant sees no rows. Cross-tenant code paths (login lookup, seeding, schedulers) use the explicit, searchable `TenantScopeBypass::run()`. Tests check that one tenant cannot read another's data through the API.
 
+## Actions (built)
+
+The action engine (`ActionEngine`) carries every action through **propose → approve → run → verify → audit** (`ActionEngineTest`).
+
+- **Nothing runs on proposal.** People (`actions.request`), alerts and the AI analyst (as the person asking) only propose. A person holding `actions.approve` approves or rejects, and a rejection needs a reason.
+- **Two people for anything that leaves AIXBI.** Webhooks (any REST API, such as Jira or ServiceNow), Slack, Teams and email need an approver other than the person who proposed them. Opening an incident or notifying people inside AIXBI may be approved by the proposer if they hold `actions.approve`.
+- **Destinations** are set up by administrators (`admin.org`). Their addresses and header secrets are encrypted at rest and never returned by the API. Web addresses go through the same SSRF guard as connectors, and redirects are not followed.
+- **Verified, not assumed.** A run counts as done only when its effect is confirmed: the incident exists, the notifications were stored, the remote end answered 2xx, or the mailer accepted the message. Otherwise it is failed, with the reason, and an approver can run it again.
+- **Audited.** Each step (`action.proposed`, `approved`, `rejected`, `cancelled`, `executed`, `failed`, `retried`) is written to the audit log, alongside the action's own record.
+- **No duplicates.** An issue (metric) that already has an open incident or a proposal waiting is refused with `409` and the existing reference. An alert proposes at most one open incident at a time.
+- Destructive actions, such as database operations, are not offered.
+
 ## Projects (built)
 
 Inside a tenant, **projects** keep data sources, datasets, data models (and their metrics), dashboards, reports and alerts apart (`ProjectsTest`).
@@ -34,7 +46,7 @@ Inside a tenant, **projects** keep data sources, datasets, data models (and thei
 
 ## Authorisation (built)
 
-- **Permissions and roles:** 26 permissions (`metrics.certify` was added with the metric store) and 9 platform roles, plus custom roles per organisation. Every route group requires a named permission.
+- **Permissions and roles:** 28 permissions (`metrics.certify` came with the metric store; `actions.request` and `actions.approve` with the action engine) and 9 platform roles, plus custom roles per organisation. Every route group requires a named permission.
 - **Row-level security:** user attributes map to dimensions, and a missing attribute means no rows.
 - **Column-level security:** sensitive fields are masked in previews and refused in queries without `data.sensitive`.
 - **Four-eyes certification:** whoever approved a metric definition cannot also certify it.

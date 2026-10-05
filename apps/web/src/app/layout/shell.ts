@@ -42,6 +42,13 @@ const NAV: NavItem[] = [
   { path: '/explore', label: 'Explore', icon: 'explore', perm: ['query.run'], group: 'intelligence' },
   { path: '/forecast', label: 'Forecast', icon: 'forecast', perm: ['analytics.advanced'], group: 'intelligence' },
   { path: '/alerts', label: 'Alerts', icon: 'alert', perm: ['alerts.view'], group: 'intelligence' },
+  {
+    path: '/actions',
+    label: 'Actions',
+    icon: 'flow',
+    perm: ['actions.request', 'actions.approve'],
+    group: 'intelligence',
+  },
   { path: '/data', label: 'Data', icon: 'data', perm: ['data.view'], group: 'platform' },
   { path: '/trust', label: 'Data Trust', icon: 'heart', perm: ['data.view'], group: 'platform' },
   { path: '/semantic', label: 'Semantic Model', icon: 'semantic', perm: ['semantic.view'], group: 'platform' },

@@ -3,11 +3,11 @@ same permission-checked API as the UI, and say exactly what they did."""
 
 from __future__ import annotations
 
-from ..api_client import AixbiApi
-from ..types import JSON
+from ..api_client import AixbiApi, ApiError
+from ..types import JSON, JSONList
 from . import formatting
 from .catalog import CatalogIndex
-from .handlers import Outcome
+from .handlers import Outcome, _ev
 from .plan import Plan
 
 TEMPLATE_NAMES = {
@@ -222,6 +222,129 @@ async def alert(api: AixbiApi, index: CatalogIndex, plan: Plan) -> Outcome:
     return o
 
 
+def _headline_metrics(index: CatalogIndex) -> list[str]:
+    """KPIs to scan for the biggest issue: certified KPIs first, then other KPIs, then any metric."""
+    ranked = sorted(
+        index.metrics.values(), key=lambda m: (not m.is_kpi, {"certified": 0, "approved": 1}.get(m.status, 2))
+    )
+    return [m.ref for m in ranked][:8]
+
+
+async def incident(api: AixbiApi, index: CatalogIndex, plan: Plan, context: JSON) -> Outcome:
+    """Finds the biggest issue in the governed KPIs (or the metric named), gathers the evidence, and
+    proposes an incident through the action engine. Nothing is opened until someone approves it."""
+    o = Outcome()
+    refs = plan.metrics[:1] or _headline_metrics(index)
+    if not refs:
+        o.facts.append("There are no governed metrics I can check for issues yet.")
+        return o
+    cards = await api.kpis(refs, plan.range)
+    for k in cards:
+        o.evidence.append(_ev(k["evidence"]["current"], k["label"]))
+
+    def severity(c: JSON) -> tuple[bool, float]:
+        magnitude = abs(c["change"] or 0) * 10 if c["format"] == "percent" else abs(c["change_pct"] or 0)
+        return (c["target_status"] != "missed", -magnitude)
+
+    worst = sorted([c for c in cards if c["sentiment"] == "negative" or c["target_status"] == "missed"], key=severity)
+    period = formatting.period(cards[0]["period"]["label"]) if cards else "the period"
+    if not worst:
+        o.blocks.append(
+            {"type": "kpis", "title": "Checked", "period": cards[0]["period"] if cards else None, "cards": cards}
+        )
+        o.facts.append(
+            f"All {len(cards)} metrics I checked are holding or improving over {period}, "
+            "so there is no issue that needs an incident. I have not proposed one."
+        )
+        o.headline = "Nothing needs an incident right now"
+        return o
+
+    c = worst[0]
+    value = formatting.value(c["value"], c["format"])
+    drivers: JSONList = []
+    try:
+        rc = await api.root_cause(c["ref"], plan.range)
+        drivers = rc.get("drivers", [])[:3]
+    except ApiError as e:
+        o.caveats.append(f"I could not break the change down by cause: {e.message}")
+    magnitude = abs(c["change"] or 0) * 100 if c["format"] == "percent" else abs(c["change_pct"] or 0) * 100
+    level = (
+        "critical"
+        if c["target_status"] == "missed" and magnitude >= 10
+        else "high"
+        if c["target_status"] == "missed" or magnitude >= 10
+        else "medium"
+    )
+    title = f"{c['label']} at {value} ({formatting.change_of(c)} vs previous period)"
+    lines = [f"{c['label']} was {value} over {period}, {formatting.change_of(c)} against the previous period."]
+    if c.get("target") is not None:
+        lines.append(f"Target {formatting.value(c['target'], c['format'])}: {c['target_status']}.")
+    if drivers:
+        lines.append(
+            "Main drivers: "
+            + "; ".join(
+                f"{d['dimension_label']} {d['member']} ({round((d.get('impact_share') or 0) * 100)}% of the change)"
+                for d in drivers
+            )
+            + "."
+        )
+    lines.append(
+        f"Chosen as the biggest of {len(worst)} issue(s) among {len(cards)} metrics checked, "
+        "ranked by missed targets first, then by size of the change."
+    )
+    try:
+        action = await api.propose_action(
+            {
+                "kind": "incident",
+                "title": title,
+                "summary": " ".join(lines),
+                "payload": {"severity": level, "metric_ref": c["ref"]},
+                "evidence": {
+                    "card": {k: v for k, v in c.items() if k not in ("sparkline", "evidence")},
+                    "drivers": drivers,
+                    "checked": [x["ref"] for x in cards],
+                },
+                "source": "ai",
+                "source_ref": context.get("conversation_id"),
+            }
+        )
+    except ApiError as e:
+        if e.status != 409:
+            raise
+        # The issue already has an open incident or a proposal waiting: point to it rather than open another.
+        o.facts.append(f"The biggest issue is {c['label']}: {lines[0]}")
+        o.facts.append(f"I did not propose a new incident. {e.message}")
+        o.headline = "Already being handled"
+        o.suggestions += ["Show me open incidents", f"Why did {c['label']} change?"]
+        return o
+
+    o.blocks.append(
+        {
+            "type": "action",
+            "title": "Incident proposed — awaiting approval",
+            "action": {
+                "id": action["id"],
+                "kind": "incident",
+                "title": action["title"],
+                "summary": action["summary"],
+                "severity": level,
+                "status": action["status"],
+                "can_approve": action.get("can_approve", False),
+            },
+            "note": "Nothing has been opened yet. Someone allowed to approve actions must approve it first.",
+            "actions": [{"label": "Review in Actions", "link": f"/actions?id={action['id']}"}],
+        }
+    )
+    o.facts.append(f"The biggest issue is {c['label']}: {lines[0]}")
+    o.facts += lines[1:-1]
+    o.facts.append(
+        f"I proposed a {level}-severity incident, “{title}”. It is waiting for approval; nothing has been opened yet."
+    )
+    o.headline = "Incident proposed for approval"
+    o.suggestions += [f"Why did {c['label']} change?", "Show me this month's performance"]
+    return o
+
+
 async def dashboard(api: AixbiApi, index: CatalogIndex, plan: Plan, question: str) -> Outcome:
     o = Outcome()
     kpis = [
@@ -369,7 +492,7 @@ def help_outcome() -> Outcome:
     o = Outcome()
     o.facts.append(
         "I can answer questions about your governed metrics, explain changes, find anomalies, forecast, "
-        "simulate scenarios, and create reports, dashboards and alerts."
+        "simulate scenarios, create reports, dashboards and alerts, and propose incidents for approval."
     )
     o.blocks.append(
         {
@@ -382,6 +505,7 @@ def help_outcome() -> Outcome:
                 {"title": "Simulate", "example": "What happens if applications increase by 20%?"},
                 {"title": "Report", "example": "Create a monthly CEO report"},
                 {"title": "Watch", "example": "Alert me when SLA falls below 90%"},
+                {"title": "Act", "example": "Create an incident for the biggest issue"},
                 {"title": "Build", "example": "Create a dashboard for student application performance"},
             ],
         }

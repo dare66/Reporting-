@@ -19,7 +19,7 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 | 9 | Auto report designer | 🟡 | Computed reports in 5 export formats with versions and schedules. Missing: DOCX, template upload intelligence |
 | 10 | Query acceleration | 🟡 | Security-scoped result cache. Next: pre-aggregations, benchmarked columnar engine |
 | 11 | Advanced analytics | 🟡 | Forecasting, anomalies, root cause, what-if. Missing: clustering, cohorts, retention, regression beyond what-if |
-| 12 | AI agent architecture | 🟡 | Graph of specialised agents sharing governed context. Missing: action, data-engineering and executive agents; Agent Studio |
+| 12 | AI agent architecture | 🟡 | Graph of specialised agents sharing governed context. Action agent built (proposes incidents). Missing: data-engineering and executive agents; Agent Studio |
 | 13 | AI evaluation lab | ⏭ | Unit-level AI tests exist; the benchmark suite does not |
 | 14 | Action and workflow engine | ⏭ | Next AI-facing increment |
 | 15 | Real-time analytics | 🟡 | Webhook ingestion and live notifications. Missing: live dashboards, Kafka, CDC |
@@ -38,7 +38,7 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 | 3 | "Why did revenue fall last month?" with evidence | ✅ | `smoke.mjs`, analyst graph tests |
 | 4 | Forecast with confidence | ✅ | Backtested forecasts with intervals |
 | 5 | Root cause with ranked drivers | ✅ | Counterfactual attribution; impacts sum to the total change (tested) |
-| 6 | "Create an incident" through an authorised action | ⏭ | Needs the action engine |
+| 6 | "Create an incident" through an authorised action | ✅ | The AI proposes an incident with evidence; it opens only once someone with `actions.approve` approves; the run is checked and audited. `actions.mjs`, `ActionEngineTest`, `test_incident.py` |
 | 7 | One tenant cannot see another's data | ✅ | `SecurityTest::test_tenants_cannot_see_each_others_resources` |
 | 8 | Cross-filtering | ✅ | Clicking a bar, slice or region filters every widget whose data has that dimension (across data models); the clicked chart highlights its pick; a second click clears it. `crossfilter.mjs`. Forecast widgets do not follow dashboard filters yet |
 | 9 | PDF / PPTX / DOCX / XLSX | 🟡 | PDF, PPTX, XLSX, CSV, HTML built. DOCX missing |
@@ -49,7 +49,7 @@ Legend: ✅ built and tested on real data · 🟡 partly built · ⏭ not starte
 ## Next, in order
 
 1. **EMGS branding**, as soon as the logo and colour codes arrive.
-2. **Action engine v1** with approval and audit (Test 6).
+2. ~~Action engine v1 with approval and audit (Test 6)~~ done. Next for actions: multi-step workflows.
 3. **DOCX export** (completes Test 9) and a phone-size test pass (Test 10).
 4. **AI evaluation lab** (Test 12), then the **AI gateway**.
 5. **Executive home v2**: "what should I know right now".

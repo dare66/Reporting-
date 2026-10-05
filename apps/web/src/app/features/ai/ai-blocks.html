@@ -159,6 +159,14 @@
       <a class="btn sm" routerLink="/alerts">Manage</a>
     </div>
   }
+  @case ('action') {
+    <div class="card">
+      <div class="head">
+        <b>{{ b.title }}</b>
+      </div>
+      <app-action-card [actionId]="b.action.id" />
+    </div>
+  }
   @case ('dashboard') {
     <div class="card artifact">
       <div class="doc"><app-icon name="dashboard" [size]="22" /></div>

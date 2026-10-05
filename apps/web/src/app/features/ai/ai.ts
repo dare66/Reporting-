@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -119,6 +120,7 @@ export class AiAnalyst implements OnInit, OnDestroy {
   private stream = inject(AiStream);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private location = inject(Location);
   readonly auth = inject(Auth);
   private thread = viewChild<ElementRef<HTMLElement>>('thread');
 
@@ -151,7 +153,8 @@ export class AiAnalyst implements OnInit, OnDestroy {
     const c = this.route.snapshot.queryParamMap.get('conversation');
     if (c) await this.open(c);
     if (q) {
-      this.router.navigate([], { queryParams: {}, replaceUrl: true });
+      // Clears the question from the address bar without a second navigation (which would cut the page transition short).
+      this.location.replaceState(this.router.url.split('?')[0]);
       this.send(q);
     }
   }

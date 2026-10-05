@@ -21,10 +21,10 @@ question ─▶ Semantic ─▶ Intent & Planner ─▶ Governance ─┬─▶ 
 | Data — "can I trust the data?" | Data Trust Center and drift monitoring exist in the API; the analyst does not yet cite trust scores in answers | 🟡 |
 | Executive — "what does leadership need to know?" | Home briefing and insights are computed by the API, not by a graph agent | 🟡 |
 | Data engineering — "how should this be prepared?" | Auto BI understanding and relationship discovery; no transformation agent (no Data Flow Studio yet) | ⏭ |
-| Action — "what should happen next?" | Alerts and notifications only; no action engine with approval | ⏭ |
+| Action — "what should happen next?" | Finds the biggest issue in the governed KPIs (missed targets first, then size of change), decomposes it, and **proposes** an incident with that evidence through the action engine. It never approves or runs anything, and an issue that already has an open incident or a waiting proposal is not proposed again (`actions.incident`, `test_incident.py`) | ✅ |
 
 ## Not built yet
 
 - **Agent Studio (§67):** organisation-defined agents with allowed tools, actions, models and approval rules. The `ai_agents` and `prompts` tables exist for this but are not yet used to configure behaviour.
-- **Action engine (§41–42):** approved actions (ticket, webhook, Teams or Slack message) with an approval step and audit. Planned as the next AI-facing increment, because Test 6 of the brief depends on it.
+- **Action engine (§41–42):** built. See [AIXBI_SECURITY.md](AIXBI_SECURITY.md#actions-built). Still to come: multi-step workflows (trigger → condition → analysis → approval → several actions), Jira and ServiceNow templates beyond the generic REST webhook, and the "database operation where explicitly authorised" action.
 - **MCP interface (§40):** exposing governed tools to external agents. It must reuse the same "call the API as the user" rule.

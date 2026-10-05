@@ -167,7 +167,9 @@ async def governance_node(state: State, config: RunnableConfig) -> State:
     for f in plan.filters:
         if not any(f.dimension in d for d in index.dimensions.values()):
             refusal = f"You don't have access to “{f.dimension}”, or it doesn't exist in the semantic model."
-    if plan.intent in ("report", "report_edit", "dashboard", "alert"):
+    if plan.intent == "incident":
+        detail = "Proposal only: the action engine runs nothing until someone allowed to approve it does"
+    elif plan.intent in ("report", "report_edit", "dashboard", "alert"):
         detail = "Action permitted only through the API under your own permissions"
     else:
         detail = (
@@ -204,6 +206,8 @@ async def execute_node(state: State, config: RunnableConfig) -> State:
                 o = await actions.report_edit(deps.api, index, plan, context)
             case "alert":
                 o = await actions.alert(deps.api, index, plan)
+            case "incident":
+                o = await actions.incident(deps.api, index, plan, context)
             case "dashboard":
                 o = await actions.dashboard(deps.api, index, plan, state["question"])
             case _:
@@ -235,6 +239,11 @@ async def execute_node(state: State, config: RunnableConfig) -> State:
         "report": [("report", "Template sections computed from governed queries")],
         "report_edit": [("report", "Report updated")],
         "alert": [("action", "Alert rule created")],
+        "incident": [
+            ("sql", "Headline KPIs against the previous period"),
+            ("root_cause", "Decomposed the biggest issue"),
+            ("action", "Incident proposed; awaiting approval"),
+        ],
         "dashboard": [("action", "Dashboard created")],
     }.get(plan.intent, [])
     for agent, detail in agents:
@@ -268,7 +277,7 @@ async def narrative_node(state: State, config: RunnableConfig) -> State:
         if plan.notes:
             base += "\n\n_Assumptions: " + " ".join(plan.notes) + "_"
         answer, narrator = base, "deterministic"
-        if settings().llm_available and o.facts and plan.intent not in ("alert", "dashboard", "help"):
+        if settings().llm_available and o.facts and plan.intent not in ("alert", "incident", "dashboard", "help"):
             answer, narrator = await llm.narrate(
                 state["question"], o.facts + [f"Caveat: {c}" for c in o.caveats], base, deps.usage, plan.executive_tone
             )

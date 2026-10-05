@@ -5,6 +5,7 @@ import { errorMessage } from '../../core/api.service';
 import { cell, fmt, fmtDate } from '../../core/format';
 import { ExportFormat } from '../../core/models';
 import { ReportExporter } from '../../core/report-exporter.service';
+import { ActionCard } from '../../shared/action-card/action-card';
 import { Chart } from '../../shared/chart';
 import { specFromBlock, specFromForecast } from '../../shared/chart-spec';
 import { Drivers } from '../../shared/drivers';
@@ -25,7 +26,7 @@ interface ScenarioRow {
 @Component({
   selector: 'app-ai-block',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Kpi, Chart, Drivers, Icon, RouterLink, Globe],
+  imports: [Kpi, Chart, Drivers, Icon, RouterLink, Globe, ActionCard],
   templateUrl: './ai-blocks.html',
   styleUrl: './ai-blocks.scss',
 })

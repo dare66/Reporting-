@@ -22,6 +22,24 @@ Base path `/api/v1`. JSON everywhere; errors are `{"error": {"code", "message", 
 
 While an account is held, only `GET /me`, `POST /me/password`, `POST /me/mfa/setup|enable` and `POST /auth/logout` stay open.
 
+## Actions
+Every action is **proposed → approved → run → verified → audited**. Nothing runs until someone with `actions.approve` approves it. Webhook, Slack, Teams and email actions need an approver other than the proposer.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/actions?status=` | Approvers see all; others see their own. Includes `awaiting` (count) and, per action, `can_approve`, `can_cancel`, `can_retry` |
+| GET | `/actions/{id}` | One action, with its incident or result |
+| POST | `/actions` | `actions.request`. `{kind: incident\|notify\|webhook\|slack\|teams\|email, title, summary?, payload?, evidence?, destination_id?, source?: manual\|ai}`. Incident payload: `severity` (low to critical), `assignee_id?`, `metric_ref?`. `409` when that metric already has an open incident or a waiting proposal |
+| POST | `/actions/{id}/approve` | `actions.approve`, `{note?}`. Runs at once and returns the verified result, or `failed` with the reason |
+| POST | `/actions/{id}/reject` | `actions.approve`, `{note}` (required) |
+| POST | `/actions/{id}/cancel` | The proposer, while proposed |
+| POST | `/actions/{id}/retry` | `actions.approve`, for a failed action |
+| GET/PATCH | `/incidents[/{id}]` | `status` open, investigating or resolved; `severity`; `assignee_id`. Approvers or the assignee |
+| GET | `/action-destinations` · `/action-people` | Names and kinds only, never secrets · active people |
+| POST/PATCH/DELETE | `/action-destinations[/{id}]` | `admin.org`. `{name, kind, config: {url, headers?} or {recipients}}`; the URL must pass the SSRF guard |
+
+Alert rules accept `actions: [{kind: "incident", severity}]` to propose an incident when they fire.
+
 ## Projects
 Every authenticated call may carry `X-Project-Id` to work inside one project. Without it, the call sees every project the person can open, and new work goes into the default project. A project the person cannot open is refused with `403 project_forbidden`.
 

@@ -1,0 +1,118 @@
+@if (current(); as a) {
+  <article class="action" [class.highlight]="highlight()" [attr.data-status]="a.status">
+    <header>
+      <span class="kind" [attr.data-kind]="a.kind"><app-icon [name]="kind().icon" [size]="16" /></span>
+      <div class="what">
+        <small class="muted">{{ kind().label }}{{ a.destination ? ' · ' + a.destination.name : '' }}</small>
+        <b>{{ a.title }}</b>
+      </div>
+      <span class="badges">
+        @if (a.payload.severity) {
+          <span
+            class="badge"
+            [class.critical]="a.payload.severity === 'critical' || a.payload.severity === 'high'"
+            [class.warning]="a.payload.severity === 'medium'"
+            >{{ a.payload.severity }}</span
+          >
+        }
+        <span class="badge status {{ status().tone }}">{{ status().label }}</span>
+      </span>
+    </header>
+
+    @if (a.summary) {
+      <p class="summary">{{ a.summary }}</p>
+    }
+    @if (a.evidence.drivers?.length || value(a)) {
+      <div class="evidence">
+        <span class="eyebrow">Evidence</span>
+        @if (value(a); as v) {
+          <span
+            >{{ a.evidence.card?.label }}: <b>{{ v }}</b></span
+          >
+        }
+        @for (d of a.evidence.drivers ?? []; track $index) {
+          <span class="chip">{{ d.dimension_label }} {{ d.member }}{{ share(d.impact_share) }}</span>
+        }
+      </div>
+    }
+
+    <ol class="timeline">
+      <li class="done">
+        <b>Proposed</b> by {{ a.requested_by?.name ?? 'an alert' }}
+        {{ a.source === 'ai' ? '(through the AI analyst)' : a.source === 'alert' ? '(alert rule)' : '' }}
+        · {{ ago(a.created_at) }}
+      </li>
+      @if (a.decided_by) {
+        <li [class.done]="a.status !== 'rejected'" [class.stop]="a.status === 'rejected'">
+          <b>{{ a.status === 'rejected' ? 'Not approved' : 'Approved' }}</b> by {{ a.decided_by.name }} ·
+          {{ ago(a.decided_at) }}
+          @if (a.decision_note) {
+            <q>{{ a.decision_note }}</q>
+          }
+        </li>
+      } @else if (a.status === 'proposed') {
+        <li class="wait">
+          <b>Waiting for approval.</b> Nothing happens until someone allowed to approve actions does.
+          @if (a.needs_second_person) {
+            This one leaves AIXBI, so it needs someone other than the person who proposed it.
+          }
+        </li>
+      }
+      @if (a.status === 'done') {
+        <li class="done">
+          <b>Done and checked</b> · {{ ago(a.verified_at) }}
+          @if (a.incident) {
+            —
+            <a [routerLink]="['/actions']" [queryParams]="{ incident: a.incident.id }">{{ a.incident.reference }}</a> is
+            {{ a.incident.status }}
+          }
+          @if (a.result?.['status']) {
+            — the receiving system answered {{ a.result?.['status'] }}
+          }
+        </li>
+      }
+      @if (a.status === 'failed') {
+        <li class="stop"><b>Failed</b> (attempt {{ a.attempts }}): {{ a.error }}</li>
+      }
+    </ol>
+
+    @if (error(); as e) {
+      <p class="neg small" role="alert">{{ e }}</p>
+    }
+    @if (a.can_approve || a.can_cancel || a.can_retry) {
+      <footer>
+        @if (rejecting()) {
+          <input
+            class="input"
+            [ngModel]="note()"
+            (ngModelChange)="note.set($event)"
+            name="note"
+            placeholder="Why not? The person who proposed it will see this."
+            aria-label="Reason for not approving"
+          />
+          <button class="btn sm" (click)="decide('reject')" [disabled]="busy()">Send</button>
+          <button class="btn sm ghost" (click)="rejecting.set(false)">Back</button>
+        } @else {
+          @if (a.can_approve) {
+            <button class="btn sm primary" (click)="decide('approve')" [disabled]="busy()">
+              <app-icon name="check" [size]="14" /> {{ busy() ? 'Running…' : 'Approve and run' }}
+            </button>
+            <button class="btn sm ghost" (click)="rejecting.set(true)" [disabled]="busy()">Reject</button>
+          }
+          @if (a.can_cancel) {
+            <button class="btn sm ghost" (click)="decide('cancel')" [disabled]="busy()">Withdraw</button>
+          }
+          @if (a.can_retry) {
+            <button class="btn sm" (click)="decide('retry')" [disabled]="busy()">
+              <app-icon name="refresh" [size]="14" /> Run again
+            </button>
+          }
+        }
+      </footer>
+    }
+  </article>
+} @else if (error(); as e) {
+  <p class="neg small">{{ e }}</p>
+} @else {
+  <p class="muted small">Loading the action…</p>
+}
