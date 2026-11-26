@@ -1,0 +1,36 @@
+name: EMGS NetOps AI
+on:
+  push:
+    branches: ["**"]
+    paths: ["emgs-netops-ai/**", ".github/workflows/netops.yml"]
+  pull_request:
+    paths: ["emgs-netops-ai/**", ".github/workflows/netops.yml"]
+
+defaults: { run: { working-directory: emgs-netops-ai } }
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get install -y iputils-ping traceroute
+      - run: python -m venv .venv && .venv/bin/pip install -r backend/requirements-dev.txt
+      - run: .venv/bin/python -m pytest -q
+        working-directory: emgs-netops-ai/backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: python -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
+      - run: npm ci && npx tsc -b && npm test && npm run build
+        working-directory: emgs-netops-ai/frontend
+      - run: npx playwright install --with-deps chromium && npx playwright test --trace off
+        working-directory: emgs-netops-ai/frontend
+        env: { E2E_DATA_DIR: /tmp/netops-e2e }

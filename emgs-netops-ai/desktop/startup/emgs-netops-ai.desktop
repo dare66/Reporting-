@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=EMGS NetOps AI
+Comment=Start the local network diagnostics console
+# Edit the path below to where emgs-netops-ai is installed, then copy to ~/.local/share/applications/
+Exec=sh -c 'cd "$HOME/emgs-netops-ai" && ./start_netops.sh && xdg-open http://127.0.0.1:8750'
+Terminal=true
+Categories=Network;Utility;
