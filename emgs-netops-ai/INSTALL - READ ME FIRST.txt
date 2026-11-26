@@ -1,0 +1,29 @@
+EMGS NetOps AI - installation on your laptop
+============================================
+
+You need only Python 3.11 or newer. The dashboard is already built, so Node.js is NOT required.
+
+WINDOWS
+  1. Install Python from https://www.python.org/downloads/  (tick "Add python.exe to PATH").
+  2. Unzip this folder somewhere permanent, e.g. C:\Tools\emgs-netops-ai
+  3. Double-click  start_netops.bat
+     (the first start takes 1-2 minutes while it installs Python packages; it needs internet once)
+  4. Open  http://127.0.0.1:8750  in your browser and create the administrator account.
+  5. To stop: close the window, or double-click stop_netops.bat
+  Optional desktop shortcut:  powershell -ExecutionPolicy Bypass -File desktop\startup\Create-Shortcut.ps1
+
+LINUX / MAC
+  1. Make sure python3 (3.11+) and python3-venv are installed. On Linux also: ping and traceroute.
+  2. Unzip, open a terminal in the folder, then run:   ./start_netops.sh
+  3. Open  http://127.0.0.1:8750
+  4. To stop: Ctrl+C, or ./stop_netops.sh
+
+FIRST STEPS
+  - The app starts in SIMULATION mode (built-in lab data, nothing is sent on the network).
+  - Before using it on the EMGS network: Settings > Approved targets -> add your real ranges, domains and ports,
+    then Settings > Operating mode -> Live.
+  - Phone access: see docs/deployment/mobile-access.md
+  - Claude Code / Codex: see docs/api/mcp-specification.md
+  - Full guide: README.md and docs/user-guide/user-guide.md
+
+The app only listens on 127.0.0.1 (this laptop) unless you deliberately enable mobile access.
