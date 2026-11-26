@@ -101,3 +101,9 @@ Code standards and the gates behind them are described in [CONTRIBUTING.md](CONT
 ## Documentation
 
 [Architecture](docs/ARCHITECTURE.md) · [ERD](docs/ERD.md) · [API](docs/API.md) · [AI](docs/AI.md) · [Design](docs/DESIGN.md) · [Operations](docs/OPERATIONS.md) · [Roadmap](docs/ROADMAP.md) · [ADRs](docs/adr)
+
+## EMGS NetOps AI
+
+The `emgs-netops-ai/` folder holds a separate, local-first network diagnostics and discovery platform. It runs on a
+laptop with its own FastAPI + SQLite backend, React dashboard and MCP server. See
+[emgs-netops-ai/README.md](emgs-netops-ai/README.md).

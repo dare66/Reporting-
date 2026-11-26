@@ -16,3 +16,4 @@ data/logs/
 .env
 test-results/
 playwright-report/
+*.tsbuildinfo

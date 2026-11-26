@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "emgs-netops": {
+      "command": "/absolute/path/emgs-netops-ai/.venv/bin/python",
+      "args": ["/absolute/path/emgs-netops-ai/mcp-server/server.py"],
+      "env": { "NETOPS_API_TOKEN": "nop_replace_me" }
+    }
+  }
+}
